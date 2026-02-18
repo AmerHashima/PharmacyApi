@@ -1,0 +1,30 @@
+name: Build and Deploy Pharmacy API
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Login to GHCR
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: AmerHashima
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Build Docker Image
+      run: docker build -t ghcr.io/amerhashima/pharmacyapi:latest .
+
+    - name: Push Docker Image
+      run: docker push ghcr.io/amerhashima/pharmacyapi:latest
