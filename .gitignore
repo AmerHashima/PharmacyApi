@@ -1,0 +1,26 @@
+﻿## .NET
+bin/
+obj/
+**/bin/
+**/obj/
+
+*.dll
+*.exe
+*.pdb
+
+## NuGet
+project.assets.json
+project.nuget.cache
+*.nuget.g.props
+*.nuget.g.targets
+
+## VS / Rider
+.vs/
+.idea/
+
+## OS
+.DS_Store
+Thumbs.db
+
+## Misc
+$null
