@@ -8,7 +8,10 @@ COPY src/Pharmacy.Api/*.csproj ./src/Pharmacy.Api/
 COPY src/Pharmacy.Application/*.csproj ./src/Pharmacy.Application/
 COPY src/Pharmacy.Domain/*.csproj ./src/Pharmacy.Domain/
 COPY src/Pharmacy.Infrastructure/*.csproj ./src/Pharmacy.Infrastructure/
-
+# Copy test projects (IMPORTANT FIX)
+COPY src/tests/Pharmacy.UnitTests/*.csproj ./src/tests/Pharmacy.UnitTests/
+COPY src/tests/Pharmacy.IntegrationTests/*.csproj ./src/tests/Pharmacy.IntegrationTests/
+COPY src/tests/Pharmacy.ArchitectureTests/*.csproj ./src/tests/Pharmacy.ArchitectureTests/
 # Restore dependencies
 RUN dotnet restore
 
