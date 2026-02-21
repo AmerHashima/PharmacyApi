@@ -34,10 +34,10 @@ public class LoginHandler : IRequestHandler<LoginCommand, AuthResponseDto>
         }
 
         // Check if account is locked
-        if (user.LockoutEnd.HasValue && user.LockoutEnd > DateTime.UtcNow)
-        {
-            throw new UnauthorizedAccessException($"Account is locked until {user.LockoutEnd}.");
-        }
+        //if (user.LockoutEnd.HasValue && user.LockoutEnd > DateTime.UtcNow)
+        //{
+        //    throw new UnauthorizedAccessException($"Account is locked until {user.LockoutEnd}.");
+        //}
 
         // Verify password
         if (!VerifyPassword(request.LoginDto.Password, user.PasswordHash, user.PasswordSalt))
