@@ -5,6 +5,7 @@ using Pharmacy.Application.Queries.Stock;
 using Pharmacy.Application.Services;
 using Pharmacy.Domain.Interfaces;
 using MediatR;
+using Microsoft.EntityFrameworkCore;
 
 namespace Pharmacy.Application.Handlers.Stock;
 
@@ -29,7 +30,9 @@ public class GetStockDataHandler : IRequestHandler<GetStockDataQuery, PagedResul
 
     public async Task<PagedResult<StockDto>> Handle(GetStockDataQuery request, CancellationToken cancellationToken)
     {
-        var query = _repository.GetQueryable().Where(x => !x.IsDeleted);
+        var query = _repository.GetQueryable().Include(x => x.Product)
+            .Include(x => x.Branch)
+            .Where(x => !x.IsDeleted);
 
         // Apply filters
         query = _queryBuilderService.ApplyFilters(query, request.Request.Request.Filters);

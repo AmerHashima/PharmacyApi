@@ -13,12 +13,10 @@ public class StockProfile : Profile
     {
         // Entity to DTO
         CreateMap<Stock, StockDto>()
-            .ForMember(dest => dest.ProductName, 
-                opt => opt.MapFrom(src => src.Product != null ? src.Product.DrugName : string.Empty))
-            .ForMember(dest => dest.ProductGTIN, 
-                opt => opt.MapFrom(src => src.Product != null ? src.Product.GTIN : null))
-            .ForMember(dest => dest.BranchName, 
-                opt => opt.MapFrom(src => src.Branch != null ? src.Branch.BranchName : string.Empty));
+                .ForMember(dest => dest.ProductName, opt => opt.MapFrom(src => src.Product.DrugName))
+                .ForMember(dest => dest.ProductGTIN, opt => opt.MapFrom(src => src.Product.GTIN))
+
+            .ForMember(dest => dest.BranchName, opt => opt.MapFrom(src => src.Branch.BranchName));
 
         // Create DTO to Entity
         CreateMap<CreateStockDto, Stock>();
