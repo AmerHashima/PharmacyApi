@@ -10,14 +10,17 @@ public class ProductDto
     
     public Guid? VatTypeId { get; set; }
     public string? VatTypeName { get; set; }
+    public string? VatTypeNameAr { get; set; }
     
     public string? GenericName { get; set; }
     
     public Guid? ProductGroupId { get; set; }
     public string? ProductGroupName { get; set; }
+    public string? ProductGroupNameAr { get; set; }
     
     public Guid? ProductTypeId { get; set; }
     public string? ProductTypeName { get; set; }
+    public string? ProductTypeNameAr { get; set; }
     
     public string? StrengthValue { get; set; }
     public string? StrengthUnit { get; set; }

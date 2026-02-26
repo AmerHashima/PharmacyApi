@@ -15,10 +15,16 @@ public class ProductProfile : Profile
         CreateMap<Product, ProductDto>()
             .ForMember(dest => dest.ProductTypeName, 
                 opt => opt.MapFrom(src => src.ProductType != null ? src.ProductType.ValueNameEn : null))
+            .ForMember(dest => dest.ProductTypeNameAr, 
+                opt => opt.MapFrom(src => src.ProductType != null ? src.ProductType.ValueNameAr : null))
             .ForMember(dest => dest.ProductGroupName, 
                 opt => opt.MapFrom(src => src.ProductGroup != null ? src.ProductGroup.ValueNameEn : null))
-            .ForMember(dest => dest.ProductGroupName,
-                opt => opt.MapFrom(src => src.ProductGroup != null ? src.ProductGroup.ValueNameEn : null))
+            .ForMember(dest => dest.ProductGroupNameAr,
+                opt => opt.MapFrom(src => src.ProductGroup != null ? src.ProductGroup.ValueNameAr : null))
+            .ForMember(dest => dest.VatTypeName,
+                opt => opt.MapFrom(src => src.VatType != null ? src.VatType.ValueNameEn : null))
+            .ForMember(dest => dest.VatTypeNameAr,
+                opt => opt.MapFrom(src => src.VatType != null ? src.VatType.ValueNameAr : null))
             ;
 
         // Create DTO to Entity
