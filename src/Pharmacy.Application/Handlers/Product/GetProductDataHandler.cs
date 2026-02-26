@@ -1,10 +1,11 @@
 using AutoMapper;
-using Pharmacy.Application.DTOs.Product;
+using MediatR;
+using Microsoft.EntityFrameworkCore;
 using Pharmacy.Application.DTOs.Common;
+using Pharmacy.Application.DTOs.Product;
 using Pharmacy.Application.Queries.Product;
 using Pharmacy.Application.Services;
 using Pharmacy.Domain.Interfaces;
-using MediatR;
 
 namespace Pharmacy.Application.Handlers.Product;
 
@@ -29,7 +30,9 @@ public class GetProductDataHandler : IRequestHandler<GetProductDataQuery, PagedR
 
     public async Task<PagedResult<ProductDto>> Handle(GetProductDataQuery request, CancellationToken cancellationToken)
     {
-        var query = _repository.GetQueryable().Where(x => !x.IsDeleted);
+        var query = _repository.GetQueryable()
+                        .Include(x => x.ProductType)
+.Where(x => !x.IsDeleted);
 
         // Apply filters
         query = _queryBuilderService.ApplyFilters(query, request.Request.Request.Filters);
