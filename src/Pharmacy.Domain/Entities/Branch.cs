@@ -25,6 +25,29 @@ public class Branch : BaseEntity
     [MaxLength(20)]
     public string? GLN { get; set; }
 
+    /// <summary>
+    /// Commercial Registration Number
+    /// </summary>
+    [MaxLength(20)]
+    public string? CRN { get; set; }
+
+    /// <summary>
+    /// VAT/Tax Identification Number
+    /// </summary>
+    [MaxLength(20)]
+    public string? VatNumber { get; set; }
+
+    /// <summary>
+    /// Identification type lookup (e.g., National ID, Passport, etc.)
+    /// </summary>
+    public Guid? IdentifyLookupId { get; set; }
+
+    /// <summary>
+    /// Identification number/value
+    /// </summary>
+    [MaxLength(20)]
+    public string? IdentifyValue { get; set; }
+
     [MaxLength(100)]
     public string? City { get; set; }
 
@@ -34,7 +57,46 @@ public class Branch : BaseEntity
     [MaxLength(500)]
     public string? Address { get; set; }
 
+    /// <summary>
+    /// Street name for detailed addressing
+    /// </summary>
+    [MaxLength(500)]
+    public string? StreetName { get; set; }
+
+    /// <summary>
+    /// Building number
+    /// </summary>
+    [MaxLength(500)]
+    public string? BuildingNumber { get; set; }
+
+    /// <summary>
+    /// City subdivision/neighborhood name
+    /// </summary>
+    [MaxLength(500)]
+    public string? CitySubdivisionName { get; set; }
+
+    /// <summary>
+    /// City name (may differ from City for standardized naming)
+    /// </summary]
+    [MaxLength(500)]
+    public string? CityName { get; set; }
+
+    /// <summary>
+    /// Postal/ZIP code zone
+    /// </summary>
+    [MaxLength(500)]
+    public string? PostalZone { get; set; }
+
+    /// <summary>
+    /// Official registration name
+    /// </summary>
+    [MaxLength(500)]
+    public string? RegistrationName { get; set; }
+
     // Navigation Properties
+    [ForeignKey(nameof(IdentifyLookupId))]
+    public virtual AppLookupDetail? IdentifyLookup { get; set; }
+
     public virtual ICollection<SystemUser> Users { get; set; } = new List<SystemUser>();
     public virtual ICollection<Stock> Stocks { get; set; } = new List<Stock>();
     public virtual ICollection<StockTransaction> OutgoingTransactions { get; set; } = new List<StockTransaction>();

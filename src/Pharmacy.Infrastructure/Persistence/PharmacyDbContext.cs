@@ -34,7 +34,9 @@ public class PharmacyDbContext : DbContext
     // Sales & POS
     public DbSet<SalesInvoice> SalesInvoices { get; set; }
     public DbSet<SalesInvoiceItem> SalesInvoiceItems { get; set; }
-
+    // Add these DbSet properties
+    public DbSet<IntegrationProvider> IntegrationProviders { get; set; }
+    public DbSet<BranchIntegrationSetting> BranchIntegrationSettings { get; set; }
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);

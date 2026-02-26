@@ -13,8 +13,8 @@ public class BranchProfile : Profile
     {
         // Entity to DTO
         CreateMap<Branch, BranchDto>()
-            .ForMember(dest => dest.UserCount, opt => opt.MapFrom(src => src.Users != null ? src.Users.Count : 0))
-            .ForMember(dest => dest.StockCount, opt => opt.MapFrom(src => src.Stocks != null ? src.Stocks.Count : 0));
+           
+            .ForMember(dest => dest.IdentifyLookupName, opt => opt.MapFrom(src => src.IdentifyLookup != null ? src.IdentifyLookup.ValueNameEn : null));
 
         // Create DTO to Entity
         CreateMap<CreateBranchDto, Branch>();

@@ -11,6 +11,8 @@ namespace Pharmacy.Domain.Entities;
 [Table("Products")]
 public class Product : BaseEntity
 {
+    [MaxLength(100)]
+    public string? Barcode { get; set; }
     /// <summary>
     /// Global Trade Item Number - unique product identifier (barcode)
     /// </summary>
@@ -20,10 +22,17 @@ public class Product : BaseEntity
     [Required]
     [MaxLength(500)]
     public string DrugName { get; set; } = string.Empty;
+    public string DrugNameAr { get; set; } = string.Empty;
+    public Guid? VatTypeId { get; set; }
 
+    [ForeignKey(nameof(VatTypeId))]
+    public virtual AppLookupDetail? VatType { get; set; }
     [MaxLength(500)]
     public string? GenericName { get; set; }
+    public Guid? ProductGroupId { get; set; }
 
+    [ForeignKey(nameof(ProductGroupId))]
+    public virtual AppLookupDetail? ProductGroup { get; set; }
     /// <summary>
     /// FK to AppLookupDetail - Product type (Tablet, Syrup, Injection, etc.)
     /// </summary>

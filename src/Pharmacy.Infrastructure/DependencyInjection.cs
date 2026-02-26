@@ -57,6 +57,12 @@ public static class DependencyInjection
         services.AddScoped<ISalesInvoiceItemRepository, SalesInvoiceItemRepository>();
 
         // ====================================
+        // Register repositories - Integrations
+        // ====================================
+        services.AddScoped<IIntegrationProviderRepository, IntegrationProviderRepository>();
+        services.AddScoped<IBranchIntegrationSettingRepository, BranchIntegrationSettingRepository>();
+
+        // ====================================
         // Register AutoMapper
         // ====================================
         services.AddAutoMapper(cfg => {

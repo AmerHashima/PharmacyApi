@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Pharmacy.Infrastructure.Persistence;
 
@@ -11,9 +12,11 @@ using Pharmacy.Infrastructure.Persistence;
 namespace Pharmacy.Infrastructure.Migrations
 {
     [DbContext(typeof(PharmacyDbContext))]
-    partial class PharmacyDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260226193107_Integration")]
+    partial class Integration
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -249,112 +252,11 @@ namespace Pharmacy.Infrastructure.Migrations
                     b.ToTable("Branches");
                 });
 
-            modelBuilder.Entity("Pharmacy.Domain.Entities.BranchIntegrationSetting", b =>
-                {
-                    b.Property<Guid>("Oid")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("BranchId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime?>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<Guid?>("CreatedBy")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<Guid?>("DeletedBy")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("IntegrationKey")
-                        .HasMaxLength(255)
-                        .HasColumnType("nvarchar(255)");
-
-                    b.Property<Guid>("IntegrationProviderId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("IntegrationValue")
-                        .HasMaxLength(255)
-                        .HasColumnType("nvarchar(255)");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<Guid?>("UpdatedBy")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.HasKey("Oid");
-
-                    b.HasIndex("BranchId");
-
-                    b.HasIndex("IntegrationProviderId");
-
-                    b.ToTable("BranchIntegrationSettings");
-                });
-
-            modelBuilder.Entity("Pharmacy.Domain.Entities.IntegrationProvider", b =>
-                {
-                    b.Property<Guid>("Oid")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime?>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<Guid?>("CreatedBy")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<Guid?>("DeletedBy")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("Description")
-                        .HasMaxLength(255)
-                        .HasColumnType("nvarchar(255)");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<Guid?>("UpdatedBy")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.HasKey("Oid");
-
-                    b.ToTable("IntegrationProviders");
-                });
-
             modelBuilder.Entity("Pharmacy.Domain.Entities.Product", b =>
                 {
                     b.Property<Guid>("Oid")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("Barcode")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
 
                     b.Property<string>("CountryOfOrigin")
                         .HasMaxLength(100)
@@ -380,10 +282,6 @@ namespace Pharmacy.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
-
-                    b.Property<string>("DrugNameAr")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("DrugStatus")
                         .HasMaxLength(50)
@@ -436,9 +334,6 @@ namespace Pharmacy.Infrastructure.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
-                    b.Property<Guid?>("ProductGroupId")
-                        .HasColumnType("uniqueidentifier");
-
                     b.Property<Guid?>("ProductTypeId")
                         .HasColumnType("uniqueidentifier");
 
@@ -467,9 +362,6 @@ namespace Pharmacy.Infrastructure.Migrations
                     b.Property<Guid?>("UpdatedBy")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<Guid?>("VatTypeId")
-                        .HasColumnType("uniqueidentifier");
-
                     b.Property<decimal?>("Volume")
                         .HasColumnType("decimal(18,2)");
 
@@ -479,11 +371,7 @@ namespace Pharmacy.Infrastructure.Migrations
                         .IsUnique()
                         .HasFilter("[GTIN] IS NOT NULL AND [IsDeleted] = 0");
 
-                    b.HasIndex("ProductGroupId");
-
                     b.HasIndex("ProductTypeId");
-
-                    b.HasIndex("VatTypeId");
 
                     b.ToTable("Products");
                 });
@@ -1210,44 +1098,13 @@ namespace Pharmacy.Infrastructure.Migrations
                     b.Navigation("IdentifyLookup");
                 });
 
-            modelBuilder.Entity("Pharmacy.Domain.Entities.BranchIntegrationSetting", b =>
-                {
-                    b.HasOne("Pharmacy.Domain.Entities.Branch", "Branch")
-                        .WithMany()
-                        .HasForeignKey("BranchId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("Pharmacy.Domain.Entities.IntegrationProvider", "IntegrationProvider")
-                        .WithMany("BranchSettings")
-                        .HasForeignKey("IntegrationProviderId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Branch");
-
-                    b.Navigation("IntegrationProvider");
-                });
-
             modelBuilder.Entity("Pharmacy.Domain.Entities.Product", b =>
                 {
-                    b.HasOne("Pharmacy.Domain.Entities.AppLookupDetail", "ProductGroup")
-                        .WithMany()
-                        .HasForeignKey("ProductGroupId");
-
                     b.HasOne("Pharmacy.Domain.Entities.AppLookupDetail", "ProductType")
                         .WithMany()
                         .HasForeignKey("ProductTypeId");
 
-                    b.HasOne("Pharmacy.Domain.Entities.AppLookupDetail", "VatType")
-                        .WithMany()
-                        .HasForeignKey("VatTypeId");
-
-                    b.Navigation("ProductGroup");
-
                     b.Navigation("ProductType");
-
-                    b.Navigation("VatType");
                 });
 
             modelBuilder.Entity("Pharmacy.Domain.Entities.ProductBatch", b =>
@@ -1456,11 +1313,6 @@ namespace Pharmacy.Infrastructure.Migrations
                     b.Navigation("Stocks");
 
                     b.Navigation("Users");
-                });
-
-            modelBuilder.Entity("Pharmacy.Domain.Entities.IntegrationProvider", b =>
-                {
-                    b.Navigation("BranchSettings");
                 });
 
             modelBuilder.Entity("Pharmacy.Domain.Entities.Product", b =>

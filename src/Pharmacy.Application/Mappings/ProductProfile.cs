@@ -14,7 +14,12 @@ public class ProductProfile : Profile
         // Entity to DTO
         CreateMap<Product, ProductDto>()
             .ForMember(dest => dest.ProductTypeName, 
-                opt => opt.MapFrom(src => src.ProductType != null ? src.ProductType.ValueNameEn : null));
+                opt => opt.MapFrom(src => src.ProductType != null ? src.ProductType.ValueNameEn : null))
+            .ForMember(dest => dest.ProductGroupName, 
+                opt => opt.MapFrom(src => src.ProductGroup != null ? src.ProductGroup.ValueNameEn : null))
+            .ForMember(dest => dest.ProductGroupName,
+                opt => opt.MapFrom(src => src.ProductGroup != null ? src.ProductGroup.ValueNameEn : null))
+            ;
 
         // Create DTO to Entity
         CreateMap<CreateProductDto, Product>();

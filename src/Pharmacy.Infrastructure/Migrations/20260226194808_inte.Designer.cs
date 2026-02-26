@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Pharmacy.Infrastructure.Persistence;
 
@@ -11,9 +12,11 @@ using Pharmacy.Infrastructure.Persistence;
 namespace Pharmacy.Infrastructure.Migrations
 {
     [DbContext(typeof(PharmacyDbContext))]
-    partial class PharmacyDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260226194808_inte")]
+    partial class inte
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -352,10 +355,6 @@ namespace Pharmacy.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<string>("Barcode")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
                     b.Property<string>("CountryOfOrigin")
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
@@ -380,10 +379,6 @@ namespace Pharmacy.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
-
-                    b.Property<string>("DrugNameAr")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("DrugStatus")
                         .HasMaxLength(50)
@@ -436,9 +431,6 @@ namespace Pharmacy.Infrastructure.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
-                    b.Property<Guid?>("ProductGroupId")
-                        .HasColumnType("uniqueidentifier");
-
                     b.Property<Guid?>("ProductTypeId")
                         .HasColumnType("uniqueidentifier");
 
@@ -467,9 +459,6 @@ namespace Pharmacy.Infrastructure.Migrations
                     b.Property<Guid?>("UpdatedBy")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<Guid?>("VatTypeId")
-                        .HasColumnType("uniqueidentifier");
-
                     b.Property<decimal?>("Volume")
                         .HasColumnType("decimal(18,2)");
 
@@ -479,11 +468,7 @@ namespace Pharmacy.Infrastructure.Migrations
                         .IsUnique()
                         .HasFilter("[GTIN] IS NOT NULL AND [IsDeleted] = 0");
 
-                    b.HasIndex("ProductGroupId");
-
                     b.HasIndex("ProductTypeId");
-
-                    b.HasIndex("VatTypeId");
 
                     b.ToTable("Products");
                 });
@@ -1231,23 +1216,11 @@ namespace Pharmacy.Infrastructure.Migrations
 
             modelBuilder.Entity("Pharmacy.Domain.Entities.Product", b =>
                 {
-                    b.HasOne("Pharmacy.Domain.Entities.AppLookupDetail", "ProductGroup")
-                        .WithMany()
-                        .HasForeignKey("ProductGroupId");
-
                     b.HasOne("Pharmacy.Domain.Entities.AppLookupDetail", "ProductType")
                         .WithMany()
                         .HasForeignKey("ProductTypeId");
 
-                    b.HasOne("Pharmacy.Domain.Entities.AppLookupDetail", "VatType")
-                        .WithMany()
-                        .HasForeignKey("VatTypeId");
-
-                    b.Navigation("ProductGroup");
-
                     b.Navigation("ProductType");
-
-                    b.Navigation("VatType");
                 });
 
             modelBuilder.Entity("Pharmacy.Domain.Entities.ProductBatch", b =>
