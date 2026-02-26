@@ -11,7 +11,10 @@ public class ProductDto
     public Guid? VatTypeId { get; set; }
     public string? VatTypeName { get; set; }
     public string? VatTypeNameAr { get; set; }
-    
+    public Guid? PackageTypeId { get; set; }
+    public string? PackageTypeName { get; set; }
+    public Guid? DosageFormId { get; set; }
+    public string? DosageFormName { get; set; }
     public string? GenericName { get; set; }
     
     public Guid? ProductGroupId { get; set; }

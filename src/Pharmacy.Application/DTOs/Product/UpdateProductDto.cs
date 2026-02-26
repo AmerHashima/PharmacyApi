@@ -11,6 +11,8 @@ public class UpdateProductDto
     public string? GenericName { get; set; }
     public Guid? ProductGroupId { get; set; }
     public Guid? ProductTypeId { get; set; }
+    public Guid? PackageTypeId { get; set; }
+    public Guid? DosageFormId { get; set; }
     public string? StrengthValue { get; set; }
     public string? StrengthUnit { get; set; }
     public string? PackageType { get; set; }

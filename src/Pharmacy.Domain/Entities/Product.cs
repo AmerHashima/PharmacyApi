@@ -40,7 +40,14 @@ public class Product : BaseEntity
 
     [ForeignKey(nameof(ProductTypeId))]
     public virtual AppLookupDetail? ProductType { get; set; }
+    public Guid? PackageTypeId { get; set; }
 
+    [ForeignKey(nameof(PackageTypeId))]
+    public virtual AppLookupDetail? PackageType { get; set; }
+    public Guid? DosageFormId { get; set; }
+
+    [ForeignKey(nameof(DosageFormId))]
+    public virtual AppLookupDetail? DosageForm { get; set; }
     /// <summary>
     /// Strength value (e.g., "500" for 500mg)
     /// </summary>
@@ -56,8 +63,8 @@ public class Product : BaseEntity
     /// <summary>
     /// Package type (e.g., "Box", "Bottle", "Blister")
     /// </summary>
-    [MaxLength(100)]
-    public string? PackageType { get; set; }
+    //[MaxLength(100)]
+    //public string? PackageType { get; set; }
 
     /// <summary>
     /// Package size (e.g., "30 tablets", "100ml")
