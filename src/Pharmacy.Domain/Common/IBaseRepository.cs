@@ -14,4 +14,16 @@ public interface IBaseRepository<T> where T : BaseEntity
     Task<int> CountAsync(CancellationToken cancellationToken = default);
     Task<int> CountAsync(Expression<Func<T, bool>> predicate, CancellationToken cancellationToken = default);
     IQueryable<T> GetQueryable(); // Add this method
+    Task<T> InsertMasterDetailAsync<TDetail>(
+    T master,
+    IEnumerable<TDetail> details,
+    CancellationToken cancellationToken = default)
+    where TDetail : BaseEntity;
+
+    Task UpdateMasterDetailAsync<TDetail>(
+        T master,
+        IEnumerable<TDetail> details,
+        Expression<Func<TDetail, object>> foreignKey,
+        CancellationToken cancellationToken = default)
+        where TDetail : BaseEntity;
 }

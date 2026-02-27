@@ -1,6 +1,7 @@
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Pharmacy.Domain.Common;
 using Pharmacy.Infrastructure.Persistence;
-using Microsoft.EntityFrameworkCore;
 using System.Linq.Expressions;
 
 namespace Pharmacy.Infrastructure.Repositories;
@@ -93,5 +94,74 @@ public class BaseRepository<T> : IBaseRepository<T> where T : BaseEntity
         return await _dbSet
             .Where(x => !x.IsDeleted)
             .CountAsync(predicate, cancellationToken);
+    }
+    public async Task<T> InsertMasterDetailAsync<TDetail>(
+    T master,
+    IEnumerable<TDetail> details,
+    CancellationToken cancellationToken = default)
+    where TDetail : BaseEntity
+    {
+        using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
+
+        try
+        {
+            _dbSet.Add(master);
+            await _context.SaveChangesAsync(cancellationToken);
+
+            if (details != null && details.Any())
+            {
+                await _context.Set<TDetail>().AddRangeAsync(details, cancellationToken);
+            }
+
+            await _context.SaveChangesAsync(cancellationToken);
+
+            await transaction.CommitAsync(cancellationToken);
+
+            return master;
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+    }
+    public async Task UpdateMasterDetailAsync<TDetail>(
+    T master,
+    IEnumerable<TDetail> details,
+    Expression<Func<TDetail, object>> foreignKey,
+    CancellationToken cancellationToken = default)
+    where TDetail : BaseEntity
+    {
+        using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
+
+        try
+        {
+            _dbSet.Update(master);
+
+            var detailSet = _context.Set<TDetail>();
+
+            // delete old details
+            var masterId = master.Oid;
+
+            var oldDetails = await detailSet
+                .Where(x => EF.Property<Guid>(x, foreignKey.GetPropertyAccess().Name) == masterId)
+                .ToListAsync(cancellationToken);
+
+            detailSet.RemoveRange(oldDetails);
+
+            if (details != null && details.Any())
+            {
+                await detailSet.AddRangeAsync(details, cancellationToken);
+            }
+
+            await _context.SaveChangesAsync(cancellationToken);
+
+            await transaction.CommitAsync(cancellationToken);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
     }
 }
