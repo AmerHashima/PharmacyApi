@@ -14,17 +14,21 @@ public class CreateStockTransactionWithDetailsHandler
     : IRequestHandler<CreateStockTransactionWithDetailsCommand, StockTransactionWithDetailsDto>
 {
     private readonly IStockTransactionRepository _transactionRepository;
+    private readonly IStockTransactionDetailRepository _StockTransactionDetail;
     private readonly IBranchRepository _branchRepository;
     private readonly IProductRepository _productRepository;
     private readonly IMapper _mapper;
 
     public CreateStockTransactionWithDetailsHandler(
         IStockTransactionRepository transactionRepository,
-        IBranchRepository branchRepository,
+        IStockTransactionDetailRepository StockTransactionDetail,
+
+    IBranchRepository branchRepository,
         IProductRepository productRepository,
         IMapper mapper)
     {
         _transactionRepository = transactionRepository;
+        _StockTransactionDetail = StockTransactionDetail;
         _branchRepository = branchRepository;
         _productRepository = productRepository;
         _mapper = mapper;
@@ -100,12 +104,13 @@ public class CreateStockTransactionWithDetailsHandler
             };
 
             createdTransaction.Details.Add(detail);
+            await _StockTransactionDetail.AddAsync(detail, cancellationToken);
+
             totalValue += detail.TotalCost ?? 0;
         }
 
         // Update total value on master
         createdTransaction.TotalValue = totalValue;
-        //await _transactionRepository.AddAsync(createdTransaction, cancellationToken);
 
         // Fetch complete transaction with all includes
         var completeTransaction = await _transactionRepository.GetByIdAsync(createdTransaction.Oid, cancellationToken);
