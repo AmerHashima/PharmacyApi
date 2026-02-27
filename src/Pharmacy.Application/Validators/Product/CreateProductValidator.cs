@@ -34,8 +34,8 @@ public class CreateProductValidator : AbstractValidator<CreateProductCommand>
             .GreaterThanOrEqualTo(0).WithMessage("Maximum stock level must be a positive value")
             .When(x => x.Product.MaxStockLevel.HasValue);
 
-        RuleFor(x => x.Product)
-            .Must(p => !p.MinStockLevel.HasValue || !p.MaxStockLevel.HasValue || p.MinStockLevel <= p.MaxStockLevel)
-            .WithMessage("Minimum stock level cannot exceed maximum stock level");
+        //RuleFor(x => x.Product)
+        //    .Must(p => !p.MinStockLevel.HasValue || !p.MaxStockLevel.HasValue || p.MinStockLevel <= p.MaxStockLevel)
+        //    .WithMessage("Minimum stock level cannot exceed maximum stock level");
     }
 }

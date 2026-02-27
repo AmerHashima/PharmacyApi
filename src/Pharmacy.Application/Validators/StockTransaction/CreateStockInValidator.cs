@@ -19,13 +19,13 @@ public class CreateStockInValidator : AbstractValidator<CreateStockInCommand>
         RuleFor(x => x.StockIn.Quantity)
             .GreaterThan(0).WithMessage("Quantity must be greater than 0");
 
-        RuleFor(x => x.StockIn.UnitCost)
-            .GreaterThanOrEqualTo(0).WithMessage("Unit cost must be a positive value")
-            .When(x => x.StockIn.UnitCost.HasValue);
+        //RuleFor(x => x.StockIn.UnitCost)
+        //    .GreaterThanOrEqualTo(0).WithMessage("Unit cost must be a positive value")
+        //    .When(x => x.StockIn.UnitCost.HasValue);
 
-        RuleFor(x => x.StockIn.ExpiryDate)
-            .GreaterThan(DateTime.Today).WithMessage("Expiry date must be in the future")
-            .When(x => x.StockIn.ExpiryDate.HasValue);
+        //RuleFor(x => x.StockIn.ExpiryDate)
+        //    .GreaterThan(DateTime.Today).WithMessage("Expiry date must be in the future")
+        //    .When(x => x.StockIn.ExpiryDate.HasValue);
 
         RuleFor(x => x.StockIn.BatchNumber)
             .MaximumLength(50).WithMessage("Batch number cannot exceed 50 characters")

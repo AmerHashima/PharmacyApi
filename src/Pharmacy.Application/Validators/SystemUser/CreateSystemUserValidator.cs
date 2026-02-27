@@ -40,9 +40,9 @@ public class CreateSystemUserValidator : AbstractValidator<CreateSystemUserComma
             .NotEmpty().WithMessage("Last name is required.")
             .MaximumLength(50).WithMessage("Last name must not exceed 50 characters.");
 
-        RuleFor(x => x.SystemUser.GenderLookupId)
-            .Must(g => g == null).WithMessage("Gender must be 'M' or 'F'.")
-            .When(x => x.SystemUser.GenderLookupId.HasValue);
+        //RuleFor(x => x.SystemUser.GenderLookupId)
+        //    .Must(g => g == null).WithMessage("Gender must be 'M' or 'F'.")
+        //    .When(x => x.SystemUser.GenderLookupId.HasValue);
 
         RuleFor(x => x.SystemUser.BirthDate)
             .LessThan(DateOnly.FromDateTime(DateTime.Today)).WithMessage("Birth date must be in the past.")

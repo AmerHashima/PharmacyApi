@@ -28,7 +28,7 @@ public class UpdateAppLookupDetailValidator : AbstractValidator<UpdateAppLookupD
             .NotEmpty().WithMessage("English value name is required")
             .MaximumLength(100).WithMessage("English value name cannot exceed 100 characters");
 
-        RuleFor(x => x.LookupDetail.SortOrder)
-            .GreaterThan(0).WithMessage("Sort order must be greater than 0");
+        //RuleFor(x => x.LookupDetail.SortOrder)
+        //    .GreaterThan(0).WithMessage("Sort order must be greater than 0");
     }
 }

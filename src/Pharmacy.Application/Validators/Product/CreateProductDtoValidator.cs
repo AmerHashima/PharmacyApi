@@ -67,12 +67,12 @@ public class CreateProductDtoValidator : AbstractValidator<CreateProductDto>
             .MaximumLength(100).WithMessage("Country of origin cannot exceed 100 characters")
             .When(x => !string.IsNullOrEmpty(x.CountryOfOrigin));
 
-        RuleFor(x => x.MinStockLevel)
-            .GreaterThanOrEqualTo(0).WithMessage("Minimum stock level must be greater than or equal to 0")
-            .When(x => x.MinStockLevel.HasValue);
+        //RuleFor(x => x.MinStockLevel)
+        //    .GreaterThanOrEqualTo(0).WithMessage("Minimum stock level must be greater than or equal to 0")
+        //    .When(x => x.MinStockLevel.HasValue);
 
-        RuleFor(x => x.MaxStockLevel)
-            .GreaterThan(x => x.MinStockLevel).WithMessage("Maximum stock level must be greater than minimum stock level")
-            .When(x => x.MaxStockLevel.HasValue && x.MinStockLevel.HasValue);
+        //RuleFor(x => x.MaxStockLevel)
+        //    .GreaterThan(x => x.MinStockLevel).WithMessage("Maximum stock level must be greater than minimum stock level")
+        //    .When(x => x.MaxStockLevel.HasValue && x.MinStockLevel.HasValue);
     }
 }

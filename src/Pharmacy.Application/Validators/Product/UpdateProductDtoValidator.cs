@@ -34,12 +34,12 @@ public class UpdateProductDtoValidator : AbstractValidator<UpdateProductDto>
             .GreaterThanOrEqualTo(0).WithMessage("Price must be greater than or equal to 0")
             .When(x => x.Price.HasValue);
 
-        RuleFor(x => x.MinStockLevel)
-            .GreaterThanOrEqualTo(0).WithMessage("Minimum stock level must be greater than or equal to 0")
-            .When(x => x.MinStockLevel.HasValue);
+        //RuleFor(x => x.MinStockLevel)
+        //    .GreaterThanOrEqualTo(0).WithMessage("Minimum stock level must be greater than or equal to 0")
+        //    .When(x => x.MinStockLevel.HasValue);
 
-        RuleFor(x => x.MaxStockLevel)
-            .GreaterThan(x => x.MinStockLevel).WithMessage("Maximum stock level must be greater than minimum stock level")
-            .When(x => x.MaxStockLevel.HasValue && x.MinStockLevel.HasValue);
+        //RuleFor(x => x.MaxStockLevel)
+        //    .GreaterThan(x => x.MinStockLevel).WithMessage("Maximum stock level must be greater than minimum stock level")
+        //    .When(x => x.MaxStockLevel.HasValue && x.MinStockLevel.HasValue);
     }
 }

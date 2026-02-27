@@ -16,7 +16,7 @@ public class UpdateAppLookupMasterValidator : AbstractValidator<UpdateAppLookupM
         RuleFor(x => x.LookupMaster.LookupCode)
             .NotEmpty().WithMessage("Lookup code is required")
             .MaximumLength(50).WithMessage("Lookup code cannot exceed 50 characters")
-            .Matches("^[A-Z_]+$").WithMessage("Lookup code must contain only uppercase letters and underscores");
+           // .Matches("^[A-Z_]+$").WithMessage("Lookup code must contain only uppercase letters and underscores");
 
         RuleFor(x => x.LookupMaster.LookupNameAr)
             .NotEmpty().WithMessage("Arabic lookup name is required")
