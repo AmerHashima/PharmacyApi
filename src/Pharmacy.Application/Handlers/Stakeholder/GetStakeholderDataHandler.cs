@@ -14,7 +14,7 @@ namespace Pharmacy.Application.Handlers.Stakeholder;
 public class GetStakeholderDataHandler : IRequestHandler<GetStakeholderDataQuery, PagedResult<StakeholderDto>>
 {
     private readonly IStakeholderRepository _repository;
-    private readonly IQueryBuilderService _queryBuilderService;
+    private readonly IQueryBuilderService _queryBuilder;
     private readonly IMapper _mapper;
 
     public GetStakeholderDataHandler(
@@ -23,7 +23,7 @@ public class GetStakeholderDataHandler : IRequestHandler<GetStakeholderDataQuery
         IMapper mapper)
     {
         _repository = repository;
-        _queryBuilderService = queryBuilderService;
+        _queryBuilder = queryBuilderService;
         _mapper = mapper;
     }
 
@@ -32,13 +32,13 @@ public class GetStakeholderDataHandler : IRequestHandler<GetStakeholderDataQuery
         var query = _repository.GetQueryable().Where(x => !x.IsDeleted);
 
         // Apply filters
-        query = _queryBuilderService.ApplyFilters(query, request.Request.Request.Filters);
+        query = _queryBuilder.ApplyFilters(query, request.QueryRequest.Request.Filters);
 
         // Apply sorting
-        query = _queryBuilderService.ApplySorting(query, request.Request.Request.Sort);
+        query = _queryBuilder.ApplySorting(query, request.QueryRequest.Request.Sort);
 
         // Apply pagination and get result
-        var pagedResult = await _queryBuilderService.ApplyPaginationAsync(query, request.Request.Request.Pagination);
+        var pagedResult = await _queryBuilder.ApplyPaginationAsync(query, request.QueryRequest.Request.Pagination);
 
         var stakeholderDtos = _mapper.Map<List<StakeholderDto>>(pagedResult.Data);
 

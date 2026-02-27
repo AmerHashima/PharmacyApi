@@ -7,4 +7,4 @@ namespace Pharmacy.Application.Queries.Stakeholder;
 /// <summary>
 /// Query to get stakeholders with advanced filtering, sorting, and pagination
 /// </summary>
-public record GetStakeholderDataQuery(QueryRequest Request) : IRequest<PagedResult<StakeholderDto>>;
+public record GetStakeholderDataQuery(QueryRequest QueryRequest) : IRequest<PagedResult<StakeholderDto>>;

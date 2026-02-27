@@ -7,4 +7,4 @@ namespace Pharmacy.Application.Queries.StockTransaction;
 /// <summary>
 /// Query to get stock transactions with advanced filtering, sorting, and pagination
 /// </summary>
-public record GetStockTransactionDataQuery(QueryRequest Request) : IRequest<PagedResult<StockTransactionDto>>;
+public record GetStockTransactionDataQuery(QueryRequest QueryRequest) : IRequest<PagedResult<StockTransactionDto>>;

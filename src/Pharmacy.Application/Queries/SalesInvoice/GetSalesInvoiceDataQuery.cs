@@ -7,4 +7,4 @@ namespace Pharmacy.Application.Queries.SalesInvoice;
 /// <summary>
 /// Query to get sales invoices with advanced filtering, sorting, and pagination
 /// </summary>
-public record GetSalesInvoiceDataQuery(QueryRequest Request) : IRequest<PagedResult<SalesInvoiceDto>>;
+public record GetSalesInvoiceDataQuery(QueryRequest QueryRequest) : IRequest<PagedResult<SalesInvoiceDto>>;

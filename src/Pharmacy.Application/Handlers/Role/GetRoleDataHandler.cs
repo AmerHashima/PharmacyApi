@@ -30,14 +30,9 @@ public class GetRoleDataHandler : IRequestHandler<GetRoleDataQuery, PagedResult<
         var query = _repository.GetQueryable()
             .Where(x => !x.IsDeleted);
 
-        // Apply filters
-        query = _queryBuilder.ApplyFilters(query, request.QueryRequest.Request.Filters);
-
-        // Apply sorting
-        query = _queryBuilder.ApplySorting(query, request.QueryRequest.Request.Sort);
 
         // Apply pagination and get results
-        var pagedEntities = await _queryBuilder.ApplyPaginationAsync(query, request.QueryRequest.Request.Pagination);
+        var pagedEntities = await _queryBuilder.ExecuteQueryAsync(query, request.QueryRequest.Request);
 
         // Map to DTOs
         var mappedData = _mapper.Map<IEnumerable<RoleDto>>(pagedEntities.Data);

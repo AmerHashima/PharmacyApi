@@ -14,7 +14,7 @@ namespace Pharmacy.Application.Handlers.Branch;
 public class GetBranchDataHandler : IRequestHandler<GetBranchDataQuery, PagedResult<BranchDto>>
 {
     private readonly IBranchRepository _repository;
-    private readonly IQueryBuilderService _queryBuilderService;
+    private readonly IQueryBuilderService _queryBuilder;
     private readonly IMapper _mapper;
 
     public GetBranchDataHandler(
@@ -23,7 +23,7 @@ public class GetBranchDataHandler : IRequestHandler<GetBranchDataQuery, PagedRes
         IMapper mapper)
     {
         _repository = repository;
-        _queryBuilderService = queryBuilderService;
+        _queryBuilder = queryBuilderService;
         _mapper = mapper;
     }
 
@@ -31,43 +31,16 @@ public class GetBranchDataHandler : IRequestHandler<GetBranchDataQuery, PagedRes
     {
         var query = _repository.GetQueryable().Where(x => !x.IsDeleted);
 
-        // Apply filters
-        query = _queryBuilderService.ApplyFilters(query, request.Request.Request.Filters);
+        // Execute unified query with filters, sorting, pagination and optional column selection
+        var pagedResult = await _queryBuilder.ExecuteQueryAsync(query, request.QueryRequest.Request);
 
-        // Apply sorting
-        query = _queryBuilderService.ApplySorting(query, request.Request.Request.Sort);
+        // Map to BranchDto - AutoMapper handles both Dictionary<string, object> and Branch entity
+        var branchDtos = _mapper.Map<List<BranchDto>>(pagedResult.Data);
 
-        // Check if column selection is requested
-        var columns = request.Request.Request.Columns;
-        if (columns != null && columns.Count > 0)
-        {
-            // Use column-specific pagination that queries only selected columns from database
-            var pagedDictResult = await _queryBuilderService.ApplyPaginationWithColumnsAsync(
-                query, 
-                request.Request.Request.Pagination,
-                columns);
-
-            // Map dictionaries to BranchDto using AutoMapper (only selected properties will have values)
-            var branchDtos = _mapper.Map<List<BranchDto>>(pagedDictResult.Data);
-
-            return PagedResult<BranchDto>.Create(
-                branchDtos,
-                pagedDictResult.TotalRecords,
-                pagedDictResult.PageNumber,
-                pagedDictResult.PageSize);
-        }
-        else
-        {
-            // Apply pagination and get full result with all columns
-            var pagedResult = await _queryBuilderService.ApplyPaginationAsync(query, request.Request.Request.Pagination);
-
-            var branchDtos = _mapper.Map<List<BranchDto>>(pagedResult.Data);
-
-            return PagedResult<BranchDto>.Create(
-                branchDtos,
-                pagedResult.TotalRecords,
-                pagedResult.PageNumber,
-                pagedResult.PageSize);
-        }
+        return PagedResult<BranchDto>.Create(
+            branchDtos,
+            pagedResult.TotalRecords,
+            pagedResult.PageNumber,
+            pagedResult.PageSize);
     }
 }

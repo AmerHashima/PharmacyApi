@@ -7,4 +7,4 @@ namespace Pharmacy.Application.Queries.Product;
 /// <summary>
 /// Query to get products with advanced filtering, sorting, and pagination
 /// </summary>
-public record GetProductDataQuery(QueryRequest Request) : IRequest<PagedResult<ProductDto>>;
+public record GetProductDataQuery(QueryRequest QueryRequest) : IRequest<PagedResult<ProductDto>>;

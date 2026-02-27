@@ -1,10 +1,11 @@
 using AutoMapper;
-using Pharmacy.Application.DTOs.SalesInvoice;
+using MediatR;
+using Microsoft.AspNetCore.Http.Extensions;
 using Pharmacy.Application.DTOs.Common;
+using Pharmacy.Application.DTOs.SalesInvoice;
 using Pharmacy.Application.Queries.SalesInvoice;
 using Pharmacy.Application.Services;
 using Pharmacy.Domain.Interfaces;
-using MediatR;
 
 namespace Pharmacy.Application.Handlers.SalesInvoice;
 
@@ -14,7 +15,7 @@ namespace Pharmacy.Application.Handlers.SalesInvoice;
 public class GetSalesInvoiceDataHandler : IRequestHandler<GetSalesInvoiceDataQuery, PagedResult<SalesInvoiceDto>>
 {
     private readonly ISalesInvoiceRepository _repository;
-    private readonly IQueryBuilderService _queryBuilderService;
+    private readonly IQueryBuilderService _queryBuilder;
     private readonly IMapper _mapper;
 
     public GetSalesInvoiceDataHandler(
@@ -23,7 +24,7 @@ public class GetSalesInvoiceDataHandler : IRequestHandler<GetSalesInvoiceDataQue
         IMapper mapper)
     {
         _repository = repository;
-        _queryBuilderService = queryBuilderService;
+        _queryBuilder = queryBuilderService;
         _mapper = mapper;
     }
 
@@ -31,14 +32,9 @@ public class GetSalesInvoiceDataHandler : IRequestHandler<GetSalesInvoiceDataQue
     {
         var query = _repository.GetQueryable().Where(x => !x.IsDeleted);
 
-        // Apply filters
-        query = _queryBuilderService.ApplyFilters(query, request.Request.Request.Filters);
-
-        // Apply sorting
-        query = _queryBuilderService.ApplySorting(query, request.Request.Request.Sort);
-
+     
         // Apply pagination and get result
-        var pagedResult = await _queryBuilderService.ApplyPaginationAsync(query, request.Request.Request.Pagination);
+        var pagedResult = await _queryBuilder.ExecuteQueryAsync(query, request.QueryRequest.Request);
 
         var invoiceDtos = _mapper.Map<List<SalesInvoiceDto>>(pagedResult.Data);
 

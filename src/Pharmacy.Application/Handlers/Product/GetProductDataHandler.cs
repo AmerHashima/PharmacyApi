@@ -1,5 +1,6 @@
 using AutoMapper;
 using MediatR;
+using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.EntityFrameworkCore;
 using Pharmacy.Application.DTOs.Common;
 using Pharmacy.Application.DTOs.Product;
@@ -15,7 +16,7 @@ namespace Pharmacy.Application.Handlers.Product;
 public class GetProductDataHandler : IRequestHandler<GetProductDataQuery, PagedResult<ProductDto>>
 {
     private readonly IProductRepository _repository;
-    private readonly IQueryBuilderService _queryBuilderService;
+    private readonly IQueryBuilderService _queryBuilder;
     private readonly IMapper _mapper;
 
     public GetProductDataHandler(
@@ -24,7 +25,7 @@ public class GetProductDataHandler : IRequestHandler<GetProductDataQuery, PagedR
         IMapper mapper)
     {
         _repository = repository;
-        _queryBuilderService = queryBuilderService;
+        _queryBuilder = queryBuilderService;
         _mapper = mapper;
     }
 
@@ -38,14 +39,10 @@ public class GetProductDataHandler : IRequestHandler<GetProductDataQuery, PagedR
                         .Include(x => x.ProductGroup)
 .Where(x => !x.IsDeleted);
 
-        // Apply filters
-        query = _queryBuilderService.ApplyFilters(query, request.Request.Request.Filters);
-
-        // Apply sorting
-        query = _queryBuilderService.ApplySorting(query, request.Request.Request.Sort);
+ 
 
         // Apply pagination and get result
-        var pagedResult = await _queryBuilderService.ApplyPaginationAsync(query, request.Request.Request.Pagination);
+        var pagedResult = await _queryBuilder.ExecuteQueryAsync(query, request.QueryRequest.Request);
 
         var productDtos = _mapper.Map<List<ProductDto>>(pagedResult.Data);
 

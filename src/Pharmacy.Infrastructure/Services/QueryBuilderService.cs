@@ -228,6 +228,46 @@ public class QueryBuilderService : IQueryBuilderService
                query.Expression.ToString().Contains("ThenBy");
     }
 
+    /// <summary>
+    /// Unified method to execute query with filters, sorting, pagination and optional column selection
+    /// </summary>
+    public async Task<PagedResult<object>> ExecuteQueryAsync<T>(IQueryable<T> query, DataRequest request)
+    {
+        // Apply filters
+        query = ApplyFilters(query, request.Filters);
+
+        // Apply sorting
+        query = ApplySorting(query, request.Sort);
+
+        // Check if column selection is requested
+        if (request.Columns != null && request.Columns.Count > 0)
+        {
+            // Use column-specific pagination
+            var pagedDictResult = await ApplyPaginationWithColumnsAsync(query, request.Pagination, request.Columns);
+
+            // Convert PagedResult<Dictionary<string, object>> to PagedResult<object>
+            var objectList = pagedDictResult.Data.Cast<object>().ToList();
+            return PagedResult<object>.Create(
+                objectList,
+                pagedDictResult.TotalRecords,
+                pagedDictResult.PageNumber,
+                pagedDictResult.PageSize);
+        }
+        else
+        {
+            // Use full entity pagination
+            var pagedResult = await ApplyPaginationAsync(query, request.Pagination);
+
+            // Convert PagedResult<T> to PagedResult<object>
+            var objectList = pagedResult.Data.Cast<object>().ToList();
+            return PagedResult<object>.Create(
+                objectList,
+                pagedResult.TotalRecords,
+                pagedResult.PageNumber,
+                pagedResult.PageSize);
+        }
+    }
+
     private IQueryable<T> ApplyIncludes<T>(IQueryable<T> query)
     {
         // Apply specific includes based on entity type
