@@ -140,27 +140,39 @@ public class CreateSalesInvoiceHandler : IRequestHandler<CreateSalesInvoiceComma
         var createdInvoice = await _invoiceRepository.AddAsync(invoice, cancellationToken);
 
         // Create invoice items and stock transactions
+        int lineNumber = 1;
         foreach (var item in invoiceItems)
         {
             item.InvoiceId = createdInvoice.Oid;
             await _itemRepository.AddAsync(item, cancellationToken);
 
-            // Create stock OUT transaction
+            // Create stock OUT transaction with detail
             var stockTransaction = new Domain.Entities.StockTransaction
             {
-                ProductId = item.ProductId,
                 FromBranchId = request.Invoice.BranchId,
-                Quantity = item.Quantity,
+                ToBranchId = null,
                 TransactionTypeId = outType?.Oid,
                 ReferenceNumber = invoiceNumber,
                 TransactionDate = DateTime.UtcNow,
-                UnitCost = item.CostPrice,
                 TotalValue = item.TotalPrice,
-                BatchNumber = item.BatchNumber,
-                ExpiryDate = item.ExpiryDate,
                 SalesInvoiceId = createdInvoice.Oid,
+                Status = "Completed",
                 Notes = $"Sale - Invoice #{invoiceNumber}"
             };
+
+            // Create detail line for this product
+            var transactionDetail = new Domain.Entities.StockTransactionDetail
+            {
+                ProductId = item.ProductId,
+                Quantity = item.Quantity,
+                UnitCost = item.CostPrice,
+                TotalCost = item.Quantity * (item.CostPrice ?? 0),
+                BatchNumber = item.BatchNumber,
+                ExpiryDate = item.ExpiryDate,
+                LineNumber = lineNumber++
+            };
+
+            stockTransaction.Details.Add(transactionDetail);
 
             await _transactionRepository.AddAsync(stockTransaction, cancellationToken);
 

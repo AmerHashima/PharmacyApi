@@ -17,7 +17,8 @@ public class StockTransactionRepository : BaseRepository<StockTransaction>, ISto
     public async Task<IEnumerable<StockTransaction>> GetByTypeAsync(Guid transactionTypeId, CancellationToken cancellationToken = default)
     {
         return await _dbSet
-            .Include(t => t.Product)
+            .Include(t => t.Details)
+                .ThenInclude(d => d.Product)
             .Include(t => t.FromBranch)
             .Include(t => t.ToBranch)
             .Include(t => t.TransactionType)
@@ -30,11 +31,12 @@ public class StockTransactionRepository : BaseRepository<StockTransaction>, ISto
     public async Task<IEnumerable<StockTransaction>> GetByProductAsync(Guid productId, CancellationToken cancellationToken = default)
     {
         return await _dbSet
-            .Include(t => t.Product)
+            .Include(t => t.Details)
+                .ThenInclude(d => d.Product)
             .Include(t => t.FromBranch)
             .Include(t => t.ToBranch)
             .Include(t => t.TransactionType)
-            .Where(t => t.ProductId == productId && !t.IsDeleted)
+            .Where(t => t.Details.Any(d => d.ProductId == productId) && !t.IsDeleted)
             .OrderByDescending(t => t.TransactionDate)
             .ToListAsync(cancellationToken);
     }
@@ -42,7 +44,8 @@ public class StockTransactionRepository : BaseRepository<StockTransaction>, ISto
     public async Task<IEnumerable<StockTransaction>> GetByBranchAsync(Guid branchId, CancellationToken cancellationToken = default)
     {
         return await _dbSet
-            .Include(t => t.Product)
+            .Include(t => t.Details)
+                .ThenInclude(d => d.Product)
             .Include(t => t.FromBranch)
             .Include(t => t.ToBranch)
             .Include(t => t.TransactionType)
@@ -54,7 +57,8 @@ public class StockTransactionRepository : BaseRepository<StockTransaction>, ISto
     public async Task<IEnumerable<StockTransaction>> GetByDateRangeAsync(DateTime startDate, DateTime endDate, Guid? branchId = null, CancellationToken cancellationToken = default)
     {
         var query = _dbSet
-            .Include(t => t.Product)
+            .Include(t => t.Details)
+                .ThenInclude(d => d.Product)
             .Include(t => t.FromBranch)
             .Include(t => t.ToBranch)
             .Include(t => t.TransactionType)
@@ -73,7 +77,8 @@ public class StockTransactionRepository : BaseRepository<StockTransaction>, ISto
     public async Task<StockTransaction?> GetByReferenceNumberAsync(string referenceNumber, CancellationToken cancellationToken = default)
     {
         return await _dbSet
-            .Include(t => t.Product)
+            .Include(t => t.Details)
+                .ThenInclude(d => d.Product)
             .Include(t => t.FromBranch)
             .Include(t => t.ToBranch)
             .Where(t => t.ReferenceNumber == referenceNumber && !t.IsDeleted)

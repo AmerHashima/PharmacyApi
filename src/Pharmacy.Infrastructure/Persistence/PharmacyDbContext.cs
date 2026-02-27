@@ -30,11 +30,13 @@ public class PharmacyDbContext : DbContext
     public DbSet<ProductBatch> ProductBatches { get; set; }
     public DbSet<Stock> Stocks { get; set; }
     public DbSet<StockTransaction> StockTransactions { get; set; }
+    public DbSet<StockTransactionDetail> StockTransactionDetails { get; set; }
 
     // Sales & POS
     public DbSet<SalesInvoice> SalesInvoices { get; set; }
     public DbSet<SalesInvoiceItem> SalesInvoiceItems { get; set; }
-    // Add these DbSet properties
+
+    // Integrations
     public DbSet<IntegrationProvider> IntegrationProviders { get; set; }
     public DbSet<BranchIntegrationSetting> BranchIntegrationSettings { get; set; }
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -86,7 +88,7 @@ public class PharmacyDbContext : DbContext
             .Property(s => s.ReservedQuantity)
             .HasPrecision(18, 2);
 
-        modelBuilder.Entity<StockTransaction>()
+        modelBuilder.Entity<StockTransactionDetail>()
             .Property(t => t.Quantity)
             .HasPrecision(18, 2);
 

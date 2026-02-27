@@ -463,64 +463,108 @@ public static class PharmacySeeder
         var today = DateTime.UtcNow;
         var transactions = new List<StockTransaction>
         {
-            // Stock IN transactions from Supplier 1 to Branch 1
+            // Stock IN transaction from Supplier 1 to Branch 1 - Product 1
             new()
             {
-                ProductId = Product1,
                 ToBranchId = Branch1,
-                Quantity = 500,
+                FromBranchId = null,
                 TransactionTypeId = LookupSeeder.LookupDetailTransactionIn,
                 ReferenceNumber = "STK-IN-20240101-0001",
                 TransactionDate = today.AddDays(-30),
-                UnitCost = 3.50m,
                 TotalValue = 1750m,
-                BatchNumber = "BATCH-001",
-                ExpiryDate = today.AddYears(2),
                 SupplierId = Supplier1,
-                Notes = "Initial stock from Global Pharma Supplier"
+                Status = "Completed",
+                Notes = "Initial stock from Global Pharma Supplier",
+                Details = new List<StockTransactionDetail>
+                {
+                    new()
+                    {
+                        ProductId = Product1,
+                        Quantity = 500,
+                        UnitCost = 3.50m,
+                        TotalCost = 1750m,
+                        BatchNumber = "BATCH-001",
+                        ExpiryDate = today.AddYears(2),
+                        LineNumber = 1
+                    }
+                }
             },
+            // Stock IN transaction from Supplier 1 to Branch 1 - Product 2
             new()
             {
-                ProductId = Product2,
                 ToBranchId = Branch1,
-                Quantity = 200,
+                FromBranchId = null,
                 TransactionTypeId = LookupSeeder.LookupDetailTransactionIn,
                 ReferenceNumber = "STK-IN-20240101-0002",
                 TransactionDate = today.AddDays(-30),
-                UnitCost = 8.00m,
                 TotalValue = 1600m,
-                BatchNumber = "BATCH-002",
-                ExpiryDate = today.AddYears(1),
                 SupplierId = Supplier1,
-                Notes = "Initial stock from Global Pharma Supplier"
+                Status = "Completed",
+                Notes = "Initial stock from Global Pharma Supplier",
+                Details = new List<StockTransactionDetail>
+                {
+                    new()
+                    {
+                        ProductId = Product2,
+                        Quantity = 200,
+                        UnitCost = 8.00m,
+                        TotalCost = 1600m,
+                        BatchNumber = "BATCH-002",
+                        ExpiryDate = today.AddYears(1),
+                        LineNumber = 1
+                    }
+                }
             },
-            // Stock IN transactions from Supplier 2 to Branch 2
+            // Stock IN transaction from Supplier 2 to Branch 2 - Product 1
             new()
             {
-                ProductId = Product1,
                 ToBranchId = Branch2,
-                Quantity = 400,
+                FromBranchId = null,
                 TransactionTypeId = LookupSeeder.LookupDetailTransactionIn,
                 ReferenceNumber = "STK-IN-20240102-0001",
                 TransactionDate = today.AddDays(-25),
-                UnitCost = 3.50m,
                 TotalValue = 1400m,
-                BatchNumber = "BATCH-003",
-                ExpiryDate = today.AddYears(2),
                 SupplierId = Supplier2,
-                Notes = "Stock from MediSupply International"
+                Status = "Completed",
+                Notes = "Stock from MediSupply International",
+                Details = new List<StockTransactionDetail>
+                {
+                    new()
+                    {
+                        ProductId = Product1,
+                        Quantity = 400,
+                        UnitCost = 3.50m,
+                        TotalCost = 1400m,
+                        BatchNumber = "BATCH-003",
+                        ExpiryDate = today.AddYears(2),
+                        LineNumber = 1
+                    }
+                }
             },
-            // Transfer from Branch 1 to Branch 2
+            // Transfer from Branch 1 to Branch 2 - Product 3
             new()
             {
-                ProductId = Product3,
                 FromBranchId = Branch1,
                 ToBranchId = Branch2,
-                Quantity = 10,
                 TransactionTypeId = LookupSeeder.LookupDetailTransactionTransfer,
                 ReferenceNumber = "TRF-20240115-0001",
                 TransactionDate = today.AddDays(-15),
-                Notes = "Inter-branch transfer for stock balancing"
+                TotalValue = 0,
+                Status = "Completed",
+                Notes = "Inter-branch transfer for stock balancing",
+                Details = new List<StockTransactionDetail>
+                {
+                    new()
+                    {
+                        ProductId = Product3,
+                        Quantity = 10,
+                        UnitCost = null,
+                        TotalCost = null,
+                        BatchNumber = null,
+                        ExpiryDate = null,
+                        LineNumber = 1
+                    }
+                }
             }
         };
 

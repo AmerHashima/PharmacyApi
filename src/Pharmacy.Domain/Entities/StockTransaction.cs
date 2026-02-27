@@ -7,16 +7,11 @@ namespace Pharmacy.Domain.Entities;
 /// <summary>
 /// Records all stock movements: IN (receiving), OUT (dispensing), TRANSFER (between branches).
 /// Provides complete audit trail for inventory changes.
+/// Master/Header entity - contains transaction metadata. Detail lines are in StockTransactionDetails.
 /// </summary>
 [Table("StockTransactions")]
 public class StockTransaction : BaseEntity
 {
-    [Required]
-    public Guid ProductId { get; set; }
-
-    [ForeignKey(nameof(ProductId))]
-    public virtual Product Product { get; set; } = null!;
-
     /// <summary>
     /// Source branch for OUT and TRANSFER transactions
     /// </summary>
@@ -34,13 +29,6 @@ public class StockTransaction : BaseEntity
     public virtual Branch? ToBranch { get; set; }
 
     /// <summary>
-    /// Quantity being transacted
-    /// </summary>
-    [Required]
-    [Column(TypeName = "decimal(18,2)")]
-    public decimal Quantity { get; set; }
-
-    /// <summary>
     /// FK to AppLookupDetail - Transaction type (IN, OUT, TRANSFER, ADJUSTMENT, RETURN)
     /// </summary>
     public Guid? TransactionTypeId { get; set; }
@@ -54,33 +42,19 @@ public class StockTransaction : BaseEntity
     [MaxLength(100)]
     public string? ReferenceNumber { get; set; }
 
+    [MaxLength(100)]
+    public string? NotificationId { get; set; }
+
     /// <summary>
     /// Date and time of the transaction
     /// </summary>
     public DateTime? TransactionDate { get; set; }
 
     /// <summary>
-    /// Unit cost at time of transaction
-    /// </summary>
-    [Column(TypeName = "decimal(18,2)")]
-    public decimal? UnitCost { get; set; }
-
-    /// <summary>
-    /// Total value of the transaction
+    /// Total value of all items in this transaction (sum of detail line totals)
     /// </summary>
     [Column(TypeName = "decimal(18,2)")]
     public decimal? TotalValue { get; set; }
-
-    /// <summary>
-    /// Batch number for traceability
-    /// </summary>
-    [MaxLength(50)]
-    public string? BatchNumber { get; set; }
-
-    /// <summary>
-    /// Expiry date of the batch
-    /// </summary>
-    public DateTime? ExpiryDate { get; set; }
 
     /// <summary>
     /// Supplier for IN transactions
@@ -103,4 +77,25 @@ public class StockTransaction : BaseEntity
 
     [ForeignKey(nameof(SalesInvoiceId))]
     public virtual SalesInvoice? SalesInvoice { get; set; }
+
+    /// <summary>
+    /// Status of the transaction (Draft, Approved, Completed, Cancelled)
+    /// </summary>
+    [MaxLength(50)]
+    public string? Status { get; set; }
+
+    /// <summary>
+    /// User who approved the transaction
+    /// </summary>
+    public Guid? ApprovedBy { get; set; }
+
+    /// <summary>
+    /// Date when transaction was approved
+    /// </summary>
+    public DateTime? ApprovedDate { get; set; }
+
+    /// <summary>
+    /// Collection of detail lines for this transaction
+    /// </summary>
+    public virtual ICollection<StockTransactionDetail> Details { get; set; } = new List<StockTransactionDetail>();
 }

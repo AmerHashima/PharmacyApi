@@ -49,6 +49,7 @@ public static class DependencyInjection
         services.AddScoped<IProductBatchRepository, ProductBatchRepository>();
         services.AddScoped<IStockRepository, StockRepository>();
         services.AddScoped<IStockTransactionRepository, StockTransactionRepository>();
+        services.AddScoped<IStockTransactionDetailRepository, StockTransactionDetailRepository>();
 
         // ====================================
         // Register repositories - Sales & POS

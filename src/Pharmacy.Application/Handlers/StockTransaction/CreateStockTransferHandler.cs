@@ -81,20 +81,32 @@ public class CreateStockTransferHandler : IRequestHandler<CreateStockTransferCom
         var referenceNumber = request.Transfer.ReferenceNumber ?? 
             await _transactionRepository.GenerateReferenceNumberAsync("TRF", cancellationToken);
 
-        // Create transaction
+        // Create transaction header
         var transaction = new Domain.Entities.StockTransaction
         {
-            ProductId = request.Transfer.ProductId,
             FromBranchId = request.Transfer.FromBranchId,
             ToBranchId = request.Transfer.ToBranchId,
-            Quantity = request.Transfer.Quantity,
             TransactionTypeId = transferType?.Oid,
             ReferenceNumber = referenceNumber,
             TransactionDate = request.Transfer.TransactionDate ?? DateTime.UtcNow,
-            BatchNumber = request.Transfer.BatchNumber,
-            ExpiryDate = request.Transfer.ExpiryDate,
+            TotalValue = 0, // Will be calculated from details if UnitCost is available
+            Status = "Completed",
             Notes = request.Transfer.Notes
         };
+
+        // Create detail line
+        var transactionDetail = new Domain.Entities.StockTransactionDetail
+        {
+            ProductId = request.Transfer.ProductId,
+            Quantity = request.Transfer.Quantity,
+            UnitCost = null, // Transfer typically doesn't track cost
+            TotalCost = null,
+            BatchNumber = request.Transfer.BatchNumber,
+            ExpiryDate = request.Transfer.ExpiryDate,
+            LineNumber = 1
+        };
+
+        transaction.Details.Add(transactionDetail);
 
         var createdTransaction = await _transactionRepository.AddAsync(transaction, cancellationToken);
 

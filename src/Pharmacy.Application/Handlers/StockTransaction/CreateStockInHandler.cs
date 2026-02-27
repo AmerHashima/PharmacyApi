@@ -59,22 +59,33 @@ public class CreateStockInHandler : IRequestHandler<CreateStockInCommand, StockT
         var referenceNumber = request.StockIn.ReferenceNumber ?? 
             await _transactionRepository.GenerateReferenceNumberAsync("STK-IN", cancellationToken);
 
-        // Create transaction
+        // Create transaction header
         var transaction = new Domain.Entities.StockTransaction
         {
-            ProductId = request.StockIn.ProductId,
             ToBranchId = request.StockIn.ToBranchId,
-            Quantity = request.StockIn.Quantity,
+            FromBranchId = null,
             TransactionTypeId = inType?.Oid,
             ReferenceNumber = referenceNumber,
             TransactionDate = request.StockIn.TransactionDate ?? DateTime.UtcNow,
-            UnitCost = request.StockIn.UnitCost,
             TotalValue = request.StockIn.Quantity * (request.StockIn.UnitCost ?? 0),
-            BatchNumber = request.StockIn.BatchNumber,
-            ExpiryDate = request.StockIn.ExpiryDate,
             SupplierId = request.StockIn.SupplierId,
+            Status = "Completed",
             Notes = request.StockIn.Notes
         };
+
+        // Create detail line
+        var transactionDetail = new Domain.Entities.StockTransactionDetail
+        {
+            ProductId = request.StockIn.ProductId,
+            Quantity = request.StockIn.Quantity,
+            UnitCost = request.StockIn.UnitCost,
+            TotalCost = request.StockIn.Quantity * (request.StockIn.UnitCost ?? 0),
+            BatchNumber = request.StockIn.BatchNumber,
+            ExpiryDate = request.StockIn.ExpiryDate,
+            LineNumber = 1
+        };
+
+        transaction.Details.Add(transactionDetail);
 
         var createdTransaction = await _transactionRepository.AddAsync(transaction, cancellationToken);
 
