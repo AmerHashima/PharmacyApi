@@ -32,6 +32,8 @@ public class GetProductDataHandler : IRequestHandler<GetProductDataQuery, PagedR
     {
         var query = _repository.GetQueryable()
                         .Include(x => x.ProductType)
+                        .Include(x => x.PackageType)
+                        .Include(x => x.DosageForm)
                         .Include(x => x.VatType)
                         .Include(x => x.ProductGroup)
 .Where(x => !x.IsDeleted);

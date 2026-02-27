@@ -25,6 +25,10 @@ public class ProductProfile : Profile
                 opt => opt.MapFrom(src => src.VatType != null ? src.VatType.ValueNameEn : null))
             .ForMember(dest => dest.VatTypeNameAr,
                 opt => opt.MapFrom(src => src.VatType != null ? src.VatType.ValueNameAr : null))
+                        .ForMember(dest => dest.PackageTypeName,
+                opt => opt.MapFrom(src => src.DosageForm != null ? src.DosageForm.ValueNameEn : null))
+                                    .ForMember(dest => dest.DosageFormName,
+                opt => opt.MapFrom(src => src.PackageType != null ? src.PackageType.ValueNameAr : null))
             ;
 
         // Create DTO to Entity
