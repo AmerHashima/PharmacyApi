@@ -30,7 +30,7 @@ public class ProductRepository : BaseRepository<Product>, IProductRepository
     {
         return await _dbSet
             .Include(p => p.ProductType)
-            .Where(p => p.GTIN == gtin && !p.IsDeleted)
+            .Where(p => '0'+p.GTIN == gtin && !p.IsDeleted)
             .FirstOrDefaultAsync(cancellationToken);
     }
 
