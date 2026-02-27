@@ -13,8 +13,9 @@ public class BranchProfile : Profile
     {
         // Entity to DTO
         CreateMap<Branch, BranchDto>()
-           
             .ForMember(dest => dest.IdentifyLookupName, opt => opt.MapFrom(src => src.IdentifyLookup != null ? src.IdentifyLookup.ValueNameEn : null));
+
+        
 
         // Create DTO to Entity
         CreateMap<CreateBranchDto, Branch>();

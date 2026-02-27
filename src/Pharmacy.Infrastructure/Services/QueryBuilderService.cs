@@ -77,9 +77,155 @@ public class QueryBuilderService : IQueryBuilderService
 
     public IQueryable<T> SelectColumns<T>(IQueryable<T> query, List<string> columns)
     {
-        // For complex column selection, you might want to use System.Linq.Dynamic.Core
-        // For now, we'll return the full query as column selection is complex with strong typing
+        // If columns list is null or empty, return all columns
+        if (columns == null || !columns.Any())
+            return query;
+
+        // Validate that all requested columns exist in the entity
+        var entityType = typeof(T);
+        var validColumns = new List<string>();
+
+        foreach (var column in columns)
+        {
+            var property = entityType.GetProperty(column, BindingFlags.IgnoreCase | BindingFlags.Public | BindingFlags.Instance);
+            if (property != null)
+            {
+                validColumns.Add(property.Name); // Use the actual property name (case-correct)
+            }
+        }
+
+        // If no valid columns found, return all columns
+        if (!validColumns.Any())
+            return query;
+
+        // Note: EF Core doesn't support dynamic projection in a way that returns T
+        // The query will still load all columns from the database, but the consumer
+        // can filter the mapped DTOs. For true column-level optimization, you'd need
+        // to return IQueryable<object> or use reflection to create a dynamic type.
+
+        // For now, we return the full query and let the mapping layer handle selection
         return query;
+    }
+
+    public async Task<PagedResult<Dictionary<string, object>>> ApplyPaginationWithColumnsAsync<T>(
+        IQueryable<T> query, 
+        PaginationRequest pagination, 
+        List<string> columns)
+    {
+        // Apply includes for specific entities (before projection)
+        query = ApplyIncludes(query);
+
+        // Get entity properties
+        var entityType = typeof(T);
+        var properties = entityType.GetProperties(BindingFlags.Public | BindingFlags.Instance);
+
+        // Determine which columns to select
+        List<PropertyInfo> selectedProperties;
+        if (columns == null || !columns.Any())
+        {
+            // If no columns specified, select all properties
+            selectedProperties = properties.ToList();
+        }
+        else
+        {
+            // Select only requested columns (case-insensitive)
+            selectedProperties = new List<PropertyInfo>();
+            foreach (var column in columns)
+            {
+                var property = properties.FirstOrDefault(p => 
+                    p.Name.Equals(column, StringComparison.OrdinalIgnoreCase));
+                if (property != null)
+                {
+                    selectedProperties.Add(property);
+                }
+            }
+
+            // If no valid columns found, select all
+            if (!selectedProperties.Any())
+            {
+                selectedProperties = properties.ToList();
+            }
+        }
+
+        // Ensure we have ordering BEFORE projection to avoid SQL warning
+        // Apply default ordering by first selected property if no order exists
+        if (!IsOrdered(query) && selectedProperties.Any())
+        {
+            var firstProp = selectedProperties.First();
+            var orderParam = Expression.Parameter(entityType, "x");
+            var propertyAccess = Expression.Property(orderParam, firstProp);
+            var objectConversion = Expression.Convert(propertyAccess, typeof(object));
+            var orderSelector = Expression.Lambda<Func<T, object>>(objectConversion, orderParam);
+            query = query.OrderBy(orderSelector);
+        }
+
+        // Get total count before projection
+        var totalRecords = await query.CountAsync();
+
+        // Build dynamic expression for column selection
+        var parameter = Expression.Parameter(entityType, "x");
+
+        // Create dictionary initializer expressions
+        var addMethod = typeof(Dictionary<string, object>).GetMethod("Add", new[] { typeof(string), typeof(object) })!;
+        var dictionaryType = typeof(Dictionary<string, object>);
+        var constructor = dictionaryType.GetConstructor(Type.EmptyTypes)!;
+
+        // Create initializers for each selected property
+        var elementInits = selectedProperties.Select(prop =>
+        {
+            var propertyAccess = Expression.Property(parameter, prop);
+            var propertyAsObject = Expression.Convert(propertyAccess, typeof(object));
+
+            // Don't convert null to DBNull here - let null pass through naturally
+            // The AutoMapper converter will handle null/DBNull conversion if needed
+            return Expression.ElementInit(
+                addMethod,
+                Expression.Constant(prop.Name),
+                propertyAsObject
+            );
+        }).ToList();
+
+        // Create the dictionary initialization expression
+        var dictionaryInit = Expression.ListInit(
+            Expression.New(constructor),
+            elementInits
+        );
+
+        // Create the selector lambda: x => new Dictionary<string, object> { { "Prop1", x.Prop1 }, ... }
+        var selector = Expression.Lambda<Func<T, Dictionary<string, object>>>(dictionaryInit, parameter);
+
+        // Apply the projection
+        var projectionQuery = query.Select(selector);
+
+        // Apply pagination
+        int pageNumber, pageSize;
+        IQueryable<Dictionary<string, object>> pagedQuery;
+
+        if (pagination.GetAll)
+        {
+            pagedQuery = projectionQuery;
+            pageNumber = 1;
+            pageSize = totalRecords;
+        }
+        else
+        {
+            pageNumber = Math.Max(1, pagination.PageNumber);
+            pageSize = Math.Max(1, Math.Min(1000, pagination.PageSize));
+            var skip = (pageNumber - 1) * pageSize;
+            pagedQuery = projectionQuery.Skip(skip).Take(pageSize);
+        }
+
+        // Execute query - EF Core will generate SQL with only selected columns
+        var result = await pagedQuery.ToListAsync();
+
+        return PagedResult<Dictionary<string, object>>.Create(result, totalRecords, pageNumber, pageSize);
+    }
+
+    private bool IsOrdered<T>(IQueryable<T> query)
+    {
+        // Check if the query already has an OrderBy applied
+        return query.Expression.ToString().Contains("OrderBy") || 
+               query.Expression.ToString().Contains("ThenBy");
     }
 
     private IQueryable<T> ApplyIncludes<T>(IQueryable<T> query)

@@ -1,10 +1,10 @@
 using AutoMapper;
+using MediatR;
 using Pharmacy.Application.DTOs.Branch;
 using Pharmacy.Application.DTOs.Common;
 using Pharmacy.Application.Queries.Branch;
 using Pharmacy.Application.Services;
 using Pharmacy.Domain.Interfaces;
-using MediatR;
 
 namespace Pharmacy.Application.Handlers.Branch;
 
@@ -37,15 +37,37 @@ public class GetBranchDataHandler : IRequestHandler<GetBranchDataQuery, PagedRes
         // Apply sorting
         query = _queryBuilderService.ApplySorting(query, request.Request.Request.Sort);
 
-        // Apply pagination and get result
-        var pagedResult = await _queryBuilderService.ApplyPaginationAsync(query, request.Request.Request.Pagination);
+        // Check if column selection is requested
+        var columns = request.Request.Request.Columns;
+        if (columns != null && columns.Count > 0)
+        {
+            // Use column-specific pagination that queries only selected columns from database
+            var pagedDictResult = await _queryBuilderService.ApplyPaginationWithColumnsAsync(
+                query, 
+                request.Request.Request.Pagination,
+                columns);
 
-        var branchDtos = _mapper.Map<List<BranchDto>>(pagedResult.Data);
+            // Map dictionaries to BranchDto using AutoMapper (only selected properties will have values)
+            var branchDtos = _mapper.Map<List<BranchDto>>(pagedDictResult.Data);
 
-        return PagedResult<BranchDto>.Create(
-            branchDtos,
-            pagedResult.TotalRecords,
-            pagedResult.PageNumber,
-            pagedResult.PageSize);
+            return PagedResult<BranchDto>.Create(
+                branchDtos,
+                pagedDictResult.TotalRecords,
+                pagedDictResult.PageNumber,
+                pagedDictResult.PageSize);
+        }
+        else
+        {
+            // Apply pagination and get full result with all columns
+            var pagedResult = await _queryBuilderService.ApplyPaginationAsync(query, request.Request.Request.Pagination);
+
+            var branchDtos = _mapper.Map<List<BranchDto>>(pagedResult.Data);
+
+            return PagedResult<BranchDto>.Create(
+                branchDtos,
+                pagedResult.TotalRecords,
+                pagedResult.PageNumber,
+                pagedResult.PageSize);
+        }
     }
 }
