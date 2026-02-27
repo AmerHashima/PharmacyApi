@@ -1,6 +1,8 @@
 using System.Reflection;
 using System.Text;
+using System.Text.Json.Serialization;
 using FluentValidation.AspNetCore;
+using Pharmacy.Api.Converters;
 using Pharmacy.Api.Middleware;
 using Pharmacy.Application;
 using Pharmacy.Infrastructure;
@@ -16,7 +18,16 @@ try
     // --------------------------
     // Add services to the container
     // --------------------------
-    builder.Services.AddControllers();
+    builder.Services.AddControllers()
+        .AddJsonOptions(options =>
+        {
+            // Handle empty strings as null for nullable Guids
+            options.JsonSerializerOptions.Converters.Add(new NullableGuidConverter());
+
+            // Optional: Configure other JSON settings
+            options.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
+            options.JsonSerializerOptions.PropertyNameCaseInsensitive = true;
+        });
 
     // Add Application & Infrastructure layers
     builder.Services.AddApplication();

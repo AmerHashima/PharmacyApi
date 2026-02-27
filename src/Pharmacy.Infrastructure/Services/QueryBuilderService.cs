@@ -14,12 +14,172 @@ public class QueryBuilderService : IQueryBuilderService
         if (filters == null || !filters.Any())
             return query;
 
-        foreach (var filter in filters)
+        // Check if filters use grouping
+        var hasGroups = filters.Any(f => f.GroupId.HasValue);
+
+        if (hasGroups)
         {
-            query = ApplyFilter(query, filter);
+            // Apply grouped filters: (Group1) AND (Group2) OR (Group3)
+            return ApplyGroupedFilters(query, filters);
+        }
+        else
+        {
+            // Apply simple filters with AND/OR logic
+            return ApplySimpleFilters(query, filters);
+        }
+    }
+
+    private IQueryable<T> ApplySimpleFilters<T>(IQueryable<T> query, List<FilterRequest> filters)
+    {
+        if (!filters.Any())
+            return query;
+
+        var parameter = Expression.Parameter(typeof(T), "x");
+        Expression? combinedExpression = null;
+
+        for (int i = 0; i < filters.Count; i++)
+        {
+            var filter = filters[i];
+            var filterExpression = BuildFilterExpression<T>(parameter, filter);
+
+            if (filterExpression == null)
+                continue;
+
+            if (combinedExpression == null)
+            {
+                combinedExpression = filterExpression;
+            }
+            else
+            {
+                // Use the logical operator from the PREVIOUS filter to combine
+                var logicalOp = i > 0 ? filters[i - 1].LogicalOperator : LogicalOperator.And;
+
+                combinedExpression = logicalOp == LogicalOperator.And
+                    ? Expression.AndAlso(combinedExpression, filterExpression)
+                    : Expression.OrElse(combinedExpression, filterExpression);
+            }
+        }
+
+        if (combinedExpression != null)
+        {
+            var lambda = Expression.Lambda<Func<T, bool>>(combinedExpression, parameter);
+            query = query.Where(lambda);
         }
 
         return query;
+    }
+
+    private IQueryable<T> ApplyGroupedFilters<T>(IQueryable<T> query, List<FilterRequest> filters)
+    {
+        var parameter = Expression.Parameter(typeof(T), "x");
+
+        // Group filters by GroupId
+        var groups = filters
+            .Where(f => f.GroupId.HasValue)
+            .GroupBy(f => f.GroupId!.Value)
+            .OrderBy(g => g.Key)
+            .ToList();
+
+        // Filters without groups (apply with AND by default)
+        var ungroupedFilters = filters.Where(f => !f.GroupId.HasValue).ToList();
+
+        Expression? combinedExpression = null;
+
+        // First, process ungrouped filters
+        foreach (var filter in ungroupedFilters)
+        {
+            var filterExpression = BuildFilterExpression<T>(parameter, filter);
+            if (filterExpression != null)
+            {
+                combinedExpression = combinedExpression == null
+                    ? filterExpression
+                    : Expression.AndAlso(combinedExpression, filterExpression);
+            }
+        }
+
+        // Then, process grouped filters
+        foreach (var group in groups)
+        {
+            Expression? groupExpression = null;
+            var groupFilters = group.ToList();
+
+            // Combine filters within the group
+            for (int i = 0; i < groupFilters.Count; i++)
+            {
+                var filter = groupFilters[i];
+                var filterExpression = BuildFilterExpression<T>(parameter, filter);
+
+                if (filterExpression == null)
+                    continue;
+
+                if (groupExpression == null)
+                {
+                    groupExpression = filterExpression;
+                }
+                else
+                {
+                    var logicalOp = i > 0 ? groupFilters[i - 1].LogicalOperator : LogicalOperator.And;
+                    groupExpression = logicalOp == LogicalOperator.And
+                        ? Expression.AndAlso(groupExpression, filterExpression)
+                        : Expression.OrElse(groupExpression, filterExpression);
+                }
+            }
+
+            // Combine group with main expression
+            if (groupExpression != null)
+            {
+                if (combinedExpression == null)
+                {
+                    combinedExpression = groupExpression;
+                }
+                else
+                {
+                    // Use logical operator from the last filter of previous group
+                    var previousGroup = groups.TakeWhile(g => g.Key < group.Key).LastOrDefault();
+                    var logicalOp = previousGroup?.Last().LogicalOperator ?? LogicalOperator.And;
+
+                    combinedExpression = logicalOp == LogicalOperator.And
+                        ? Expression.AndAlso(combinedExpression, groupExpression)
+                        : Expression.OrElse(combinedExpression, groupExpression);
+                }
+            }
+        }
+
+        if (combinedExpression != null)
+        {
+            var lambda = Expression.Lambda<Func<T, bool>>(combinedExpression, parameter);
+            query = query.Where(lambda);
+        }
+
+        return query;
+    }
+
+    private Expression? BuildFilterExpression<T>(ParameterExpression parameter, FilterRequest filter)
+    {
+        var property = GetProperty<T>(filter.PropertyName);
+        if (property == null)
+            return null;
+
+        var propertyAccess = Expression.MakeMemberAccess(parameter, property);
+        var filterValue = ConvertValue(filter.Value, property.PropertyType);
+
+        return filter.Operation switch
+        {
+            FilterOperation.Equal => CreateEqualExpression(propertyAccess, filterValue, property.PropertyType),
+            FilterOperation.NotEqual => CreateNotEqualExpression(propertyAccess, filterValue, property.PropertyType),
+            FilterOperation.Contains => CreateContainsExpression(propertyAccess, filterValue),
+            FilterOperation.StartsWith => CreateStartsWithExpression(propertyAccess, filterValue),
+            FilterOperation.EndsWith => CreateEndsWithExpression(propertyAccess, filterValue),
+            FilterOperation.GreaterThan => CreateComparisonExpression(propertyAccess, filterValue, ExpressionType.GreaterThan),
+            FilterOperation.LessThan => CreateComparisonExpression(propertyAccess, filterValue, ExpressionType.LessThan),
+            FilterOperation.GreaterThanOrEqual => CreateComparisonExpression(propertyAccess, filterValue, ExpressionType.GreaterThanOrEqual),
+            FilterOperation.LessThanOrEqual => CreateComparisonExpression(propertyAccess, filterValue, ExpressionType.LessThanOrEqual),
+            FilterOperation.IsNull => CreateNullExpression(propertyAccess, true),
+            FilterOperation.IsNotNull => CreateNullExpression(propertyAccess, false),
+            FilterOperation.In => CreateInExpression(propertyAccess, filter.Value, property.PropertyType),
+            FilterOperation.NotIn => CreateNotInExpression(propertyAccess, filter.Value, property.PropertyType),
+            _ => null
+        };
     }
 
     public IQueryable<T> ApplySorting<T>(IQueryable<T> query, List<SortRequest> sorts)
@@ -287,42 +447,6 @@ public class QueryBuilderService : IQueryBuilderService
         }
 
         // Add more include logic for other entities as needed
-        return query;
-    }
-
-    private IQueryable<T> ApplyFilter<T>(IQueryable<T> query, FilterRequest filter)
-    {
-        var property = GetProperty<T>(filter.PropertyName);
-        if (property == null) return query;
-
-        var parameter = Expression.Parameter(typeof(T), "x");
-        var propertyAccess = Expression.MakeMemberAccess(parameter, property);
-        var filterValue = ConvertValue(filter.Value, property.PropertyType);
-
-        Expression? filterExpression = filter.Operation switch
-        {
-            FilterOperation.Equal => CreateEqualExpression(propertyAccess, filterValue, property.PropertyType),
-            FilterOperation.NotEqual => CreateNotEqualExpression(propertyAccess, filterValue, property.PropertyType),
-            FilterOperation.Contains => CreateContainsExpression(propertyAccess, filterValue),
-            FilterOperation.StartsWith => CreateStartsWithExpression(propertyAccess, filterValue),
-            FilterOperation.EndsWith => CreateEndsWithExpression(propertyAccess, filterValue),
-            FilterOperation.GreaterThan => CreateComparisonExpression(propertyAccess, filterValue, ExpressionType.GreaterThan),
-            FilterOperation.LessThan => CreateComparisonExpression(propertyAccess, filterValue, ExpressionType.LessThan),
-            FilterOperation.GreaterThanOrEqual => CreateComparisonExpression(propertyAccess, filterValue, ExpressionType.GreaterThanOrEqual),
-            FilterOperation.LessThanOrEqual => CreateComparisonExpression(propertyAccess, filterValue, ExpressionType.LessThanOrEqual),
-            FilterOperation.IsNull => CreateNullExpression(propertyAccess, true),
-            FilterOperation.IsNotNull => CreateNullExpression(propertyAccess, false),
-            FilterOperation.In => CreateInExpression(propertyAccess, filter.Value, property.PropertyType),
-            FilterOperation.NotIn => CreateNotInExpression(propertyAccess, filter.Value, property.PropertyType),
-            _ => null
-        };
-
-        if (filterExpression != null)
-        {
-            var lambda = Expression.Lambda<Func<T, bool>>(filterExpression, parameter);
-            query = query.Where(lambda);
-        }
-
         return query;
     }
 
