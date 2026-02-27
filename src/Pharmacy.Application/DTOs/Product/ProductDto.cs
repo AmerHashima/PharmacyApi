@@ -13,8 +13,10 @@ public class ProductDto
     public string? VatTypeNameAr { get; set; }
     public Guid? PackageTypeId { get; set; }
     public string? PackageTypeName { get; set; }
+    public string? PackageTypeNameAr { get; set; }
     public Guid? DosageFormId { get; set; }
     public string? DosageFormName { get; set; }
+    public string? DosageFormNameAr { get; set; }
     public string? GenericName { get; set; }
     
     public Guid? ProductGroupId { get; set; }

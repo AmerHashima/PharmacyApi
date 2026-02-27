@@ -13,11 +13,11 @@ public class ProductProfile : Profile
     {
         // Entity to DTO
         CreateMap<Product, ProductDto>()
-            .ForMember(dest => dest.ProductTypeName, 
+            .ForMember(dest => dest.ProductTypeName,
                 opt => opt.MapFrom(src => src.ProductType != null ? src.ProductType.ValueNameEn : null))
-            .ForMember(dest => dest.ProductTypeNameAr, 
+            .ForMember(dest => dest.ProductTypeNameAr,
                 opt => opt.MapFrom(src => src.ProductType != null ? src.ProductType.ValueNameAr : null))
-            .ForMember(dest => dest.ProductGroupName, 
+            .ForMember(dest => dest.ProductGroupName,
                 opt => opt.MapFrom(src => src.ProductGroup != null ? src.ProductGroup.ValueNameEn : null))
             .ForMember(dest => dest.ProductGroupNameAr,
                 opt => opt.MapFrom(src => src.ProductGroup != null ? src.ProductGroup.ValueNameAr : null))
@@ -25,11 +25,14 @@ public class ProductProfile : Profile
                 opt => opt.MapFrom(src => src.VatType != null ? src.VatType.ValueNameEn : null))
             .ForMember(dest => dest.VatTypeNameAr,
                 opt => opt.MapFrom(src => src.VatType != null ? src.VatType.ValueNameAr : null))
-                        .ForMember(dest => dest.PackageTypeName,
-                opt => opt.MapFrom(src => src.DosageForm != null ? src.DosageForm.ValueNameEn : null))
-                                    .ForMember(dest => dest.DosageFormName,
+            .ForMember(dest => dest.PackageTypeName,
+                opt => opt.MapFrom(src => src.PackageType != null ? src.PackageType.ValueNameEn : null))
+            .ForMember(dest => dest.PackageTypeNameAr,
                 opt => opt.MapFrom(src => src.PackageType != null ? src.PackageType.ValueNameAr : null))
-            ;
+            .ForMember(dest => dest.DosageFormName,
+                opt => opt.MapFrom(src => src.DosageForm != null ? src.DosageForm.ValueNameEn : null))
+            .ForMember(dest => dest.DosageFormNameAr,
+                opt => opt.MapFrom(src => src.DosageForm != null ? src.DosageForm.ValueNameAr : null));
 
         // Create DTO to Entity
         CreateMap<CreateProductDto, Product>();
