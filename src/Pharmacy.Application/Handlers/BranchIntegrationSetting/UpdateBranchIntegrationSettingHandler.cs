@@ -42,11 +42,11 @@ public class UpdateBranchIntegrationSettingHandler : IRequestHandler<UpdateBranc
             throw new InvalidOperationException($"Integration provider with ID '{request.Dto.IntegrationProviderId}' not found");
 
         // Check if changing to a duplicate branch/provider combination
-        if (existingSetting.BranchId != request.Dto.BranchId || existingSetting.IntegrationProviderId != request.Dto.IntegrationProviderId)
-        {
-            if (await _repository.ExistsAsync(request.Dto.BranchId, request.Dto.IntegrationProviderId, request.Dto.Oid))
-                throw new InvalidOperationException($"Integration setting already exists for this branch and provider");
-        }
+        //if (existingSetting.BranchId != request.Dto.BranchId || existingSetting.IntegrationProviderId != request.Dto.IntegrationProviderId)
+        //{
+        //    if (await _repository.ExistsAsync(request.Dto.BranchId, request.Dto.IntegrationProviderId, request.Dto.Oid))
+        //        throw new InvalidOperationException($"Integration setting already exists for this branch and provider");
+        //}
 
         _mapper.Map(request.Dto, existingSetting);
         await _repository.UpdateAsync(existingSetting);

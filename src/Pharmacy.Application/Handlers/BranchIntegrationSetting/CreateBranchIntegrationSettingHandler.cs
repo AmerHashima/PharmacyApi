@@ -38,8 +38,8 @@ public class CreateBranchIntegrationSettingHandler : IRequestHandler<CreateBranc
             throw new InvalidOperationException($"Integration provider with ID '{request.Dto.IntegrationProviderId}' not found");
 
         // Check if setting already exists for this branch and provider
-        if (await _repository.ExistsAsync(request.Dto.BranchId, request.Dto.IntegrationProviderId))
-            throw new InvalidOperationException($"Integration setting already exists for this branch and provider");
+        //if (await _repository.ExistsAsync(request.Dto.BranchId, request.Dto.IntegrationProviderId))
+        //    throw new InvalidOperationException($"Integration setting already exists for this branch and provider");
 
         var setting = _mapper.Map<Domain.Entities.BranchIntegrationSetting>(request.Dto);
         var createdSetting = await _repository.AddAsync(setting);
