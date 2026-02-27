@@ -29,15 +29,15 @@ public class CreateAppLookupDetailHandler : IRequestHandler<CreateAppLookupDetai
     public async Task<AppLookupDetailDto> Handle(CreateAppLookupDetailCommand request, CancellationToken cancellationToken)
     {
         // Validate that lookup master exists
-        var masterExists = await _masterRepository.GetByIdAsync(request.LookupDetail.LookupMasterID, cancellationToken);
+        var masterExists = await _masterRepository.GetByIdAsync(request.LookupDetail.MasterID, cancellationToken);
         if (masterExists == null)
         {
-            throw new KeyNotFoundException($"Lookup master with ID '{request.LookupDetail.LookupMasterID}' not found");
+            throw new KeyNotFoundException($"Lookup master with ID '{request.LookupDetail.MasterID}' not found");
         }
 
         // Check if value code already exists for this lookup master
         var existingDetail = await _repository.GetByValueCodeAsync(
-            request.LookupDetail.LookupMasterID,
+            request.LookupDetail.MasterID,
             request.LookupDetail.ValueCode,
             cancellationToken);
 

@@ -34,15 +34,15 @@ public class UpdateAppLookupDetailHandler : IRequestHandler<UpdateAppLookupDetai
         }
 
         // Verify master exists
-        var master = await _masterRepository.GetByIdAsync(request.LookupDetail.LookupMasterID, cancellationToken);
+        var master = await _masterRepository.GetByIdAsync(request.LookupDetail.MasterID, cancellationToken);
         if (master == null)
         {
-            throw new KeyNotFoundException($"Lookup master with ID '{request.LookupDetail.LookupMasterID}' not found");
+            throw new KeyNotFoundException($"Lookup master with ID '{request.LookupDetail.MasterID}' not found");
         }
 
         // Check if value code is unique within the master (excluding current)
         if (await _repository.ValueCodeExistsAsync(
-            request.LookupDetail.LookupMasterID, 
+            request.LookupDetail.MasterID, 
             request.LookupDetail.ValueCode, 
             request.LookupDetail.Oid, 
             cancellationToken))
@@ -53,7 +53,7 @@ public class UpdateAppLookupDetailHandler : IRequestHandler<UpdateAppLookupDetai
         // If setting this as default, unset other defaults
         if (request.LookupDetail.IsDefault)
         {
-            var currentDefault = await _repository.GetDefaultValueAsync(request.LookupDetail.LookupMasterID, cancellationToken);
+            var currentDefault = await _repository.GetDefaultValueAsync(request.LookupDetail.MasterID, cancellationToken);
             if (currentDefault != null && currentDefault.Oid != request.LookupDetail.Oid)
             {
                 currentDefault.IsDefault = false;
@@ -62,7 +62,7 @@ public class UpdateAppLookupDetailHandler : IRequestHandler<UpdateAppLookupDetai
         }
 
         // Update properties
-        existingDetail.MasterID = request.LookupDetail.LookupMasterID;
+        existingDetail.MasterID = request.LookupDetail.MasterID;
         existingDetail.ValueCode = request.LookupDetail.ValueCode;
         existingDetail.ValueNameAr = request.LookupDetail.ValueNameAr;
         existingDetail.ValueNameEn = request.LookupDetail.ValueNameEn;

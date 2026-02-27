@@ -186,7 +186,7 @@ public class AppLookupController : BaseApiController
         {
             var command = new CreateAppLookupDetailCommand(createDto);
             var lookupDetail = await _mediator.Send(command);
-            return CreatedResponse(lookupDetail, nameof(GetLookupDetails), new { masterId = lookupDetail.LookupMasterID }, "Lookup detail created successfully");
+            return CreatedResponse(lookupDetail, nameof(GetLookupDetails), new { masterId = lookupDetail.MasterID }, "Lookup detail created successfully");
         }
         catch (KeyNotFoundException ex)
         {

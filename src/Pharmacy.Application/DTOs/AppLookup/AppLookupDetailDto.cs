@@ -3,7 +3,7 @@ namespace Pharmacy.Application.DTOs.AppLookup;
 public class AppLookupDetailDto
 {
     public Guid Oid { get; set; }
-    public Guid LookupMasterID { get; set; }
+    public Guid MasterID { get; set; }
     public string ValueCode { get; set; } = string.Empty;
     public string ValueNameAr { get; set; } = string.Empty;
     public string ValueNameEn { get; set; } = string.Empty;

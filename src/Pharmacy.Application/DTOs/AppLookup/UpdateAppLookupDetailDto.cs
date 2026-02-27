@@ -11,7 +11,7 @@ public class UpdateAppLookupDetailDto
     public Guid Oid { get; set; }
 
     [Required(ErrorMessage = "Lookup master ID is required")]
-    public Guid LookupMasterID { get; set; }
+    public Guid MasterID { get; set; }
 
     [Required(ErrorMessage = "Value code is required")]
     [StringLength(50, ErrorMessage = "Value code cannot exceed 50 characters")]

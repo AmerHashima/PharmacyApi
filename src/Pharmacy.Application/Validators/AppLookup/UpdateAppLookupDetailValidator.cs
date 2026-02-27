@@ -13,7 +13,7 @@ public class UpdateAppLookupDetailValidator : AbstractValidator<UpdateAppLookupD
         RuleFor(x => x.LookupDetail.Oid)
             .NotEmpty().WithMessage("ID is required");
 
-        RuleFor(x => x.LookupDetail.LookupMasterID)
+        RuleFor(x => x.LookupDetail.MasterID)
             .NotEmpty().WithMessage("Lookup master ID is required");
 
         RuleFor(x => x.LookupDetail.ValueCode)
