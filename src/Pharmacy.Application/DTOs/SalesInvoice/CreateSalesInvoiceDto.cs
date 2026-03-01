@@ -62,6 +62,7 @@ public class CreateSalesInvoiceItemDto
 
     [MaxLength(50)]
     public string? BatchNumber { get; set; }
+    public string? SerialNumber { get; set; }
 
     public DateTime? ExpiryDate { get; set; }
 
