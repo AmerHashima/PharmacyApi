@@ -8,7 +8,7 @@ using Pharmacy.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-
+using Pharmacy.Infrastructure.Integration.Rsd; 
 namespace Pharmacy.Infrastructure;
 
 public static class DependencyInjection
@@ -76,6 +76,15 @@ public static class DependencyInjection
         services.AddScoped<IJwtService, JwtService>();
         services.AddScoped<IQueryBuilderService, QueryBuilderService>();
         services.AddScoped<IBarcodeParserService, BarcodeParserService>();
+
+        // HttpClient for RSD integration
+        services.AddHttpClient("RsdClient", client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(30);
+        });
+
+        // RSD Integration Service
+        services.AddScoped<IRsdIntegrationService, RsdIntegrationService>();
 
         return services;
     }
