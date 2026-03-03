@@ -27,5 +27,5 @@ public class StockTransactionDto
     /// <summary>
     /// Detail lines for this transaction
     /// </summary>
-    public List<StockTransactionDetailDto> Details { get; set; } = new();
+   // public List<StockTransactionDetailDto> Details { get; set; } = new();
 }

@@ -25,7 +25,7 @@ try
             options.JsonSerializerOptions.Converters.Add(new NullableGuidConverter());
 
             // Optional: Configure other JSON settings
-            options.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
+          //  options.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
             options.JsonSerializerOptions.PropertyNameCaseInsensitive = true;
         });
 

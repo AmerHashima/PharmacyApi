@@ -13,16 +13,16 @@ public class StockTransactionProfile : Profile
     {
         // Entity to DTO
         CreateMap<Domain.Entities.StockTransaction, StockTransactionDto>()
-            .ForMember(dest => dest.FromBranchName, 
+            .ForMember(dest => dest.FromBranchName,
                 opt => opt.MapFrom(src => src.FromBranch != null ? src.FromBranch.BranchName : null))
-            .ForMember(dest => dest.ToBranchName, 
+            .ForMember(dest => dest.ToBranchName,
                 opt => opt.MapFrom(src => src.ToBranch != null ? src.ToBranch.BranchName : null))
-            .ForMember(dest => dest.TransactionTypeName, 
+            .ForMember(dest => dest.TransactionTypeName,
                 opt => opt.MapFrom(src => src.TransactionType != null ? src.TransactionType.ValueNameEn : null))
-            .ForMember(dest => dest.SupplierName, 
-                opt => opt.MapFrom(src => src.Supplier != null ? src.Supplier.Name : null))
-            .ForMember(dest => dest.Details,
-                opt => opt.MapFrom(src => src.Details));
+            .ForMember(dest => dest.SupplierName,
+                opt => opt.MapFrom(src => src.Supplier != null ? src.Supplier.Name : null));
+            //.ForMember(dest => dest.Details,
+            //    opt => opt.MapFrom(src => src.Details));
 
         // Entity to StockTransactionWithDetailsDto
         CreateMap<Domain.Entities.StockTransaction, StockTransactionWithDetailsDto>()
