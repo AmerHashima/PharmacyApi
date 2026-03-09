@@ -3,6 +3,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Pharmacy.Domain\Pharmacy.Domain.csproj" />
     <ProjectReference Include="..\Pharmacy.Application\Pharmacy.Application.csproj" />
+    <ProjectReference Include="..\Zatca\Zatca.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

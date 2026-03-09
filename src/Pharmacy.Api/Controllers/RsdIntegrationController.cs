@@ -3,7 +3,9 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Pharmacy.Api.Models;
 using Pharmacy.Application.Commands.Rsd;
+using Pharmacy.Application.DTOs.Common;
 using Pharmacy.Application.DTOs.Rsd;
+using Pharmacy.Application.Queries.Rsd;
 
 namespace Pharmacy.Api.Controllers;
 
@@ -99,5 +101,77 @@ public class RsdIntegrationController : BaseApiController
                 : ErrorResponse<PharmacySaleCancelResponseDto>(result.ResponseMessage ?? "RSD request failed", 400);
         }
         catch (InvalidOperationException ex) { return ErrorResponse<PharmacySaleCancelResponseDto>(ex.Message, 400); }
+    }
+
+    /// <summary>
+    /// Get stakeholder list from SFDA RSD and save new stakeholders to database.
+    /// StakeholderType: 1=Pharmacy, 2=Supplier, 3=Distributor, 4=Manufacturer, 5=Wholesaler
+    /// </summary>
+    [HttpPost("stakeholder-list")]
+    public async Task<ActionResult<ApiResponse<StakeholderListResponseDto>>> GetStakeholderList([FromBody] StakeholderListRequestDto dto)
+    {
+        try
+        {
+            var result = await _mediator.Send(new GetStakeholderListCommand(dto));
+            return result.Success
+                ? SuccessResponse(result, result.ResponseMessage ?? "Stakeholder list retrieved successfully")
+                : ErrorResponse<StakeholderListResponseDto>(result.ResponseMessage ?? "RSD request failed", 400);
+        }
+        catch (InvalidOperationException ex) { return ErrorResponse<StakeholderListResponseDto>(ex.Message, 400); }
+    }
+
+    /// <summary>
+    /// Return products by batch number to a stakeholder via SFDA RSD.
+    /// If ToGLN is not provided, it will be resolved from the branch GLN.
+    /// </summary>
+    [HttpPost("return-batch")]
+    public async Task<ActionResult<ApiResponse<ReturnBatchResponseDto>>> ReturnBatch([FromBody] ReturnBatchRequestDto dto)
+    {
+        try
+        {
+            var result = await _mediator.Send(new ReturnBatchCommand(dto));
+            return result.Success
+                ? SuccessResponse(result, "Return batch submitted successfully")
+                : ErrorResponse<ReturnBatchResponseDto>(result.ResponseMessage ?? "RSD request failed", 400);
+        }
+        catch (InvalidOperationException ex) { return ErrorResponse<ReturnBatchResponseDto>(ex.Message, 400); }
+    }
+
+    /// <summary>
+    /// Query RSD operation logs with advanced filtering, sorting, and pagination.
+    /// Supports filtering by OperationTypeId, BranchId, Success, GLN, NotificationId, RequestedAt, etc.
+    /// </summary>
+    [HttpPost("operation-logs/query")]
+    public async Task<ActionResult<ApiResponse<PagedResult<RsdOperationLogDto>>>> GetOperationLogs([FromBody] QueryRequest request)
+    {
+        try
+        {
+            var result = await _mediator.Send(new GetRsdOperationLogDataQuery(request));
+            return SuccessResponse(result, "RSD operation logs retrieved successfully");
+        }
+        catch (Exception ex)
+        {
+            return ErrorResponse<PagedResult<RsdOperationLogDto>>($"Error retrieving RSD operation logs: {ex.Message}", 500);
+        }
+    }
+
+    /// <summary>
+    /// Get a single RSD operation log by ID with its product detail lines
+    /// </summary>
+    [HttpGet("operation-logs/{id}")]
+    public async Task<ActionResult<ApiResponse<RsdOperationLogWithDetailsDto>>> GetOperationLogById(Guid id)
+    {
+        try
+        {
+            var result = await _mediator.Send(new GetRsdOperationLogByIdQuery(id));
+            if (result == null)
+                return ErrorResponse<RsdOperationLogWithDetailsDto>("RSD operation log not found", 404);
+
+            return SuccessResponse(result, "RSD operation log retrieved successfully");
+        }
+        catch (Exception ex)
+        {
+            return ErrorResponse<RsdOperationLogWithDetailsDto>($"Error retrieving RSD operation log: {ex.Message}", 500);
+        }
     }
 }

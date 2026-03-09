@@ -27,6 +27,7 @@ public static class LookupSeeder
     public static readonly Guid LookupMasterLegalStatus = Guid.Parse("11111111-1111-1111-1111-111111111010");
     public static readonly Guid LookupMasterPackageType = Guid.Parse("11111111-1111-1111-1111-111111111011");
     public static readonly Guid LookupMasterStrengthUnit = Guid.Parse("11111111-1111-1111-1111-111111111012");
+    public static readonly Guid LookupMasterRsdOperationType = Guid.Parse("11111111-1111-1111-1111-111111111013");
     #endregion
 
     #region Lookup Detail IDs - Gender
@@ -129,6 +130,13 @@ public static class LookupSeeder
     public static readonly Guid LookupDetailUnitIU = Guid.Parse("22222222-2222-2222-2222-2222222220A4");
     public static readonly Guid LookupDetailUnitPercent = Guid.Parse("22222222-2222-2222-2222-2222222220A5");
     public static readonly Guid LookupDetailUnitMcg = Guid.Parse("22222222-2222-2222-2222-2222222220A6");
+    #endregion
+
+    #region Lookup Detail IDs - RSD Operation Type
+    public static readonly Guid LookupDetailRsdAcceptBatch = Guid.Parse("22222222-2222-2222-2222-2222222220B0");
+    public static readonly Guid LookupDetailRsdPharmacySale = Guid.Parse("22222222-2222-2222-2222-2222222220B1");
+    public static readonly Guid LookupDetailRsdPharmacySaleCancel = Guid.Parse("22222222-2222-2222-2222-2222222220B2");
+    public static readonly Guid LookupDetailRsdReturnBatch = Guid.Parse("22222222-2222-2222-2222-2222222220B3");
     #endregion
 
     /// <summary>
@@ -413,6 +421,27 @@ public static class LookupSeeder
             new AppLookupDetail { Oid = LookupDetailUnitIU, MasterID = LookupMasterStrengthUnit, ValueCode = "IU", ValueNameAr = "وحدة دولية", ValueNameEn = "International Unit (IU)", SortOrder = 5, IsActive = true },
             new AppLookupDetail { Oid = LookupDetailUnitPercent, MasterID = LookupMasterStrengthUnit, ValueCode = "PERCENT", ValueNameAr = "نسبة مئوية", ValueNameEn = "Percent (%)", SortOrder = 6, IsActive = true },
             new AppLookupDetail { Oid = LookupDetailUnitMcg, MasterID = LookupMasterStrengthUnit, ValueCode = "MCG", ValueNameAr = "ميكروغرام", ValueNameEn = "Microgram (mcg)", SortOrder = 7, IsActive = true }
+        });
+
+        // ========================================
+        // 13. RSD_OPERATION_TYPE - Used in RsdOperationLog.OperationTypeId
+        // ========================================
+        masters.Add(new AppLookupMaster
+        {
+            Oid = LookupMasterRsdOperationType,
+            LookupCode = "RSD_OPERATION_TYPE",
+            LookupNameAr = "نوع عملية RSD",
+            LookupNameEn = "RSD Operation Type",
+            Description = "Types of SFDA RSD integration operations (AcceptBatch, PharmacySale, etc.)",
+            IsSystem = true
+        });
+
+        details.AddRange(new[]
+        {
+            new AppLookupDetail { Oid = LookupDetailRsdAcceptBatch, MasterID = LookupMasterRsdOperationType, ValueCode = "ACCEPT_BATCH", ValueNameAr = "قبول دفعة", ValueNameEn = "Accept Batch", SortOrder = 1, IsDefault = false, IsActive = true },
+            new AppLookupDetail { Oid = LookupDetailRsdPharmacySale, MasterID = LookupMasterRsdOperationType, ValueCode = "PHARMACY_SALE", ValueNameAr = "بيع صيدلية", ValueNameEn = "Pharmacy Sale", SortOrder = 2, IsDefault = false, IsActive = true },
+            new AppLookupDetail { Oid = LookupDetailRsdPharmacySaleCancel, MasterID = LookupMasterRsdOperationType, ValueCode = "PHARMACY_SALE_CANCEL", ValueNameAr = "إلغاء بيع صيدلية", ValueNameEn = "Pharmacy Sale Cancel", SortOrder = 3, IsDefault = false, IsActive = true },
+            new AppLookupDetail { Oid = LookupDetailRsdReturnBatch, MasterID = LookupMasterRsdOperationType, ValueCode = "RETURN_BATCH", ValueNameAr = "إرجاع دفعة", ValueNameEn = "Return Batch", SortOrder = 4, IsDefault = false, IsActive = true }
         });
 
         // ========================================

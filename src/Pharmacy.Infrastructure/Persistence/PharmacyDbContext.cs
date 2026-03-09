@@ -39,6 +39,10 @@ public class PharmacyDbContext : DbContext
     // Integrations
     public DbSet<IntegrationProvider> IntegrationProviders { get; set; }
     public DbSet<BranchIntegrationSetting> BranchIntegrationSettings { get; set; }
+
+    // RSD Operation Logs
+    public DbSet<RsdOperationLog> RsdOperationLogs { get; set; }
+    public DbSet<RsdOperationLogDetail> RsdOperationLogDetails { get; set; }
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);

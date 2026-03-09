@@ -42,12 +42,18 @@ public class StakeholderRepository : BaseRepository<Stakeholder>, IStakeholderRe
     public async Task<bool> IsGLNUniqueAsync(string gln, Guid? excludeId = null, CancellationToken cancellationToken = default)
     {
         var query = _dbSet.Where(s => s.GLN == gln && !s.IsDeleted);
-        
+
         if (excludeId.HasValue)
         {
             query = query.Where(s => s.Oid != excludeId.Value);
         }
-        
+
         return !await query.AnyAsync(cancellationToken);
+    }
+
+    public async Task<Stakeholder?> GetByGLNAsync(string gln, CancellationToken cancellationToken = default)
+    {
+        return await _dbSet
+            .FirstOrDefaultAsync(s => s.GLN == gln && !s.IsDeleted, cancellationToken);
     }
 }

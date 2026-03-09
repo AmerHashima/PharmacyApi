@@ -616,6 +616,144 @@ namespace Pharmacy.Infrastructure.Migrations
                     b.ToTable("Roles");
                 });
 
+            modelBuilder.Entity("Pharmacy.Domain.Entities.RsdOperationLog", b =>
+                {
+                    b.Property<Guid>("Oid")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("BranchId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("GLN")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("NotificationId")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<Guid?>("OperationTypeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("RawResponse")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("RequestedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ResponseCode")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("ResponseMessage")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<int?>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("Success")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Oid");
+
+                    b.HasIndex("BranchId");
+
+                    b.HasIndex("OperationTypeId");
+
+                    b.ToTable("RsdOperationLogs");
+                });
+
+            modelBuilder.Entity("Pharmacy.Domain.Entities.RsdOperationLogDetail", b =>
+                {
+                    b.Property<Guid>("Oid")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("BatchNumber")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime?>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ExpiryDate")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("GTIN")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<Guid?>("ProductId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ResponseCode")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<Guid>("RsdOperationLogId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("SerialNumber")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int?>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Oid");
+
+                    b.HasIndex("ProductId");
+
+                    b.HasIndex("RsdOperationLogId");
+
+                    b.ToTable("RsdOperationLogDetails");
+                });
+
             modelBuilder.Entity("Pharmacy.Domain.Entities.SalesInvoice", b =>
                 {
                     b.Property<Guid>("Oid")
@@ -1373,6 +1511,40 @@ namespace Pharmacy.Infrastructure.Migrations
                     b.Navigation("Supplier");
                 });
 
+            modelBuilder.Entity("Pharmacy.Domain.Entities.RsdOperationLog", b =>
+                {
+                    b.HasOne("Pharmacy.Domain.Entities.Branch", "Branch")
+                        .WithMany()
+                        .HasForeignKey("BranchId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Pharmacy.Domain.Entities.AppLookupDetail", "OperationType")
+                        .WithMany()
+                        .HasForeignKey("OperationTypeId");
+
+                    b.Navigation("Branch");
+
+                    b.Navigation("OperationType");
+                });
+
+            modelBuilder.Entity("Pharmacy.Domain.Entities.RsdOperationLogDetail", b =>
+                {
+                    b.HasOne("Pharmacy.Domain.Entities.Product", "Product")
+                        .WithMany()
+                        .HasForeignKey("ProductId");
+
+                    b.HasOne("Pharmacy.Domain.Entities.RsdOperationLog", "RsdOperationLog")
+                        .WithMany("Details")
+                        .HasForeignKey("RsdOperationLogId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Product");
+
+                    b.Navigation("RsdOperationLog");
+                });
+
             modelBuilder.Entity("Pharmacy.Domain.Entities.SalesInvoice", b =>
                 {
                     b.HasOne("Pharmacy.Domain.Entities.Branch", "Branch")
@@ -1584,6 +1756,11 @@ namespace Pharmacy.Infrastructure.Migrations
             modelBuilder.Entity("Pharmacy.Domain.Entities.Role", b =>
                 {
                     b.Navigation("Users");
+                });
+
+            modelBuilder.Entity("Pharmacy.Domain.Entities.RsdOperationLog", b =>
+                {
+                    b.Navigation("Details");
                 });
 
             modelBuilder.Entity("Pharmacy.Domain.Entities.SalesInvoice", b =>

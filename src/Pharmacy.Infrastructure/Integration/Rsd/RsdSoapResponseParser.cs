@@ -162,6 +162,80 @@ public static class RsdSoapResponseParser
         catch (Exception ex) { return new PharmacySaleCancelResponseDto { Success = false, ResponseCode = "PARSE_EXCEPTION", ResponseMessage = $"Failed to parse: {ex.Message}", RawResponse = rawXml }; }
     }
 
+    public static StakeholderListResponseDto ParseStakeholderListResponse(string rawXml)
+    {
+        try
+        {
+            var doc = XDocument.Parse(rawXml);
+            var body = FindBody(doc);
+            if (body == null) return new StakeholderListResponseDto { Success = false, ResponseCode = "PARSE_ERROR", ResponseMessage = "Could not find SOAP Body", RawResponse = rawXml };
+            var fault = ParseFault(body);
+            if (fault != null) return new StakeholderListResponseDto { Success = false, ResponseCode = "SOAP_FAULT", ResponseMessage = fault, RawResponse = rawXml };
+
+            var resp = body.Descendants().FirstOrDefault(e => e.Name.LocalName == "StakeholderListServiceResponse");
+            if (resp == null) return new StakeholderListResponseDto { Success = false, ResponseCode = "NO_RESPONSE", ResponseMessage = "StakeholderListServiceResponse not found", RawResponse = rawXml };
+
+            var stakeholders = resp.Descendants()
+                .Where(e => e.Name.LocalName == "STAKEHOLDER")
+                .Select(s => new RsdStakeholderDto
+                {
+                    GLN = GetValue(s, "GLN") ?? string.Empty,
+                    StakeholderName = GetValue(s, "STAKEHOLDERNAME"),
+                    CityName = GetValue(s, "CITYNAME"),
+                    Address = GetValue(s, "ADDRESS"),
+                    IsActive = GetValue(s, "ISACTIVE")?.Equals("true", StringComparison.OrdinalIgnoreCase) ?? false
+                })
+                .Where(s => !string.IsNullOrEmpty(s.GLN))
+                .ToList();
+
+            return new StakeholderListResponseDto
+            {
+                Success = true,
+                ResponseCode = "OK",
+                ResponseMessage = $"Found {stakeholders.Count} stakeholder(s)",
+                TotalCount = stakeholders.Count,
+                Stakeholders = stakeholders,
+                RawResponse = rawXml
+            };
+        }
+        catch (Exception ex) { return new StakeholderListResponseDto { Success = false, ResponseCode = "PARSE_EXCEPTION", ResponseMessage = $"Failed to parse: {ex.Message}", RawResponse = rawXml }; }
+    }
+
+    public static ReturnBatchResponseDto ParseReturnBatchResponse(string rawXml)
+    {
+        try
+        {
+            var doc = XDocument.Parse(rawXml);
+            var body = FindBody(doc);
+            if (body == null) return new ReturnBatchResponseDto { Success = false, ResponseCode = "PARSE_ERROR", ResponseMessage = "Could not find SOAP Body", RawResponse = rawXml };
+            var fault = ParseFault(body);
+            if (fault != null) return new ReturnBatchResponseDto { Success = false, ResponseCode = "SOAP_FAULT", ResponseMessage = fault, RawResponse = rawXml };
+
+            var resp = body.Descendants().FirstOrDefault(e => e.Name.LocalName == "ReturnBatchServiceResponse");
+            if (resp == null) return new ReturnBatchResponseDto { Success = false, ResponseCode = "NO_RESPONSE", ResponseMessage = "ReturnBatchServiceResponse not found", RawResponse = rawXml };
+
+            var notifId = GetValue(resp, "NOTIFICATIONID");
+
+            var products = resp.Descendants().Where(e => e.Name.LocalName == "PRODUCT")
+                .Select(p => new ReturnBatchProductResultDto
+                {
+                    GTIN = GetValue(p, "GTIN") ?? string.Empty,
+                    BatchNumber = GetValue(p, "BN"),
+                    ExpiryDate = GetValue(p, "XD"),
+                    Quantity = int.TryParse(GetValue(p, "QUANTITY"), out var qty) ? qty : 0,
+                    ResponseCode = GetValue(p, "RC")
+                }).ToList();
+
+            return new ReturnBatchResponseDto
+            {
+                Success = true, ResponseCode = "OK",
+                ResponseMessage = $"Return batch submitted with {products.Count} product(s), NotificationId: {notifId}",
+                NotificationId = notifId, Products = products, RawResponse = rawXml
+            };
+        }
+        catch (Exception ex) { return new ReturnBatchResponseDto { Success = false, ResponseCode = "PARSE_EXCEPTION", ResponseMessage = $"Failed to parse: {ex.Message}", RawResponse = rawXml }; }
+    }
+
     // ── Shared helpers ──
 
     private static XElement? FindBody(XDocument doc) =>

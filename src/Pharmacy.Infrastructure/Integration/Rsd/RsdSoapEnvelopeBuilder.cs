@@ -123,6 +123,54 @@ public static class RsdSoapEnvelopeBuilder
             """;
     }
 
+    public static string BuildStakeholderListEnvelope(int stakeholderType, bool getAll, string? cityId)
+    {
+        var cityElement = string.IsNullOrEmpty(cityId) ? "<CITYID/>" : $"<CITYID>{EscapeXml(cityId)}</CITYID>";
+
+        return $"""
+            <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:stak="http://dtts.sfda.gov.sa/StakeholderListService">
+               <soapenv:Header/>
+               <soapenv:Body>
+                  <stak:StakeholderListServiceRequest>
+                     <STAKEHOLDERTYPE>{stakeholderType}</STAKEHOLDERTYPE>
+                     <GETALL>{getAll.ToString().ToLower()}</GETALL>
+                     {cityElement}
+                  </stak:StakeholderListServiceRequest>
+               </soapenv:Body>
+            </soapenv:Envelope>
+            """;
+    }
+
+    public static string BuildReturnBatchEnvelope(string toGln, List<ReturnBatchProductItemDto> products)
+    {
+        var productListXml = new StringBuilder();
+        foreach (var product in products)
+        {
+            productListXml.AppendLine($"""
+                        <PRODUCT>
+                           <GTIN>{EscapeXml(product.GTIN)}</GTIN>
+                           <BN>{EscapeXml(product.BatchNumber)}</BN>
+                           <XD>{EscapeXml(product.ExpiryDate)}</XD>
+                           <QUANTITY>{product.Quantity}</QUANTITY>
+                        </PRODUCT>
+            """);
+        }
+
+        return $"""
+            <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:ret="http://dtts.sfda.gov.sa/ReturnBatchService">
+               <soapenv:Header/>
+               <soapenv:Body>
+                  <ret:ReturnBatchServiceRequest>
+                     <TOGLN>{EscapeXml(toGln)}</TOGLN>
+                     <PRODUCTLIST>
+            {productListXml}
+                     </PRODUCTLIST>
+                  </ret:ReturnBatchServiceRequest>
+               </soapenv:Body>
+            </soapenv:Envelope>
+            """;
+    }
+
     private static string EscapeXml(string value)
     {
         return value

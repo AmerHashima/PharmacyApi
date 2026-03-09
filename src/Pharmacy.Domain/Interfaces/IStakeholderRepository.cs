@@ -28,4 +28,9 @@ public interface IStakeholderRepository : IBaseRepository<Stakeholder>
     /// Check if GLN is unique
     /// </summary>
     Task<bool> IsGLNUniqueAsync(string gln, Guid? excludeId = null, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Get stakeholder by GLN
+    /// </summary>
+    Task<Stakeholder?> GetByGLNAsync(string gln, CancellationToken cancellationToken = default);
 }

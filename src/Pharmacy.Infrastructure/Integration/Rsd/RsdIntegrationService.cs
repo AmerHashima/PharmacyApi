@@ -22,6 +22,8 @@ public class RsdIntegrationService : IRsdIntegrationService
     private const string AcceptBatchPath = "/AcceptBatchService/AcceptBatchService";
     private const string PharmacySalePath = "/PharmacySaleService/PharmacySaleService";
     private const string PharmacySaleCancelPath = "/PharmacySaleCancelService/PharmacySaleCancelService";
+    private const string StakeholderListPath = "/StakeholderListService/StakeholderListService";
+    private const string ReturnBatchPath = "/ReturnBatchService/ReturnBatchService";
 
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly IBranchIntegrationSettingRepository _settingRepository;
@@ -119,6 +121,41 @@ public class RsdIntegrationService : IRsdIntegrationService
         var result = RsdSoapResponseParser.ParsePharmacySaleCancelResponse(rawResponse);
 
         _logger.LogInformation("RSD PharmacySaleCancel - NotificationId: {Id}, Success: {Success}, Products: {Count}",
+            result.NotificationId, result.Success, result.Products.Count);
+        return result;
+    }
+
+    public async Task<StakeholderListResponseDto> GetStakeholderListAsync(StakeholderListRequestDto request, CancellationToken cancellationToken = default)
+    {
+        var settings = await ResolveSettingsAsync(request.BranchId);
+        var endpoint = settings.BuildUrl(StakeholderListPath);
+        var soapEnvelope = RsdSoapEnvelopeBuilder.BuildStakeholderListEnvelope(request.StakeholderType, request.GetAll, request.CityId);
+
+            //_logger.LogInformation("RSD StakeholderList - Branch: {BranchId}, Type: {Type}, GetAll: {GetAll}",
+            //    request.BranchId, request.StakeholderType, request.GetAll);
+
+        var rawResponse = await SendSoapRequestAsync(settings, endpoint, soapEnvelope, "StakeholderListService", cancellationToken);
+        var result = RsdSoapResponseParser.ParseStakeholderListResponse(rawResponse);
+
+        //_logger.LogInformation("RSD StakeholderList - Success: {Success}, Count: {Count}",
+        //    result.Success, result.TotalCount);
+        return result;
+    }
+
+    public async Task<ReturnBatchResponseDto> ReturnBatchAsync(ReturnBatchRequestDto request, CancellationToken cancellationToken = default)
+    {
+        var settings = await ResolveSettingsAsync(request.BranchId);
+        var endpoint = settings.BuildUrl(ReturnBatchPath);
+        var toGln = await ResolveGlnAsync(request.BranchId, request.ToGLN, cancellationToken);
+        var soapEnvelope = RsdSoapEnvelopeBuilder.BuildReturnBatchEnvelope(toGln, request.Products);
+
+        _logger.LogInformation("RSD ReturnBatch - Branch: {BranchId}, ToGLN: {GLN}, Products: {Count}",
+            request.BranchId, toGln, request.Products.Count);
+
+        var rawResponse = await SendSoapRequestAsync(settings, endpoint, soapEnvelope, "ReturnBatchService", cancellationToken);
+        var result = RsdSoapResponseParser.ParseReturnBatchResponse(rawResponse);
+
+        _logger.LogInformation("RSD ReturnBatch - NotificationId: {Id}, Success: {Success}, Products: {Count}",
             result.NotificationId, result.Success, result.Products.Count);
         return result;
     }

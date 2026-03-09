@@ -1,0 +1,57 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
+  </ItemGroup>
+
+  <!--
+    Copy the ZATCA SDK DLLs into the lib/ folder at the solution root.
+    Download them from the official zatca-einvoicing-sdk package
+    (Lib\.Net\DLL\Zatca.EInvoice.SDK\net4\).
+  -->
+  <ItemGroup>
+    <Reference Include="BouncyCastle.Crypto">
+      <HintPath>..\lib\BouncyCastle.Crypto.dll</HintPath>
+    </Reference>
+    <Reference Include="IKVM.OpenJDK.Charsets">
+      <HintPath>..\lib\IKVM.OpenJDK.Charsets.dll</HintPath>
+    </Reference>
+    <Reference Include="IKVM.OpenJDK.Core">
+      <HintPath>..\lib\IKVM.OpenJDK.Core.dll</HintPath>
+    </Reference>
+    <Reference Include="IKVM.OpenJDK.Localedata">
+      <HintPath>..\lib\IKVM.OpenJDK.Localedata.dll</HintPath>
+    </Reference>
+    <Reference Include="IKVM.OpenJDK.Text">
+      <HintPath>..\lib\IKVM.OpenJDK.Text.dll</HintPath>
+    </Reference>
+    <Reference Include="IKVM.OpenJDK.Util">
+      <HintPath>..\lib\IKVM.OpenJDK.Util.dll</HintPath>
+    </Reference>
+    <Reference Include="IKVM.OpenJDK.XML.API">
+      <HintPath>..\lib\IKVM.OpenJDK.XML.API.dll</HintPath>
+    </Reference>
+    <Reference Include="IKVM.Runtime">
+      <HintPath>..\lib\IKVM.Runtime.dll</HintPath>
+    </Reference>
+    <Reference Include="saxon-he-10.9">
+      <HintPath>..\lib\saxon-he-10.9.dll</HintPath>
+    </Reference>
+    <Reference Include="saxon-he-api-10.9">
+      <HintPath>..\lib\saxon-he-api-10.9.dll</HintPath>
+    </Reference>
+    <Reference Include="Zatca.EInvoice.SDK">
+      <HintPath>..\lib\Zatca.EInvoice.SDK.dll</HintPath>
+    </Reference>
+    <Reference Include="Zatca.EInvoice.SDK.Contracts">
+      <HintPath>..\lib\Zatca.EInvoice.SDK.Contracts.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+</Project>

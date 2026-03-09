@@ -8,7 +8,9 @@ using Pharmacy.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Pharmacy.Infrastructure.Integration.Rsd; 
+using Pharmacy.Infrastructure.Integration.Rsd;
+using Pharmacy.Infrastructure.Integration.Zatca;
+
 namespace Pharmacy.Infrastructure;
 
 public static class DependencyInjection
@@ -62,6 +64,7 @@ public static class DependencyInjection
         // ====================================
         services.AddScoped<IIntegrationProviderRepository, IntegrationProviderRepository>();
         services.AddScoped<IBranchIntegrationSettingRepository, BranchIntegrationSettingRepository>();
+        services.AddScoped<IRsdOperationLogRepository, RsdOperationLogRepository>();
 
         // ====================================
         // Register AutoMapper
@@ -85,6 +88,15 @@ public static class DependencyInjection
 
         // RSD Integration Service
         services.AddScoped<IRsdIntegrationService, RsdIntegrationService>();
+
+        // HttpClient for ZATCA integration
+        services.AddHttpClient("ZatcaClient", client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(60);
+        });
+
+        // ZATCA Integration Service
+        services.AddScoped<IZatcaIntegrationService, ZatcaIntegrationService>();
 
         return services;
     }
