@@ -19,11 +19,38 @@
     <Reference Include="BouncyCastle.Crypto">
       <HintPath>..\lib\BouncyCastle.Crypto.dll</HintPath>
     </Reference>
+    <Reference Include="IKVM.ByteCode">
+      <HintPath>Package\IKVM.ByteCode.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.Extensions.DependencyModel">
+      <HintPath>Package\Microsoft.Extensions.DependencyModel.dll</HintPath>
+    </Reference>
+    <Reference Include="Newtonsoft.Json">
+      <HintPath>Package\Newtonsoft.Json.dll</HintPath>
+    </Reference>
+    <Reference Include="saxon">
+      <HintPath>Package\saxon.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Data.Odbc">
+      <HintPath>Package\System.Data.Odbc.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Security.Cryptography.Pkcs">
+      <HintPath>Package\System.Security.Cryptography.Pkcs.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Security.Cryptography.Xml">
+      <HintPath>Package\System.Security.Cryptography.Xml.dll</HintPath>
+    </Reference>
+    <Reference Include="xerces">
+      <HintPath>Package\xerces.dll</HintPath>
+    </Reference>
     <Reference Include="Zatca.EInvoice.SDK">
       <HintPath>..\lib\Zatca.EInvoice.SDK.dll</HintPath>
     </Reference>
     <Reference Include="Zatca.EInvoice.SDK.Contracts">
       <HintPath>..\lib\Zatca.EInvoice.SDK.Contracts.dll</HintPath>
+    </Reference>
+    <Reference Include="ZATCA.EInvoice.SDK.Saxon">
+      <HintPath>Package\ZATCA.EInvoice.SDK.Saxon.dll</HintPath>
     </Reference>
   </ItemGroup>
 
