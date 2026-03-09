@@ -8,6 +8,8 @@ COPY src/Pharmacy.Api/*.csproj ./src/Pharmacy.Api/
 COPY src/Pharmacy.Application/*.csproj ./src/Pharmacy.Application/
 COPY src/Pharmacy.Domain/*.csproj ./src/Pharmacy.Domain/
 COPY src/Pharmacy.Infrastructure/*.csproj ./src/Pharmacy.Infrastructure/
+COPY src/Zatca/*.csproj ./src/Zatca/
+
 # Copy test projects (IMPORTANT FIX)
 COPY tests/Pharmacy.UnitTests/*.csproj ./tests/Pharmacy.UnitTests/
 COPY tests/Pharmacy.IntegrationTests/*.csproj ./tests/Pharmacy.IntegrationTests/
