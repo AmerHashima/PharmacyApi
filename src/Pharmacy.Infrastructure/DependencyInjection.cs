@@ -49,6 +49,7 @@ public static class DependencyInjection
         // ====================================
         services.AddScoped<IProductRepository, ProductRepository>();
         services.AddScoped<IProductBatchRepository, ProductBatchRepository>();
+        services.AddScoped<IProductUnitRepository, ProductUnitRepository>();
         services.AddScoped<IStockRepository, StockRepository>();
         services.AddScoped<IStockTransactionRepository, StockTransactionRepository>();
         services.AddScoped<IStockTransactionDetailRepository, StockTransactionDetailRepository>();

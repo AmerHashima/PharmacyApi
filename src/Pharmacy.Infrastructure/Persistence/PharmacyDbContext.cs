@@ -28,6 +28,7 @@ public class PharmacyDbContext : DbContext
     // Products & Inventory
     public DbSet<Product> Products { get; set; }
     public DbSet<ProductBatch> ProductBatches { get; set; }
+    public DbSet<ProductUnit> ProductUnits { get; set; }
     public DbSet<Stock> Stocks { get; set; }
     public DbSet<StockTransaction> StockTransactions { get; set; }
     public DbSet<StockTransactionDetail> StockTransactionDetails { get; set; }

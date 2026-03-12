@@ -159,4 +159,5 @@ public class Product : BaseEntity
     public virtual ICollection<StockTransaction> StockTransactions { get; set; } = new List<StockTransaction>();
     public virtual ICollection<SalesInvoiceItem> SalesInvoiceItems { get; set; } = new List<SalesInvoiceItem>();
     public virtual ICollection<ProductBatch> Batches { get; set; } = new List<ProductBatch>();
+    public virtual ICollection<ProductUnit> Units { get; set; } = new List<ProductUnit>();
 }
