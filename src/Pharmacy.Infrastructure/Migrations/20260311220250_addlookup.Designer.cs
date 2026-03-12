@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Pharmacy.Infrastructure.Persistence;
 
@@ -11,9 +12,11 @@ using Pharmacy.Infrastructure.Persistence;
 namespace Pharmacy.Infrastructure.Migrations
 {
     [DbContext(typeof(PharmacyDbContext))]
-    partial class PharmacyDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260311220250_addlookup")]
+    partial class addlookup
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1079,10 +1082,6 @@ namespace Pharmacy.Infrastructure.Migrations
                     b.Property<decimal?>("AverageCost")
                         .HasColumnType("decimal(18,2)");
 
-                    b.Property<string>("BatchNumber")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
                     b.Property<Guid>("BranchId")
                         .HasColumnType("uniqueidentifier");
 
@@ -1097,9 +1096,6 @@ namespace Pharmacy.Infrastructure.Migrations
 
                     b.Property<Guid?>("DeletedBy")
                         .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime?>("ExpiryDate")
-                        .HasColumnType("datetime2");
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
@@ -1131,9 +1127,7 @@ namespace Pharmacy.Infrastructure.Migrations
 
                     b.HasIndex("BranchId");
 
-                    b.HasIndex("ProductId", "BranchId", "BatchNumber")
-                        .IsUnique()
-                        .HasFilter("[IsDeleted] = 0");
+                    b.HasIndex("ProductId");
 
                     b.ToTable("Stock");
                 });

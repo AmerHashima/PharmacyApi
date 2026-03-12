@@ -84,6 +84,12 @@ public class PharmacyDbContext : DbContext
             .Property(p => p.Price)
             .HasPrecision(18, 2);
 
+        // 🔹 Unique index: Stock is tracked per Product + Branch + BatchNumber
+        modelBuilder.Entity<Stock>()
+            .HasIndex(s => new { s.ProductId, s.BranchId, s.BatchNumber })
+            .IsUnique()
+            .HasFilter("[IsDeleted] = 0");
+
         modelBuilder.Entity<Stock>()
             .Property(s => s.Quantity)
             .HasPrecision(18, 2);

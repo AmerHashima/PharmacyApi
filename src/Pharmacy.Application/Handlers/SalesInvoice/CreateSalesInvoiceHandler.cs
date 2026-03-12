@@ -63,7 +63,8 @@ public class CreateSalesInvoiceHandler : IRequestHandler<CreateSalesInvoiceComma
             if (!await _stockRepository.HasSufficientStockAsync(
                 item.ProductId, 
                 request.Invoice.BranchId, 
-                item.Quantity, 
+                item.Quantity,
+                item.BatchNumber,
                 cancellationToken))
             {
                 throw new InvalidOperationException($"Insufficient stock for product '{product.DrugName}'");
@@ -180,7 +181,9 @@ public class CreateSalesInvoiceHandler : IRequestHandler<CreateSalesInvoiceComma
             await _stockRepository.UpdateQuantityAsync(
                 item.ProductId, 
                 request.Invoice.BranchId, 
-                -item.Quantity, 
+                -item.Quantity,
+                item.BatchNumber,
+                item.ExpiryDate,
                 cancellationToken);
         }
 

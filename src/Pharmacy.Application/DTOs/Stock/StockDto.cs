@@ -11,6 +11,8 @@ public class StockDto
     public string? ProductGTIN { get; set; }
     public Guid BranchId { get; set; }
     public string BranchName { get; set; } = string.Empty;
+    public string? BatchNumber { get; set; }
+    public DateTime? ExpiryDate { get; set; }
     public decimal? Quantity { get; set; }
     public decimal? ReservedQuantity { get; set; }
     public decimal AvailableQuantity => (Quantity ?? 0) - (ReservedQuantity ?? 0);

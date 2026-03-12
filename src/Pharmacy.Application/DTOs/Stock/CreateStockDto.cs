@@ -13,6 +13,11 @@ public class CreateStockDto
     [Required(ErrorMessage = "Branch ID is required")]
     public Guid BranchId { get; set; }
 
+    [MaxLength(100)]
+    public string? BatchNumber { get; set; }
+
+    public DateTime? ExpiryDate { get; set; }
+
     [Range(0, double.MaxValue, ErrorMessage = "Quantity must be a positive value")]
     public decimal? Quantity { get; set; }
 

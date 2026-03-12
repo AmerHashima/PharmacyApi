@@ -5,8 +5,9 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace Pharmacy.Domain.Entities;
 
 /// <summary>
-/// Represents current inventory levels of products at each branch.
+/// Represents current inventory levels of products at each branch per batch.
 /// Tracks available and reserved quantities.
+/// Stock is uniquely identified by ProductId + BranchId + BatchNumber.
 /// </summary>
 [Table("Stock")]
 public class Stock : BaseEntity
@@ -22,6 +23,17 @@ public class Stock : BaseEntity
 
     [ForeignKey(nameof(BranchId))]
     public virtual Branch Branch { get; set; } = null!;
+
+    /// <summary>
+    /// Batch/Lot number — stock is tracked per batch
+    /// </summary>
+    [MaxLength(100)]
+    public string? BatchNumber { get; set; }
+
+    /// <summary>
+    /// Expiry date for this batch
+    /// </summary>
+    public DateTime? ExpiryDate { get; set; }
 
     /// <summary>
     /// Total available quantity in stock

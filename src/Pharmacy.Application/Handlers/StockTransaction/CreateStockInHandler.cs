@@ -93,7 +93,9 @@ public class CreateStockInHandler : IRequestHandler<CreateStockInCommand, StockT
         await _stockRepository.UpdateQuantityAsync(
             request.StockIn.ProductId, 
             request.StockIn.ToBranchId, 
-            request.StockIn.Quantity, 
+            request.StockIn.Quantity,
+            request.StockIn.BatchNumber,
+            request.StockIn.ExpiryDate,
             cancellationToken);
 
         return _mapper.Map<StockTransactionDto>(createdTransaction);

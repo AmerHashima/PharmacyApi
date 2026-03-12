@@ -140,16 +140,11 @@ public static class LookupSeeder
     #endregion
 
     /// <summary>
-    /// Seeds all lookup data for the pharmacy system
+    /// Seeds all lookup data for the pharmacy system.
+    /// Only inserts masters and details that do not already exist (by Oid).
     /// </summary>
     public static async Task SeedLookupDataAsync(PharmacyDbContext context)
     {
-        // Check if already seeded
-        if (await context.AppLookupMasters.AnyAsync())
-        {
-            return;
-        }
-
         var masters = new List<AppLookupMaster>();
         var details = new List<AppLookupDetail>();
 
@@ -445,12 +440,30 @@ public static class LookupSeeder
         });
 
         // ========================================
-        // Save all data
+        // Save only what doesn't already exist
         // ========================================
-        context.AppLookupMasters.AddRange(masters);
-        await context.SaveChangesAsync();
+        var existingMasterIds = (await context.AppLookupMasters
+            .Select(m => m.Oid)
+            .ToListAsync())
+            .ToHashSet();
 
-        context.AppLookupDetails.AddRange(details);
-        await context.SaveChangesAsync();
+        var newMasters = masters.Where(m => !existingMasterIds.Contains(m.Oid)).ToList();
+        if (newMasters.Count > 0)
+        {
+            context.AppLookupMasters.AddRange(newMasters);
+            await context.SaveChangesAsync();
+        }
+
+        var existingDetailIds = (await context.AppLookupDetails
+            .Select(d => d.Oid)
+            .ToListAsync())
+            .ToHashSet();
+
+        var newDetails = details.Where(d => !existingDetailIds.Contains(d.Oid)).ToList();
+        if (newDetails.Count > 0)
+        {
+            context.AppLookupDetails.AddRange(newDetails);
+            await context.SaveChangesAsync();
+        }
     }
 }

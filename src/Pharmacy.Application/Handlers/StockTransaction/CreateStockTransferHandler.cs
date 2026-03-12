@@ -67,7 +67,8 @@ public class CreateStockTransferHandler : IRequestHandler<CreateStockTransferCom
         if (!await _stockRepository.HasSufficientStockAsync(
             request.Transfer.ProductId, 
             request.Transfer.FromBranchId, 
-            request.Transfer.Quantity, 
+            request.Transfer.Quantity,
+            request.Transfer.BatchNumber,
             cancellationToken))
         {
             throw new InvalidOperationException("Insufficient stock available for transfer");
@@ -114,14 +115,18 @@ public class CreateStockTransferHandler : IRequestHandler<CreateStockTransferCom
         await _stockRepository.UpdateQuantityAsync(
             request.Transfer.ProductId, 
             request.Transfer.FromBranchId, 
-            -request.Transfer.Quantity, 
+            -request.Transfer.Quantity,
+            request.Transfer.BatchNumber,
+            request.Transfer.ExpiryDate,
             cancellationToken);
 
         // Increase stock at destination branch
         await _stockRepository.UpdateQuantityAsync(
             request.Transfer.ProductId, 
             request.Transfer.ToBranchId, 
-            request.Transfer.Quantity, 
+            request.Transfer.Quantity,
+            request.Transfer.BatchNumber,
+            request.Transfer.ExpiryDate,
             cancellationToken);
 
         return _mapper.Map<StockTransactionDto>(createdTransaction);
