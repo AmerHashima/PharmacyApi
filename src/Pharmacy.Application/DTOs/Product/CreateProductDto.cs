@@ -12,7 +12,7 @@ public class CreateProductDto
     public Guid? ProductTypeId { get; set; }
     public string? StrengthValue { get; set; }
     public string? StrengthUnit { get; set; }
-    public string? PackageType { get; set; }
+    public Guid? PackageTypeId { get; set; }
     public string? PackageSize { get; set; }
     public decimal? Price { get; set; }
     public string? RegistrationNumber { get; set; }

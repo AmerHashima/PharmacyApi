@@ -313,7 +313,11 @@ try
         await Pharmacy.Infrastructure.Data.LookupSeeder.SeedLookupDataAsync(context);
         logger.LogInformation("Lookup data seeded successfully");
 
-        // 2. Seed pharmacy sample data (Branches, Users, Products, Stock, Sales)
+        // 2. Seed additional lookup data and roles (insert only non-existing)
+        await Pharmacy.Infrastructure.Persistence.PharmacyDbContextSeed.SeedAsync(context);
+        logger.LogInformation("PharmacyDbContextSeed data seeded successfully");
+
+        // 3. Seed pharmacy sample data (Branches, Users, Products, Stock, Sales)
       //  await Pharmacy.Infrastructure.Data.PharmacySeeder.SeedAsync(context);
        // logger.LogInformation("Pharmacy data seeded successfully");
     }

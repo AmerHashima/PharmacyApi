@@ -35,9 +35,9 @@ public class CreateProductDtoValidator : AbstractValidator<CreateProductDto>
             .MaximumLength(50).WithMessage("Strength unit cannot exceed 50 characters")
             .When(x => !string.IsNullOrEmpty(x.StrengthUnit));
 
-        RuleFor(x => x.PackageType)
-            .MaximumLength(100).WithMessage("Package type cannot exceed 100 characters")
-            .When(x => !string.IsNullOrEmpty(x.PackageType));
+        //RuleFor(x => x.PackageType)
+        //    .MaximumLength(100).WithMessage("Package type cannot exceed 100 characters")
+        //    .When(x => !string.IsNullOrEmpty(x.PackageType));
 
         RuleFor(x => x.PackageSize)
             .MaximumLength(50).WithMessage("Package size cannot exceed 50 characters")
