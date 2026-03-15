@@ -61,6 +61,18 @@ public static class DependencyInjection
         services.AddScoped<ISalesInvoiceItemRepository, SalesInvoiceItemRepository>();
 
         // ====================================
+        // Register repositories - Returns & Refunds
+        // ====================================
+        services.AddScoped<IReturnInvoiceRepository, ReturnInvoiceRepository>();
+        services.AddScoped<IReturnInvoiceItemRepository, ReturnInvoiceItemRepository>();
+
+        // ====================================
+        // Register repositories - Stock Transaction Returns
+        // ====================================
+        services.AddScoped<IStockTransactionReturnRepository, StockTransactionReturnRepository>();
+        services.AddScoped<IStockTransactionReturnDetailRepository, StockTransactionReturnDetailRepository>();
+
+        // ====================================
         // Register repositories - Integrations
         // ====================================
         services.AddScoped<IIntegrationProviderRepository, IntegrationProviderRepository>();

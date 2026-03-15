@@ -5,15 +5,24 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace Pharmacy.Domain.Entities;
 
 /// <summary>
-/// Represents a sales transaction/invoice from POS.
-/// Contains header information for a sale.
+/// Represents a return/refund invoice.
+/// Contains header information for a return against an original sales invoice.
 /// </summary>
-[Table("SalesInvoices")]
-public class SalesInvoice : BaseEntity
+[Table("ReturnInvoices")]
+public class ReturnInvoice : BaseEntity
 {
     [Required]
     [MaxLength(50)]
-    public string InvoiceNumber { get; set; } = string.Empty;
+    public string ReturnNumber { get; set; } = string.Empty;
+
+    /// <summary>
+    /// FK to the original sales invoice being returned
+    /// </summary>
+    [Required]
+    public Guid OriginalInvoiceId { get; set; }
+
+    [ForeignKey(nameof(OriginalInvoiceId))]
+    public virtual SalesInvoice OriginalInvoice { get; set; } = null!;
 
     [Required]
     public Guid BranchId { get; set; }
@@ -32,12 +41,6 @@ public class SalesInvoice : BaseEntity
     /// </summary>
     [MaxLength(50)]
     public string? CustomerPhone { get; set; }
-
-    /// <summary>
-    /// Customer email
-    /// </summary>
-    [MaxLength(100)]
-    public string? CustomerEmail { get; set; }
 
     /// <summary>
     /// Total amount before discount
@@ -64,30 +67,24 @@ public class SalesInvoice : BaseEntity
     public decimal? TaxAmount { get; set; }
 
     /// <summary>
-    /// Final total amount
+    /// Final total refund amount
     /// </summary>
     [Column(TypeName = "decimal(18,2)")]
     public decimal? TotalAmount { get; set; }
 
     /// <summary>
-    /// Amount paid by customer
+    /// Amount refunded to customer
     /// </summary>
     [Column(TypeName = "decimal(18,2)")]
-    public decimal? PaidAmount { get; set; }
+    public decimal? RefundAmount { get; set; }
 
     /// <summary>
-    /// Change returned to customer
+    /// Return date and time
     /// </summary>
-    [Column(TypeName = "decimal(18,2)")]
-    public decimal? ChangeAmount { get; set; }
+    public DateTime? ReturnDate { get; set; }
 
     /// <summary>
-    /// Invoice date and time
-    /// </summary>
-    public DateTime? InvoiceDate { get; set; }
-
-    /// <summary>
-    /// FK to AppLookupDetail - Payment method (Cash, Card, Credit, etc.)
+    /// FK to AppLookupDetail - Payment method for refund (Cash, Card, Credit, etc.)
     /// </summary>
     public Guid? PaymentMethodId { get; set; }
 
@@ -95,7 +92,7 @@ public class SalesInvoice : BaseEntity
     public virtual AppLookupDetail? PaymentMethod { get; set; }
 
     /// <summary>
-    /// FK to AppLookupDetail - Invoice status (Pending, Completed, Cancelled, Refunded)
+    /// FK to AppLookupDetail - Invoice status (Pending, Completed, Cancelled)
     /// </summary>
     public Guid? InvoiceStatusId { get; set; }
 
@@ -103,7 +100,7 @@ public class SalesInvoice : BaseEntity
     public virtual AppLookupDetail? InvoiceStatus { get; set; }
 
     /// <summary>
-    /// Cashier who processed the sale
+    /// Cashier who processed the return
     /// </summary>
     public Guid? CashierId { get; set; }
 
@@ -111,16 +108,12 @@ public class SalesInvoice : BaseEntity
     public virtual SystemUser? Cashier { get; set; }
 
     /// <summary>
-    /// Prescription number if applicable
+    /// FK to AppLookupDetail - Return reason
     /// </summary>
-    [MaxLength(50)]
-    public string? PrescriptionNumber { get; set; }
+    public Guid? ReturnReasonId { get; set; }
 
-    /// <summary>
-    /// Doctor name for prescription sales
-    /// </summary>
-    [MaxLength(200)]
-    public string? DoctorName { get; set; }
+    [ForeignKey(nameof(ReturnReasonId))]
+    public virtual AppLookupDetail? ReturnReason { get; set; }
 
     /// <summary>
     /// Notes or remarks
@@ -129,7 +122,6 @@ public class SalesInvoice : BaseEntity
     public string? Notes { get; set; }
 
     // Navigation Properties
-    public virtual ICollection<SalesInvoiceItem> Items { get; set; } = new List<SalesInvoiceItem>();
-    public virtual ICollection<StockTransaction> StockTransactions { get; set; } = new List<StockTransaction>();
-    public virtual ICollection<ReturnInvoice> ReturnInvoices { get; set; } = new List<ReturnInvoice>();
+    public virtual ICollection<ReturnInvoiceItem> Items { get; set; } = new List<ReturnInvoiceItem>();
+    public virtual ICollection<StockTransactionReturn> StockTransactionReturns { get; set; } = new List<StockTransactionReturn>();
 }

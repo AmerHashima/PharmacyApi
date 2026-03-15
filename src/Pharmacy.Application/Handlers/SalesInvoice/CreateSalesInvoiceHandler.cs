@@ -98,6 +98,7 @@ public class CreateSalesInvoiceHandler : IRequestHandler<CreateSalesInvoiceComma
             {
                 ProductId = itemDto.ProductId,
                 Quantity = itemDto.Quantity,
+                RemainingQuantity = itemDto.Quantity,
                 UnitPrice = unitPrice,
                 DiscountPercent = itemDto.DiscountPercent,
                 DiscountAmount = itemDiscount,

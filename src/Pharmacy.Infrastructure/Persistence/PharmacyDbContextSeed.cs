@@ -1019,6 +1019,30 @@ public static class PharmacyDbContextSeed
             new AppLookupDetail { Oid = Guid.Parse("22222222-2222-2222-2222-2222222220EE"), MasterID = dosageFormMaster.Oid, ValueCode = "POWDER", ValueNameAr = "بودرة", ValueNameEn = "Powder", SortOrder = 15, IsActive = true, CreatedAt = DateTime.UtcNow }
         });
 
+        // ====================================
+        // 23. RETURN_REASON - ReturnInvoice.ReturnReasonId
+        // ====================================
+        var returnReasonMaster = new AppLookupMaster
+        {
+            Oid = Guid.Parse("11111111-1111-1111-1111-111111111017"),
+            LookupCode = "RETURN_REASON",
+            LookupNameAr = "سبب الإرجاع",
+            LookupNameEn = "Return Reason",
+            Description = "Reasons for product return/refund",
+            CreatedAt = DateTime.UtcNow
+        };
+        lookupMasters.Add(returnReasonMaster);
+
+        lookupDetails.AddRange(new[]
+        {
+            new AppLookupDetail { Oid = Guid.Parse("22222222-2222-2222-2222-2222222220F0"), MasterID = returnReasonMaster.Oid, ValueCode = "DEFECTIVE", ValueNameAr = "منتج معيب", ValueNameEn = "Defective Product", SortOrder = 1, IsDefault = true, IsActive = true, CreatedAt = DateTime.UtcNow },
+            new AppLookupDetail { Oid = Guid.Parse("22222222-2222-2222-2222-2222222220F1"), MasterID = returnReasonMaster.Oid, ValueCode = "EXPIRED", ValueNameAr = "منتهي الصلاحية", ValueNameEn = "Expired Product", SortOrder = 2, IsActive = true, CreatedAt = DateTime.UtcNow },
+            new AppLookupDetail { Oid = Guid.Parse("22222222-2222-2222-2222-2222222220F2"), MasterID = returnReasonMaster.Oid, ValueCode = "WRONG_PRODUCT", ValueNameAr = "منتج خاطئ", ValueNameEn = "Wrong Product Dispensed", SortOrder = 3, IsActive = true, CreatedAt = DateTime.UtcNow },
+            new AppLookupDetail { Oid = Guid.Parse("22222222-2222-2222-2222-2222222220F3"), MasterID = returnReasonMaster.Oid, ValueCode = "CUSTOMER_REQUEST", ValueNameAr = "طلب العميل", ValueNameEn = "Customer Request", SortOrder = 4, IsActive = true, CreatedAt = DateTime.UtcNow },
+            new AppLookupDetail { Oid = Guid.Parse("22222222-2222-2222-2222-2222222220F4"), MasterID = returnReasonMaster.Oid, ValueCode = "ADVERSE_REACTION", ValueNameAr = "تفاعل عكسي", ValueNameEn = "Adverse Reaction", SortOrder = 5, IsActive = true, CreatedAt = DateTime.UtcNow },
+            new AppLookupDetail { Oid = Guid.Parse("22222222-2222-2222-2222-2222222220F5"), MasterID = returnReasonMaster.Oid, ValueCode = "OTHER", ValueNameAr = "أخرى", ValueNameEn = "Other", SortOrder = 99, IsActive = true, CreatedAt = DateTime.UtcNow }
+        });
+
         // Save only what doesn't already exist (upsert by Oid)
         var existingMasterIds = (await context.AppLookupMasters
             .Select(m => m.Oid)

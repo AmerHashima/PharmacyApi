@@ -37,9 +37,17 @@ public class PharmacyDbContext : DbContext
     public DbSet<SalesInvoice> SalesInvoices { get; set; }
     public DbSet<SalesInvoiceItem> SalesInvoiceItems { get; set; }
 
+    // Returns & Refunds
+    public DbSet<ReturnInvoice> ReturnInvoices { get; set; }
+    public DbSet<ReturnInvoiceItem> ReturnInvoiceItems { get; set; }
+
     // Integrations
     public DbSet<IntegrationProvider> IntegrationProviders { get; set; }
     public DbSet<BranchIntegrationSetting> BranchIntegrationSettings { get; set; }
+
+    // Stock Transaction Returns
+    public DbSet<StockTransactionReturn> StockTransactionReturns { get; set; }
+    public DbSet<StockTransactionReturnDetail> StockTransactionReturnDetails { get; set; }
 
     // RSD Operation Logs
     public DbSet<RsdOperationLog> RsdOperationLogs { get; set; }
@@ -113,6 +121,76 @@ public class PharmacyDbContext : DbContext
 
         modelBuilder.Entity<SalesInvoiceItem>()
             .Property(i => i.TotalPrice)
+            .HasPrecision(18, 2);
+
+        // 🔹 Configure ReturnInvoice unique index
+        modelBuilder.Entity<ReturnInvoice>()
+            .HasIndex(i => i.ReturnNumber)
+            .IsUnique()
+            .HasFilter("[IsDeleted] = 0");
+
+        modelBuilder.Entity<ReturnInvoice>()
+            .Property(i => i.TotalAmount)
+            .HasPrecision(18, 2);
+
+        modelBuilder.Entity<ReturnInvoice>()
+            .Property(i => i.RefundAmount)
+            .HasPrecision(18, 2);
+
+        modelBuilder.Entity<ReturnInvoice>()
+            .HasOne(r => r.OriginalInvoice)
+            .WithMany(s => s.ReturnInvoices)
+            .HasForeignKey(r => r.OriginalInvoiceId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<ReturnInvoiceItem>()
+            .Property(i => i.Quantity)
+            .HasPrecision(18, 2);
+
+        modelBuilder.Entity<ReturnInvoiceItem>()
+            .Property(i => i.TotalPrice)
+            .HasPrecision(18, 2);
+
+        // 🔹 Configure relationships for StockTransactionReturn
+        modelBuilder.Entity<StockTransactionReturn>()
+            .HasOne(t => t.FromBranch)
+            .WithMany()
+            .HasForeignKey(t => t.FromBranchId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<StockTransactionReturn>()
+            .HasOne(t => t.ToBranch)
+            .WithMany()
+            .HasForeignKey(t => t.ToBranchId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<StockTransactionReturn>()
+            .HasOne(t => t.OriginalTransaction)
+            .WithMany()
+            .HasForeignKey(t => t.OriginalTransactionId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<StockTransactionReturn>()
+            .HasOne(t => t.ReturnInvoice)
+            .WithMany(r => r.StockTransactionReturns)
+            .HasForeignKey(t => t.ReturnInvoiceId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // 🔹 Configure decimal precision for StockTransactionReturn
+        modelBuilder.Entity<StockTransactionReturn>()
+            .Property(t => t.TotalValue)
+            .HasPrecision(18, 2);
+
+        modelBuilder.Entity<StockTransactionReturnDetail>()
+            .Property(d => d.Quantity)
+            .HasPrecision(18, 2);
+
+        modelBuilder.Entity<StockTransactionReturnDetail>()
+            .Property(d => d.UnitCost)
+            .HasPrecision(18, 2);
+
+        modelBuilder.Entity<StockTransactionReturnDetail>()
+            .Property(d => d.TotalCost)
             .HasPrecision(18, 2);
     }
 

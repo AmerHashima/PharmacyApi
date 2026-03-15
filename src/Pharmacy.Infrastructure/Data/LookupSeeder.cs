@@ -139,6 +139,55 @@ public static class LookupSeeder
     public static readonly Guid LookupDetailRsdReturnBatch = Guid.Parse("22222222-2222-2222-2222-2222222220B3");
     #endregion
 
+    #region Lookup Master IDs - Additional
+    public static readonly Guid LookupMasterVatType = Guid.Parse("11111111-1111-1111-1111-111111111014");
+    public static readonly Guid LookupMasterProductGroup = Guid.Parse("11111111-1111-1111-1111-111111111015");
+    public static readonly Guid LookupMasterDosageForm = Guid.Parse("11111111-1111-1111-1111-111111111016");
+    public static readonly Guid LookupMasterReturnReason = Guid.Parse("11111111-1111-1111-1111-111111111017");
+    #endregion
+
+    #region Lookup Detail IDs - VAT Type
+    public static readonly Guid LookupDetailVatStandard = Guid.Parse("22222222-2222-2222-2222-2222222220C0");
+    public static readonly Guid LookupDetailVatZeroRated = Guid.Parse("22222222-2222-2222-2222-2222222220C1");
+    public static readonly Guid LookupDetailVatExempt = Guid.Parse("22222222-2222-2222-2222-2222222220C2");
+    #endregion
+
+    #region Lookup Detail IDs - Product Group
+    public static readonly Guid LookupDetailGroupPrescription = Guid.Parse("22222222-2222-2222-2222-2222222220D0");
+    public static readonly Guid LookupDetailGroupOTC = Guid.Parse("22222222-2222-2222-2222-2222222220D1");
+    public static readonly Guid LookupDetailGroupMedicalDevice = Guid.Parse("22222222-2222-2222-2222-2222222220D2");
+    public static readonly Guid LookupDetailGroupSupplement = Guid.Parse("22222222-2222-2222-2222-2222222220D3");
+    public static readonly Guid LookupDetailGroupPersonalCare = Guid.Parse("22222222-2222-2222-2222-2222222220D4");
+    public static readonly Guid LookupDetailGroupCosmetic = Guid.Parse("22222222-2222-2222-2222-2222222220D5");
+    #endregion
+
+    #region Lookup Detail IDs - Dosage Form
+    public static readonly Guid LookupDetailDosageTablet = Guid.Parse("22222222-2222-2222-2222-2222222220E0");
+    public static readonly Guid LookupDetailDosageCapsule = Guid.Parse("22222222-2222-2222-2222-2222222220E1");
+    public static readonly Guid LookupDetailDosageSyrup = Guid.Parse("22222222-2222-2222-2222-2222222220E2");
+    public static readonly Guid LookupDetailDosageSuspension = Guid.Parse("22222222-2222-2222-2222-2222222220E3");
+    public static readonly Guid LookupDetailDosageSolution = Guid.Parse("22222222-2222-2222-2222-2222222220E4");
+    public static readonly Guid LookupDetailDosageInjection = Guid.Parse("22222222-2222-2222-2222-2222222220E5");
+    public static readonly Guid LookupDetailDosageOintment = Guid.Parse("22222222-2222-2222-2222-2222222220E6");
+    public static readonly Guid LookupDetailDosageCream = Guid.Parse("22222222-2222-2222-2222-2222222220E7");
+    public static readonly Guid LookupDetailDosageGel = Guid.Parse("22222222-2222-2222-2222-2222222220E8");
+    public static readonly Guid LookupDetailDosageDrops = Guid.Parse("22222222-2222-2222-2222-2222222220E9");
+    public static readonly Guid LookupDetailDosageSpray = Guid.Parse("22222222-2222-2222-2222-2222222220EA");
+    public static readonly Guid LookupDetailDosageInhaler = Guid.Parse("22222222-2222-2222-2222-2222222220EB");
+    public static readonly Guid LookupDetailDosageSuppository = Guid.Parse("22222222-2222-2222-2222-2222222220EC");
+    public static readonly Guid LookupDetailDosagePatch = Guid.Parse("22222222-2222-2222-2222-2222222220ED");
+    public static readonly Guid LookupDetailDosagePowder = Guid.Parse("22222222-2222-2222-2222-2222222220EE");
+    #endregion
+
+    #region Lookup Detail IDs - Return Reason
+    public static readonly Guid LookupDetailReturnDefective = Guid.Parse("22222222-2222-2222-2222-2222222220F0");
+    public static readonly Guid LookupDetailReturnExpired = Guid.Parse("22222222-2222-2222-2222-2222222220F1");
+    public static readonly Guid LookupDetailReturnWrongProduct = Guid.Parse("22222222-2222-2222-2222-2222222220F2");
+    public static readonly Guid LookupDetailReturnCustomerRequest = Guid.Parse("22222222-2222-2222-2222-2222222220F3");
+    public static readonly Guid LookupDetailReturnAdverseReaction = Guid.Parse("22222222-2222-2222-2222-2222222220F4");
+    public static readonly Guid LookupDetailReturnOther = Guid.Parse("22222222-2222-2222-2222-2222222220F5");
+    #endregion
+
     /// <summary>
     /// Seeds all lookup data for the pharmacy system.
     /// Only inserts masters and details that do not already exist (by Oid).
@@ -437,6 +486,104 @@ public static class LookupSeeder
             new AppLookupDetail { Oid = LookupDetailRsdPharmacySale, MasterID = LookupMasterRsdOperationType, ValueCode = "PHARMACY_SALE", ValueNameAr = "بيع صيدلية", ValueNameEn = "Pharmacy Sale", SortOrder = 2, IsDefault = false, IsActive = true },
             new AppLookupDetail { Oid = LookupDetailRsdPharmacySaleCancel, MasterID = LookupMasterRsdOperationType, ValueCode = "PHARMACY_SALE_CANCEL", ValueNameAr = "إلغاء بيع صيدلية", ValueNameEn = "Pharmacy Sale Cancel", SortOrder = 3, IsDefault = false, IsActive = true },
             new AppLookupDetail { Oid = LookupDetailRsdReturnBatch, MasterID = LookupMasterRsdOperationType, ValueCode = "RETURN_BATCH", ValueNameAr = "إرجاع دفعة", ValueNameEn = "Return Batch", SortOrder = 4, IsDefault = false, IsActive = true }
+        });
+
+        // ========================================
+        // 14. VAT_TYPE - Used in Product.VatTypeId
+        // ========================================
+        masters.Add(new AppLookupMaster
+        {
+            Oid = LookupMasterVatType,
+            LookupCode = "VAT_TYPE",
+            LookupNameAr = "نوع الضريبة",
+            LookupNameEn = "VAT Type",
+            Description = "Value Added Tax types for products",
+            IsSystem = true
+        });
+
+        details.AddRange(new[]
+        {
+            new AppLookupDetail { Oid = LookupDetailVatStandard, MasterID = LookupMasterVatType, ValueCode = "STANDARD", ValueNameAr = "ضريبة قياسية (15%)", ValueNameEn = "Standard (15%)", SortOrder = 1, IsDefault = true, IsActive = true },
+            new AppLookupDetail { Oid = LookupDetailVatZeroRated, MasterID = LookupMasterVatType, ValueCode = "ZERO_RATED", ValueNameAr = "نسبة صفر", ValueNameEn = "Zero Rated (0%)", SortOrder = 2, IsActive = true },
+            new AppLookupDetail { Oid = LookupDetailVatExempt, MasterID = LookupMasterVatType, ValueCode = "EXEMPT", ValueNameAr = "معفى", ValueNameEn = "Exempt", SortOrder = 3, IsActive = true }
+        });
+
+        // ========================================
+        // 15. PRODUCT_GROUP - Used in Product.ProductGroupId
+        // ========================================
+        masters.Add(new AppLookupMaster
+        {
+            Oid = LookupMasterProductGroup,
+            LookupCode = "PRODUCT_GROUP",
+            LookupNameAr = "مجموعة المنتج",
+            LookupNameEn = "Product Group",
+            Description = "Product category groups",
+            IsSystem = true
+        });
+
+        details.AddRange(new[]
+        {
+            new AppLookupDetail { Oid = LookupDetailGroupPrescription, MasterID = LookupMasterProductGroup, ValueCode = "PRESCRIPTION", ValueNameAr = "أدوية وصفية", ValueNameEn = "Prescription Drugs", SortOrder = 1, IsDefault = true, IsActive = true },
+            new AppLookupDetail { Oid = LookupDetailGroupOTC, MasterID = LookupMasterProductGroup, ValueCode = "OTC", ValueNameAr = "أدوية بدون وصفة", ValueNameEn = "OTC Medications", SortOrder = 2, IsActive = true },
+            new AppLookupDetail { Oid = LookupDetailGroupMedicalDevice, MasterID = LookupMasterProductGroup, ValueCode = "MEDICAL_DEVICE", ValueNameAr = "أجهزة طبية", ValueNameEn = "Medical Devices", SortOrder = 3, IsActive = true },
+            new AppLookupDetail { Oid = LookupDetailGroupSupplement, MasterID = LookupMasterProductGroup, ValueCode = "SUPPLEMENT", ValueNameAr = "مكملات غذائية", ValueNameEn = "Supplements & Vitamins", SortOrder = 4, IsActive = true },
+            new AppLookupDetail { Oid = LookupDetailGroupPersonalCare, MasterID = LookupMasterProductGroup, ValueCode = "PERSONAL_CARE", ValueNameAr = "عناية شخصية", ValueNameEn = "Personal Care", SortOrder = 5, IsActive = true },
+            new AppLookupDetail { Oid = LookupDetailGroupCosmetic, MasterID = LookupMasterProductGroup, ValueCode = "COSMETIC", ValueNameAr = "مستحضرات تجميل", ValueNameEn = "Cosmetics", SortOrder = 6, IsActive = true }
+        });
+
+        // ========================================
+        // 16. DOSAGE_FORM - Used in Product.DosageFormId
+        // ========================================
+        masters.Add(new AppLookupMaster
+        {
+            Oid = LookupMasterDosageForm,
+            LookupCode = "DOSAGE_FORM",
+            LookupNameAr = "الشكل الصيدلاني",
+            LookupNameEn = "Dosage Form",
+            Description = "Pharmaceutical dosage forms",
+            IsSystem = true
+        });
+
+        details.AddRange(new[]
+        {
+            new AppLookupDetail { Oid = LookupDetailDosageTablet, MasterID = LookupMasterDosageForm, ValueCode = "TABLET", ValueNameAr = "أقراص", ValueNameEn = "Tablet", SortOrder = 1, IsDefault = true, IsActive = true },
+            new AppLookupDetail { Oid = LookupDetailDosageCapsule, MasterID = LookupMasterDosageForm, ValueCode = "CAPSULE", ValueNameAr = "كبسولات", ValueNameEn = "Capsule", SortOrder = 2, IsActive = true },
+            new AppLookupDetail { Oid = LookupDetailDosageSyrup, MasterID = LookupMasterDosageForm, ValueCode = "SYRUP", ValueNameAr = "شراب", ValueNameEn = "Syrup", SortOrder = 3, IsActive = true },
+            new AppLookupDetail { Oid = LookupDetailDosageSuspension, MasterID = LookupMasterDosageForm, ValueCode = "SUSPENSION", ValueNameAr = "معلق", ValueNameEn = "Suspension", SortOrder = 4, IsActive = true },
+            new AppLookupDetail { Oid = LookupDetailDosageSolution, MasterID = LookupMasterDosageForm, ValueCode = "SOLUTION", ValueNameAr = "محلول", ValueNameEn = "Solution", SortOrder = 5, IsActive = true },
+            new AppLookupDetail { Oid = LookupDetailDosageInjection, MasterID = LookupMasterDosageForm, ValueCode = "INJECTION", ValueNameAr = "حقن", ValueNameEn = "Injection", SortOrder = 6, IsActive = true },
+            new AppLookupDetail { Oid = LookupDetailDosageOintment, MasterID = LookupMasterDosageForm, ValueCode = "OINTMENT", ValueNameAr = "مرهم", ValueNameEn = "Ointment", SortOrder = 7, IsActive = true },
+            new AppLookupDetail { Oid = LookupDetailDosageCream, MasterID = LookupMasterDosageForm, ValueCode = "CREAM", ValueNameAr = "كريم", ValueNameEn = "Cream", SortOrder = 8, IsActive = true },
+            new AppLookupDetail { Oid = LookupDetailDosageGel, MasterID = LookupMasterDosageForm, ValueCode = "GEL", ValueNameAr = "جل", ValueNameEn = "Gel", SortOrder = 9, IsActive = true },
+            new AppLookupDetail { Oid = LookupDetailDosageDrops, MasterID = LookupMasterDosageForm, ValueCode = "DROPS", ValueNameAr = "قطرة", ValueNameEn = "Drops", SortOrder = 10, IsActive = true },
+            new AppLookupDetail { Oid = LookupDetailDosageSpray, MasterID = LookupMasterDosageForm, ValueCode = "SPRAY", ValueNameAr = "بخاخ", ValueNameEn = "Spray", SortOrder = 11, IsActive = true },
+            new AppLookupDetail { Oid = LookupDetailDosageInhaler, MasterID = LookupMasterDosageForm, ValueCode = "INHALER", ValueNameAr = "جهاز استنشاق", ValueNameEn = "Inhaler", SortOrder = 12, IsActive = true },
+            new AppLookupDetail { Oid = LookupDetailDosageSuppository, MasterID = LookupMasterDosageForm, ValueCode = "SUPPOSITORY", ValueNameAr = "تحاميل", ValueNameEn = "Suppository", SortOrder = 13, IsActive = true },
+            new AppLookupDetail { Oid = LookupDetailDosagePatch, MasterID = LookupMasterDosageForm, ValueCode = "PATCH", ValueNameAr = "لصقة", ValueNameEn = "Patch", SortOrder = 14, IsActive = true },
+            new AppLookupDetail { Oid = LookupDetailDosagePowder, MasterID = LookupMasterDosageForm, ValueCode = "POWDER", ValueNameAr = "بودرة", ValueNameEn = "Powder", SortOrder = 15, IsActive = true }
+        });
+
+        // ========================================
+        // 17. RETURN_REASON - Used in ReturnInvoice.ReturnReasonId
+        // ========================================
+        masters.Add(new AppLookupMaster
+        {
+            Oid = LookupMasterReturnReason,
+            LookupCode = "RETURN_REASON",
+            LookupNameAr = "سبب الإرجاع",
+            LookupNameEn = "Return Reason",
+            Description = "Reasons for product return/refund",
+            IsSystem = true
+        });
+
+        details.AddRange(new[]
+        {
+            new AppLookupDetail { Oid = LookupDetailReturnDefective, MasterID = LookupMasterReturnReason, ValueCode = "DEFECTIVE", ValueNameAr = "منتج معيب", ValueNameEn = "Defective Product", SortOrder = 1, IsDefault = true, IsActive = true },
+            new AppLookupDetail { Oid = LookupDetailReturnExpired, MasterID = LookupMasterReturnReason, ValueCode = "EXPIRED", ValueNameAr = "منتهي الصلاحية", ValueNameEn = "Expired Product", SortOrder = 2, IsActive = true },
+            new AppLookupDetail { Oid = LookupDetailReturnWrongProduct, MasterID = LookupMasterReturnReason, ValueCode = "WRONG_PRODUCT", ValueNameAr = "منتج خاطئ", ValueNameEn = "Wrong Product Dispensed", SortOrder = 3, IsActive = true },
+            new AppLookupDetail { Oid = LookupDetailReturnCustomerRequest, MasterID = LookupMasterReturnReason, ValueCode = "CUSTOMER_REQUEST", ValueNameAr = "طلب العميل", ValueNameEn = "Customer Request", SortOrder = 4, IsActive = true },
+            new AppLookupDetail { Oid = LookupDetailReturnAdverseReaction, MasterID = LookupMasterReturnReason, ValueCode = "ADVERSE_REACTION", ValueNameAr = "تفاعل عكسي", ValueNameEn = "Adverse Reaction", SortOrder = 5, IsActive = true },
+            new AppLookupDetail { Oid = LookupDetailReturnOther, MasterID = LookupMasterReturnReason, ValueCode = "OTHER", ValueNameAr = "أخرى", ValueNameEn = "Other", SortOrder = 99, IsActive = true }
         });
 
         // ========================================
