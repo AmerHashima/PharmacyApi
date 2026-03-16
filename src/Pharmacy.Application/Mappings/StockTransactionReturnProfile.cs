@@ -42,7 +42,7 @@ public class StockTransactionReturnProfile : Profile
         // Detail Entity to DetailDto
         CreateMap<StockTransactionReturnDetail, StockTransactionReturnDetailDto>()
             .ForMember(dest => dest.ProductName,
-                opt => opt.MapFrom(src => src.Product != null ? src.Product.TradeName : null))
+                opt => opt.MapFrom(src => src.Product != null ? src.Product.DrugNameAr : null))
             .ForMember(dest => dest.ProductGTIN,
                 opt => opt.MapFrom(src => src.Product != null ? src.Product.GTIN : null));
 
