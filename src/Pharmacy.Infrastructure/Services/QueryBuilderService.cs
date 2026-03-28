@@ -156,17 +156,17 @@ public class QueryBuilderService : IQueryBuilderService
 
     private Expression? BuildFilterExpression<T>(ParameterExpression parameter, FilterRequest filter)
     {
-        var property = GetProperty<T>(filter.PropertyName);
-        if (property == null)
+        // Support nested properties using dot-notation (e.g. "Product.GTIN") and case-insensitive matching
+        var (propertyAccess, propertyType) = BuildPropertyAccess<T>(parameter, filter.PropertyName);
+        if (propertyAccess == null || propertyType == null)
             return null;
 
-        var propertyAccess = Expression.MakeMemberAccess(parameter, property);
-        var filterValue = ConvertValue(filter.Value, property.PropertyType);
+        var filterValue = ConvertValue(filter.Value, propertyType);
 
         return filter.Operation switch
         {
-            FilterOperation.Equal => CreateEqualExpression(propertyAccess, filterValue, property.PropertyType),
-            FilterOperation.NotEqual => CreateNotEqualExpression(propertyAccess, filterValue, property.PropertyType),
+            FilterOperation.Equal => CreateEqualExpression(propertyAccess, filterValue, propertyType),
+            FilterOperation.NotEqual => CreateNotEqualExpression(propertyAccess, filterValue, propertyType),
             FilterOperation.Contains => CreateContainsExpression(propertyAccess, filterValue),
             FilterOperation.StartsWith => CreateStartsWithExpression(propertyAccess, filterValue),
             FilterOperation.EndsWith => CreateEndsWithExpression(propertyAccess, filterValue),
@@ -176,8 +176,8 @@ public class QueryBuilderService : IQueryBuilderService
             FilterOperation.LessThanOrEqual => CreateComparisonExpression(propertyAccess, filterValue, ExpressionType.LessThanOrEqual),
             FilterOperation.IsNull => CreateNullExpression(propertyAccess, true),
             FilterOperation.IsNotNull => CreateNullExpression(propertyAccess, false),
-            FilterOperation.In => CreateInExpression(propertyAccess, filter.Value, property.PropertyType),
-            FilterOperation.NotIn => CreateNotInExpression(propertyAccess, filter.Value, property.PropertyType),
+            FilterOperation.In => CreateInExpression(propertyAccess, filter.Value, propertyType),
+            FilterOperation.NotIn => CreateNotInExpression(propertyAccess, filter.Value, propertyType),
             _ => null
         };
     }
@@ -192,21 +192,21 @@ public class QueryBuilderService : IQueryBuilderService
         for (int i = 0; i < sorts.Count; i++)
         {
             var sort = sorts[i];
-            var property = GetProperty<T>(sort.SortBy);
-
-            if (property == null) continue;
+            // Support nested property names for sorting as well
+            var propertyExpression = CreatePropertyExpressionByName<T>(sort.SortBy);
+            if (propertyExpression == null) continue;
 
             if (i == 0)
             {
                 orderedQuery = sort.SortDirection.ToLower() == "desc"
-                    ? query.OrderByDescending(CreatePropertyExpression<T>(property))
-                    : query.OrderBy(CreatePropertyExpression<T>(property));
+                    ? query.OrderByDescending(propertyExpression)
+                    : query.OrderBy(propertyExpression);
             }
             else
             {
                 orderedQuery = sort.SortDirection.ToLower() == "desc"
-                    ? orderedQuery!.ThenByDescending(CreatePropertyExpression<T>(property))
-                    : orderedQuery!.ThenBy(CreatePropertyExpression<T>(property));
+                    ? orderedQuery!.ThenByDescending(propertyExpression)
+                    : orderedQuery!.ThenBy(propertyExpression);
             }
         }
 
@@ -453,6 +453,45 @@ public class QueryBuilderService : IQueryBuilderService
     private PropertyInfo? GetProperty<T>(string propertyName)
     {
         return typeof(T).GetProperty(propertyName, BindingFlags.IgnoreCase | BindingFlags.Public | BindingFlags.Instance);
+    }
+
+    /// <summary>
+    /// Build a MemberExpression for nested properties (supports dot notation) and return the final property type
+    /// </summary>
+    private (Expression? memberExpression, Type? propertyType) BuildPropertyAccess<T>(ParameterExpression parameter, string propertyName)
+    {
+        if (string.IsNullOrWhiteSpace(propertyName))
+            return (null, null);
+
+        Expression current = parameter;
+        Type? currentType = typeof(T);
+        var parts = propertyName.Split('.', StringSplitOptions.RemoveEmptyEntries);
+
+        foreach (var part in parts)
+        {
+            var prop = currentType.GetProperty(part, BindingFlags.IgnoreCase | BindingFlags.Public | BindingFlags.Instance);
+            if (prop == null)
+                return (null, null);
+
+            current = Expression.Property(current, prop);
+            currentType = prop.PropertyType;
+        }
+
+        return (current, currentType);
+    }
+
+    /// <summary>
+    /// Create an OrderBy expression for nested property name (supports dot notation)
+    /// </summary>
+    private Expression<Func<T, object>>? CreatePropertyExpressionByName<T>(string propertyName)
+    {
+        var parameter = Expression.Parameter(typeof(T), "x");
+        var (memberExpr, propType) = BuildPropertyAccess<T>(parameter, propertyName);
+        if (memberExpr == null)
+            return null;
+
+        var convert = Expression.Convert(memberExpr, typeof(object));
+        return Expression.Lambda<Func<T, object>>(convert, parameter);
     }
 
     private Expression<Func<T, object>> CreatePropertyExpression<T>(PropertyInfo property)
