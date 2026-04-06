@@ -79,6 +79,14 @@ public class StockTransaction : BaseEntity
     public virtual SalesInvoice? SalesInvoice { get; set; }
 
     /// <summary>
+    /// FK to Store - the store where this transaction originates or is destined
+    /// </summary>
+    public Guid? StoreId { get; set; }
+
+    [ForeignKey(nameof(StoreId))]
+    public virtual Store? Store { get; set; }
+
+    /// <summary>
     /// Status of the transaction (Draft, Approved, Completed, Cancelled)
     /// </summary>
     [MaxLength(50)]

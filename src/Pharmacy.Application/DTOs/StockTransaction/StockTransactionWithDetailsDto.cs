@@ -22,6 +22,8 @@ public class StockTransactionWithDetailsDto
     public string Status { get; set; } = "Draft";
     public Guid? ApprovedBy { get; set; }
     public DateTime? ApprovedDate { get; set; }
+    public Guid? StoreId { get; set; }
+    public string? StoreName { get; set; }
     public DateTime CreatedAt { get; set; }
     public Guid? CreatedBy { get; set; }
 

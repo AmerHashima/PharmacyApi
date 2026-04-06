@@ -24,6 +24,7 @@ public class PharmacyDbContext : DbContext
     public DbSet<Branch> Branches { get; set; }
     public DbSet<Stakeholder> Stakeholders { get; set; }
     public DbSet<StakeholderBranch> StakeholderBranches { get; set; }
+    public DbSet<Store> Stores { get; set; }
 
     // Products & Inventory
     public DbSet<Product> Products { get; set; }
@@ -65,6 +66,17 @@ public class PharmacyDbContext : DbContext
             .IsUnique()
             .HasFilter("[IsDeleted] = 0");
 
+        modelBuilder.Entity<Store>()
+            .HasIndex(s => s.StoreCode)
+            .IsUnique()
+            .HasFilter("[IsDeleted] = 0");
+
+        modelBuilder.Entity<Branch>()
+            .HasOne(b => b.DefaultStore)
+            .WithMany()
+            .HasForeignKey(b => b.DefaultStoreId)
+            .OnDelete(DeleteBehavior.Restrict);
+
         modelBuilder.Entity<Product>()
             .HasIndex(p => p.GTIN)
             .IsUnique()
@@ -86,6 +98,12 @@ public class PharmacyDbContext : DbContext
             .HasOne(t => t.ToBranch)
             .WithMany(b => b.IncomingTransactions)
             .HasForeignKey(t => t.ToBranchId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<StockTransaction>()
+            .HasOne(t => t.Store)
+            .WithMany()
+            .HasForeignKey(t => t.StoreId)
             .OnDelete(DeleteBehavior.Restrict);
 
         // 🔹 Configure decimal precision

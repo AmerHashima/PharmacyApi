@@ -20,7 +20,9 @@ public class StockTransactionProfile : Profile
             .ForMember(dest => dest.TransactionTypeName,
                 opt => opt.MapFrom(src => src.TransactionType != null ? src.TransactionType.ValueNameEn : null))
             .ForMember(dest => dest.SupplierName,
-                opt => opt.MapFrom(src => src.Supplier != null ? src.Supplier.Name : null));
+                opt => opt.MapFrom(src => src.Supplier != null ? src.Supplier.Name : null))
+            .ForMember(dest => dest.StoreName,
+                opt => opt.MapFrom(src => src.Store != null ? src.Store.StoreName : null));
             //.ForMember(dest => dest.Details,
             //    opt => opt.MapFrom(src => src.Details));
 
@@ -34,6 +36,8 @@ public class StockTransactionProfile : Profile
                 opt => opt.MapFrom(src => src.TransactionType != null ? src.TransactionType.ValueNameEn : null))
             .ForMember(dest => dest.SupplierName, 
                 opt => opt.MapFrom(src => src.Supplier != null ? src.Supplier.Name : null))
+            .ForMember(dest => dest.StoreName,
+                opt => opt.MapFrom(src => src.Store != null ? src.Store.StoreName : null))
             .ForMember(dest => dest.Details,
                 opt => opt.MapFrom(src => src.Details));
 

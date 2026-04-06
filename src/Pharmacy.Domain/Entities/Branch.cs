@@ -93,13 +93,22 @@ public class Branch : BaseEntity
     [MaxLength(500)]
     public string? RegistrationName { get; set; }
 
+    /// <summary>
+    /// FK to Store — the default store for this branch
+    /// </summary>
+    public Guid? DefaultStoreId { get; set; }
+
     // Navigation Properties
     [ForeignKey(nameof(IdentifyLookupId))]
     public virtual AppLookupDetail? IdentifyLookup { get; set; }
+
+    [ForeignKey(nameof(DefaultStoreId))]
+    public virtual Store? DefaultStore { get; set; }
 
     public virtual ICollection<SystemUser> Users { get; set; } = new List<SystemUser>();
     public virtual ICollection<Stock> Stocks { get; set; } = new List<Stock>();
     public virtual ICollection<StockTransaction> OutgoingTransactions { get; set; } = new List<StockTransaction>();
     public virtual ICollection<StockTransaction> IncomingTransactions { get; set; } = new List<StockTransaction>();
     public virtual ICollection<SalesInvoice> SalesInvoices { get; set; } = new List<SalesInvoice>();
+    public virtual ICollection<Store> Stores { get; set; } = new List<Store>();
 }

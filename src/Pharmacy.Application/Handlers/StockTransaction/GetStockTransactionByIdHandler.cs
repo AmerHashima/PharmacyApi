@@ -30,6 +30,7 @@ public class GetStockTransactionByIdHandler : IRequestHandler<GetStockTransactio
             .Include(x => x.ToBranch)
             .Include(x => x.TransactionType)
             .Include(x => x.Supplier)
+            .Include(x => x.Store)
             .Include(x => x.Details)
                 .ThenInclude(d => d.Product)
             .FirstOrDefaultAsync(x => x.Oid == request.Id && !x.IsDeleted, cancellationToken);

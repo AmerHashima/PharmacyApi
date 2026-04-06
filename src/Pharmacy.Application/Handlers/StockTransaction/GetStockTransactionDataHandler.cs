@@ -35,6 +35,7 @@ public class GetStockTransactionDataHandler : IRequestHandler<GetStockTransactio
             .Include(x => x.ToBranch)
             .Include(x => x.TransactionType)
             .Include(x => x.Supplier)
+            .Include(x => x.Store)
             .Where(x => !x.IsDeleted);
 
         // Apply filters

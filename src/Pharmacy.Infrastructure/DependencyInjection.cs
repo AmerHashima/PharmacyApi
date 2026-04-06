@@ -43,6 +43,7 @@ public static class DependencyInjection
         // ====================================
         services.AddScoped<IBranchRepository, BranchRepository>();
         services.AddScoped<IStakeholderRepository, StakeholderRepository>();
+        services.AddScoped<IStoreRepository, StoreRepository>();
 
         // ====================================
         // Register repositories - Products & Inventory

@@ -32,6 +32,11 @@ public class CreateStockTransactionWithDetailsDto
     public string Status { get; set; } = "Draft";
 
     /// <summary>
+    /// FK to Store - the store associated with this transaction
+    /// </summary>
+    public Guid? StoreId { get; set; }
+
+    /// <summary>
     /// Detail lines for this transaction
     /// </summary>
     [Required(ErrorMessage = "At least one detail line is required")]
