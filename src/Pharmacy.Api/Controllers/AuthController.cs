@@ -110,7 +110,6 @@ public class AuthController : BaseApiController
     /// </summary>
     /// <returns>Success response</returns>
     [HttpPost("logout")]
-    [Authorize]
     public async Task<ActionResult<ApiResponse>> Logout()
     {
         try
