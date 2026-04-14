@@ -1,5 +1,6 @@
 using Pharmacy.Application.Interfaces;
 using Pharmacy.Application.Mappings;
+using Pharmacy.Application.Options;
 using Pharmacy.Application.Services;
 using Pharmacy.Domain.Interfaces;
 using Pharmacy.Infrastructure.Persistence;
@@ -15,7 +16,7 @@ namespace Pharmacy.Infrastructure;
 
 public static class DependencyInjection
 {
-    public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
+    public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration, string contentRootPath)
     {
         // Add DbContext
         services.AddDbContext<PharmacyDbContext>(options =>
@@ -25,6 +26,23 @@ public static class DependencyInjection
                     maxRetryCount: 5,
                     maxRetryDelay: TimeSpan.FromSeconds(30),
                     errorNumbersToAdd: null)));
+
+        // ====================================
+        // File Storage Options
+        // ====================================
+        services.Configure<FileStorageOptions>(opts =>
+        {
+            var section = configuration.GetSection(FileStorageOptions.SectionName);
+            opts.AllowedExtensions = section.GetSection("AllowedExtensions").Get<string[]>()
+                                     ?? opts.AllowedExtensions;
+            opts.MaxFileSizeBytes = section.GetValue<long?>("MaxFileSizeBytes") ?? opts.MaxFileSizeBytes;
+
+            // Resolve physical upload root from configured relative path
+            var configured = section["UploadPath"] ?? "wwwroot/uploads";
+            opts.UploadRootPath = Path.IsPathRooted(configured)
+                ? configured
+                : Path.Combine(contentRootPath, configured);
+        });
 
         // ====================================
         // Register repositories - Core System
@@ -94,6 +112,7 @@ public static class DependencyInjection
         services.AddScoped<IJwtService, JwtService>();
         services.AddScoped<IQueryBuilderService, QueryBuilderService>();
         services.AddScoped<IBarcodeParserService, BarcodeParserService>();
+        services.AddScoped<IFileStorageService, FileStorageService>();
 
         // HttpClient for RSD integration
         services.AddHttpClient("RsdClient", client =>

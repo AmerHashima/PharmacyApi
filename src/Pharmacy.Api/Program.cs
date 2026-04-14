@@ -31,7 +31,7 @@ try
 
     // Add Application & Infrastructure layers
     builder.Services.AddApplication();
-    builder.Services.AddInfrastructure(builder.Configuration);
+    builder.Services.AddInfrastructure(builder.Configuration, builder.Environment.ContentRootPath);
 
     // --------------------------
     // Configure FluentValidation
@@ -281,6 +281,9 @@ try
 
     // ⭐ CORS must be before Authentication and Authorization
     app.UseCors("AllowAll");
+
+    // Serve static files (uploaded logos etc.) from wwwroot
+    app.UseStaticFiles();
 
     app.UseHttpsRedirection();
 

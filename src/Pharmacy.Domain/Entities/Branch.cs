@@ -56,6 +56,7 @@ public class Branch : BaseEntity
 
     [MaxLength(500)]
     public string? Address { get; set; }
+    public string? LogoImage { get; set; }
 
     /// <summary>
     /// Street name for detailed addressing

@@ -6,6 +6,8 @@ using Pharmacy.Application.Queries.Branch;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
+using Pharmacy.Application.Options;
 
 namespace Pharmacy.Api.Controllers;
 
@@ -17,10 +19,12 @@ namespace Pharmacy.Api.Controllers;
 public class BranchController : BaseApiController
 {
     private readonly IMediator _mediator;
+    private readonly FileStorageOptions _fileStorageOptions;
 
-    public BranchController(IMediator mediator)
+    public BranchController(IMediator mediator, IOptions<FileStorageOptions> fileStorageOptions)
     {
         _mediator = mediator;
+        _fileStorageOptions = fileStorageOptions.Value;
     }
 
     /// <summary>
@@ -135,5 +139,49 @@ public class BranchController : BaseApiController
             return ErrorResponse("Branch not found", 404);
 
         return SuccessResponse("Branch deleted successfully");
+    }
+
+    /// <summary>
+    /// Upload a logo image for a branch (replaces existing logo if any)
+    /// </summary>
+    /// <param name="id">Branch ID</param>
+    /// <param name="file">Image file (.jpg, .jpeg, .png, .webp — max 2 MB)</param>
+    [HttpPost("{id}/logo")]
+    [Consumes("multipart/form-data")]
+    public async Task<ActionResult<ApiResponse<BranchDto>>> UploadLogo(Guid id, IFormFile file)
+    {
+        if (file == null || file.Length == 0)
+            return ErrorResponse<BranchDto>("No file provided", 400);
+
+        if (file.Length > _fileStorageOptions.MaxFileSizeBytes)
+            return ErrorResponse<BranchDto>($"File exceeds the maximum allowed size of {_fileStorageOptions.MaxFileSizeBytes / 1024 / 1024} MB", 400);
+
+        try
+        {
+            await using var stream = file.OpenReadStream();
+            var command = new UploadBranchLogoCommand(id, file.FileName, stream, file.ContentType);
+            var result = await _mediator.Send(command);
+            return SuccessResponse(result, "Branch logo uploaded successfully");
+        }
+        catch (KeyNotFoundException ex) { return ErrorResponse<BranchDto>(ex.Message, 404); }
+        catch (InvalidOperationException ex) { return ErrorResponse<BranchDto>(ex.Message, 400); }
+    }
+
+    /// <summary>
+    /// Delete the logo image of a branch
+    /// </summary>
+    /// <param name="id">Branch ID</param>
+    [HttpDelete("{id}/logo")]
+    public async Task<ActionResult<ApiResponse>> DeleteLogo(Guid id)
+    {
+        try
+        {
+            var result = await _mediator.Send(new DeleteBranchLogoCommand(id));
+            if (!result)
+                return ErrorResponse("Branch has no logo to delete", 404);
+
+            return SuccessResponse("Branch logo deleted successfully");
+        }
+        catch (KeyNotFoundException ex) { return ErrorResponse(ex.Message, 404); }
     }
 }

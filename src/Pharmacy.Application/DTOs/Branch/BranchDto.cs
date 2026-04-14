@@ -17,6 +17,7 @@ public class BranchDto
     public string? City { get; set; }
     public string? District { get; set; }
     public string? Address { get; set; }
+    public string? LogoImage { get; set; }
     public string? StreetName { get; set; }
     public string? BuildingNumber { get; set; }
     public string? CitySubdivisionName { get; set; }
