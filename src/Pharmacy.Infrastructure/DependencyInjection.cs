@@ -44,6 +44,7 @@ public static class DependencyInjection
         services.AddScoped<IBranchRepository, BranchRepository>();
         services.AddScoped<IStakeholderRepository, StakeholderRepository>();
         services.AddScoped<IStoreRepository, StoreRepository>();
+        services.AddScoped<IInvoiceShapeRepository, InvoiceShapeRepository>();
 
         // ====================================
         // Register repositories - Products & Inventory
@@ -85,7 +86,7 @@ public static class DependencyInjection
         // ====================================
         services.AddAutoMapper(cfg => {
             // Optional: Add custom mapper configurations here
-        }, typeof(SystemUserProfile).Assembly);
+        }, typeof(SystemUserProfile).Assembly, typeof(InvoiceShapeProfile).Assembly);
 
         // ====================================
         // Register Infrastructure Services

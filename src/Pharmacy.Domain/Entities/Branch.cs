@@ -77,7 +77,7 @@ public class Branch : BaseEntity
 
     /// <summary>
     /// City name (may differ from City for standardized naming)
-    /// </summary]
+    /// </summary>
     [MaxLength(500)]
     public string? CityName { get; set; }
 
