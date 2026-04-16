@@ -41,6 +41,7 @@ public class PharmacyDbContext : DbContext
     // Returns & Refunds
     public DbSet<ReturnInvoice> ReturnInvoices { get; set; }
     public DbSet<ReturnInvoiceItem> ReturnInvoiceItems { get; set; }
+    public DbSet<InvoiceShape> InvoiceShape { get; set; }
 
     // Integrations
     public DbSet<IntegrationProvider> IntegrationProviders { get; set; }
