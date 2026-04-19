@@ -38,4 +38,4 @@ jobs:
           script: |
             docker rm -f pharmacyapi || true
             docker pull ghcr.io/amerhashima/pharmacyapi:latest
-            docker run -d --name pharmacyapi -p 4000:4000 --restart unless-stopped ghcr.io/amerhashima/pharmacyapi:latest
+            docker run -d  --name pharmacyapi -p 4000:4000  -v /root/uploads:/var/uploads   --restart unless-stopped   ghcr.io/amerhashima/pharmacyapi:latest
