@@ -36,6 +36,9 @@ public class UpdateSystemUserDto
     [Required(ErrorMessage = "Role is required")]
     public Guid RoleId { get; set; }
 
+    public Guid? BranchId { get; set; }
+    public Guid? DefaultBranchId { get; set; }
+
     public bool IsActive { get; set; }
     public bool TwoFactorEnabled { get; set; }
 }

@@ -9,7 +9,10 @@ public class SystemUserProfile : Profile
     public SystemUserProfile()
     {
         CreateMap<SystemUser, SystemUserDto>()
-            .ReverseMap();
+            .ForMember(dest => dest.DefaultBranchName, opt => opt.MapFrom(src => src.DefaultBranch != null ? src.DefaultBranch.BranchName : null));
+
+        CreateMap<SystemUserDto, SystemUser>()
+            .ForMember(dest => dest.DefaultBranch, opt => opt.Ignore());
 
         CreateMap<CreateSystemUserDto, SystemUser>();
 

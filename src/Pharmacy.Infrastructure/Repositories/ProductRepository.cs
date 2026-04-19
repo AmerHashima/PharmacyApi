@@ -50,6 +50,13 @@ public class ProductRepository : BaseRepository<Product>, IProductRepository
             .FirstOrDefaultAsync(cancellationToken);
     }
 
+    public async Task<Product?> GetByRegistrationNumberAsync(string registrationNumber, CancellationToken cancellationToken = default)
+    {
+        return await _dbSet
+            .Where(p => p.RegistrationNumber == registrationNumber && !p.IsDeleted)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
     public async Task<IEnumerable<Product>> GetByTypeAsync(Guid productTypeId, CancellationToken cancellationToken = default)
     {
         return await _dbSet

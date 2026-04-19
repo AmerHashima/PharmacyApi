@@ -59,6 +59,18 @@ public class Branch : BaseEntity
     public string? LogoImage { get; set; }
 
     /// <summary>
+    /// Invoice format template identifier (e.g. "A4", "THERMAL_80", "THERMAL_58")
+    /// </summary>
+    [MaxLength(50)]
+    public string? InvoiceFormat { get; set; }
+
+    /// <summary>
+    /// Last used invoice number — auto-incremented when a new invoice is created
+    /// </summary>
+    [MaxLength(50)]
+    public int?  InvoiceNumber { get; set; }
+
+    /// <summary>
     /// Street name for detailed addressing
     /// </summary>
     [MaxLength(500)]

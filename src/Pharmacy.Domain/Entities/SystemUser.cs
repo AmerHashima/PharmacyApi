@@ -56,6 +56,11 @@ public class SystemUser : BaseEntity
     [ForeignKey(nameof(BranchId))]
     public virtual Branch? Branch { get; set; }
 
+    // Default branch used when creating transactions/invoices for this user
+    public Guid? DefaultBranchId { get; set; }
+    [ForeignKey(nameof(DefaultBranchId))]
+    public virtual Branch? DefaultBranch { get; set; }
+
     public bool IsActive { get; set; } = true;
 
     public DateTime? LastLogin { get; set; }

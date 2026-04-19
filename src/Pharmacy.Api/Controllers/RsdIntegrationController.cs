@@ -5,6 +5,7 @@ using Pharmacy.Api.Models;
 using Pharmacy.Application.Commands.Rsd;
 using Pharmacy.Application.DTOs.Common;
 using Pharmacy.Application.DTOs.Rsd;
+using Pharmacy.Application.Interfaces;
 using Pharmacy.Application.Queries.Rsd;
 
 namespace Pharmacy.Api.Controllers;
@@ -17,10 +18,17 @@ namespace Pharmacy.Api.Controllers;
 public class RsdIntegrationController : BaseApiController
 {
     private readonly IMediator _mediator;
+    private readonly IServiceScopeFactory _scopeFactory;
+    private readonly IDrugListSyncTracker _syncTracker;
 
-    public RsdIntegrationController(IMediator mediator)
+    public RsdIntegrationController(
+        IMediator mediator,
+        IServiceScopeFactory scopeFactory,
+        IDrugListSyncTracker syncTracker)
     {
-        _mediator = mediator;
+        _mediator    = mediator;
+        _scopeFactory = scopeFactory;
+        _syncTracker  = syncTracker;
     }
 
     /// <summary>
@@ -153,6 +161,56 @@ public class RsdIntegrationController : BaseApiController
         {
             return ErrorResponse<PagedResult<RsdOperationLogDto>>($"Error retrieving RSD operation logs: {ex.Message}", 500);
         }
+    }
+
+    /// <summary>
+    /// Start an async SFDA RSD drug-list sync. Returns immediately with a jobId.
+    /// The sync runs in the background; poll GET drug-list/sync/{jobId}/status for progress.
+    /// DrugStatus: 1=Registered, 2=Cancelled, 3=Suspended
+    /// </summary>
+    [HttpPost("drug-list/sync")]
+    public ActionResult<ApiResponse<object>> SyncDrugList([FromBody] DrugListRequestDto dto)
+    {
+        var jobId = Guid.NewGuid();
+        _syncTracker.Register(jobId);
+
+        // Fire-and-forget on a thread-pool thread using its own DI scope,
+        // so the scoped DbContext / repositories are not tied to this request lifetime.
+        _ = Task.Run(async () =>
+        {
+            _syncTracker.MarkRunning(jobId);
+            try
+            {
+                using var scope   = _scopeFactory.CreateScope();
+                var mediator      = scope.ServiceProvider.GetRequiredService<IMediator>();
+                var result        = await mediator.Send(new SyncDrugListCommand(dto));
+                _syncTracker.MarkCompleted(jobId, result);
+            }
+            catch (Exception ex)
+            {
+                _syncTracker.MarkFailed(jobId, ex.Message);
+            }
+        });
+
+        var body = ApiResponse<object>.SuccessResult(
+            new { jobId, statusUrl = $"api/rsdintegration/drug-list/sync/{jobId}/status" },
+            "Drug list sync started. Use the statusUrl to poll for progress.",
+            statusCode: 202);
+        body.TraceId = HttpContext.TraceIdentifier;
+        return StatusCode(202, body);
+    }
+
+    /// <summary>
+    /// Poll the status of a previously started drug-list sync job.
+    /// </summary>
+    [HttpGet("drug-list/sync/{jobId:guid}/status")]
+    public ActionResult<ApiResponse<DrugListSyncStatusDto>> GetDrugListSyncStatus(Guid jobId)
+    {
+        var status = _syncTracker.GetStatus(jobId);
+        if (status is null)
+            return ErrorResponse<DrugListSyncStatusDto>($"Job '{jobId}' not found.", 404);
+
+        return SuccessResponse(status, $"Job is {status.State}.");
     }
 
     /// <summary>

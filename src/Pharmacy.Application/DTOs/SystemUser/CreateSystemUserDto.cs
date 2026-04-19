@@ -37,6 +37,9 @@ public class CreateSystemUserDto
     [Required(ErrorMessage = "Role is required")]
     public Guid RoleId { get; set; }
 
+    public Guid? BranchId { get; set; }
+    public Guid? DefaultBranchId { get; set; }
+
     public bool IsActive { get; set; } = true;
     public bool TwoFactorEnabled { get; set; } = false;
 }

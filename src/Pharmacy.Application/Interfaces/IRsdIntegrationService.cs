@@ -11,4 +11,5 @@ public interface IRsdIntegrationService
     Task<PharmacySaleCancelResponseDto> PharmacySaleCancelAsync(PharmacySaleCancelRequestDto request, CancellationToken cancellationToken = default);
     Task<StakeholderListResponseDto> GetStakeholderListAsync(StakeholderListRequestDto request, CancellationToken cancellationToken = default);
     Task<ReturnBatchResponseDto> ReturnBatchAsync(ReturnBatchRequestDto request, CancellationToken cancellationToken = default);
+    Task<List<DrugListItemDto>> GetDrugListAsync(DrugListRequestDto request, CancellationToken cancellationToken = default);
 }

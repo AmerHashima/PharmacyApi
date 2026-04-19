@@ -180,4 +180,18 @@ public static class RsdSoapEnvelopeBuilder
             .Replace("\"", "&quot;")
             .Replace("'", "&apos;");
     }
+
+    public static string BuildDrugListEnvelope(int drugStatus)
+    {
+        return $"""
+            <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:drug="http://dtts.sfda.gov.sa/DrugListService">
+               <soapenv:Header/>
+               <soapenv:Body>
+                  <drug:DrugListServiceRequest>
+                     <DRUGSTATUS>{drugStatus}</DRUGSTATUS>
+                  </drug:DrugListServiceRequest>
+               </soapenv:Body>
+            </soapenv:Envelope>
+            """;
+    }
 }

@@ -114,6 +114,9 @@ public static class DependencyInjection
         services.AddScoped<IBarcodeParserService, BarcodeParserService>();
         services.AddScoped<IFileStorageService, FileStorageService>();
 
+        // Drug sync job tracker — singleton so it survives across request scopes
+        services.AddSingleton<IDrugListSyncTracker, DrugListSyncTracker>();
+
         // HttpClient for RSD integration
         services.AddHttpClient("RsdClient", client =>
         {

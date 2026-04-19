@@ -78,6 +78,20 @@ public class PharmacyDbContext : DbContext
             .HasForeignKey(b => b.DefaultStoreId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        // 🔹 Explicitly configure the two SystemUser → Branch relationships
+        //     so EF Core does not try to auto-resolve a single inverse collection.
+        modelBuilder.Entity<SystemUser>()
+            .HasOne(u => u.Branch)
+            .WithMany()
+            .HasForeignKey(u => u.BranchId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<SystemUser>()
+            .HasOne(u => u.DefaultBranch)
+            .WithMany()
+            .HasForeignKey(u => u.DefaultBranchId)
+            .OnDelete(DeleteBehavior.Restrict);
+
         modelBuilder.Entity<Product>()
             .HasIndex(p => p.GTIN)
             .IsUnique()

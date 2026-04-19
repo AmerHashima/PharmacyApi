@@ -269,4 +269,50 @@ public static class RsdSoapResponseParser
 
     private static AcceptDispatchResponseDto AcceptDispatchError(string code, string msg, string rawXml, string dispatchId) =>
         new() { Success = false, ResponseCode = code, ResponseMessage = msg, RawResponse = rawXml, DispatchNotificationId = dispatchId };
+
+    public static List<DrugListItemDto> ParseDrugListResponse(string rawXml)
+    {
+        try
+        {
+            var doc = XDocument.Parse(rawXml);
+            var body = FindBody(doc);
+            if (body == null) return [];
+
+            return body.Descendants()
+                .Where(e => e.Name.LocalName == "DRUG")
+                .Select(d => new DrugListItemDto
+                {
+                    GTIN               = GetValue(d, "GTIN"),
+                    RegistrationNumber = GetValue(d, "REGISTRATIONNUMBER"),
+                    DrugName           = GetValue(d, "DRUGNAME"),
+                    GenericName        = GetValue(d, "GENERICNAME"),
+                    StrengthValue      = GetValue(d, "STRENGTHVALUE"),
+                    StrengthValueUnit  = GetValue(d, "STRENGTHVALUEUNIT"),
+                    PackageType        = GetValue(d, "PACKAGETYPE"),
+                    PackageSize        = GetValue(d, "PACKAGESIZE"),
+                    DosageForm         = GetValue(d, "DOSAGEFORM"),
+                    DrugStatus         = GetValue(d, "DRUGSTATUS"),
+                    MarketingStatus    = GetValue(d, "MARKETINGSTATUS"),
+                    LegalStatus        = GetValue(d, "LEGALSTATUS"),
+                    DomainId           = GetValue(d, "DOMAINID"),
+                    Price              = GetValue(d, "PRICE"),
+                    Volume             = GetValue(d, "VOLUME"),
+                    UnitOfVolume       = GetValue(d, "UNITOFVOLUME"),
+                    IsExportable       = GetValue(d, "ISEXPORTABLE") == "1",
+                    IsImportable       = GetValue(d, "ISIMPORTABLE") == "1",
+                    Suppliers          = d.Descendants()
+                        .Where(s => s.Name.LocalName == "SUPPLIER")
+                        .Select(s => new DrugListSupplierDto
+                        {
+                            GLN          = GetValue(s, "GLN"),
+                            SupplierName = GetValue(s, "SUPPLIERNAME")
+                        }).ToList()
+                })
+                .ToList();
+        }
+        catch
+        {
+            return [];
+        }
+    }
 }

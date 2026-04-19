@@ -24,6 +24,7 @@ public class RsdIntegrationService : IRsdIntegrationService
     private const string PharmacySaleCancelPath = "/PharmacySaleCancelService/PharmacySaleCancelService";
     private const string StakeholderListPath = "/StakeholderListService/StakeholderListService";
     private const string ReturnBatchPath = "/ReturnBatchService/ReturnBatchService";
+    private const string DrugListPath = "/DrugListService/DrugListService";
 
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly IBranchIntegrationSettingRepository _settingRepository;
@@ -161,6 +162,21 @@ public class RsdIntegrationService : IRsdIntegrationService
     }
 
     // ── Private helpers ──
+
+    public async Task<List<DrugListItemDto>> GetDrugListAsync(DrugListRequestDto request, CancellationToken cancellationToken = default)
+    {
+        var settings = await ResolveSettingsAsync(request.BranchId);
+        var endpoint = settings.BuildUrl(DrugListPath);
+        var soapEnvelope = RsdSoapEnvelopeBuilder.BuildDrugListEnvelope(request.DrugStatus);
+
+        _logger.LogInformation("RSD DrugList - Branch: {BranchId}, DrugStatus: {Status}", request.BranchId, request.DrugStatus);
+
+        var rawResponse = await SendSoapRequestAsync(settings, endpoint, soapEnvelope, "DrugListService", cancellationToken);
+        var drugs = RsdSoapResponseParser.ParseDrugListResponse(rawResponse);
+
+        _logger.LogInformation("RSD DrugList - Returned {Count} drug(s)", drugs.Count);
+        return drugs;
+    }
 
     private async Task<string> ResolveGlnAsync(Guid branchId, string? providedGln, CancellationToken cancellationToken)
     {

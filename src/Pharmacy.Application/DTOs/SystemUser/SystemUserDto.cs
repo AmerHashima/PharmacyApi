@@ -19,6 +19,9 @@ public class SystemUserDto
     public Guid RoleId { get; set; }
     public string? RoleName { get; set; }
 
+    public Guid? DefaultBranchId { get; set; }
+    public string? DefaultBranchName { get; set; }
+
     public bool IsActive { get; set; }
     public DateTime? LastLogin { get; set; }
     public int FailedLoginCount { get; set; }
