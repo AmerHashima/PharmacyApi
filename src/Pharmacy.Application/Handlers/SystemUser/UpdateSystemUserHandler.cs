@@ -46,6 +46,7 @@ public class UpdateSystemUserHandler : IRequestHandler<UpdateSystemUserCommand, 
         existingUser.Mobile = request.SystemUser.Mobile;
         existingUser.FirstName = request.SystemUser.FirstName;
         existingUser.MiddleName = request.SystemUser.MiddleName;
+        existingUser.DefaultBranchId = request.SystemUser.DefaultBranchId;
         existingUser.LastName = request.SystemUser.LastName;
         existingUser.FullName = $"{request.SystemUser.FirstName} {request.SystemUser.MiddleName} {request.SystemUser.LastName}".Trim().Replace("  ", " ");
         existingUser.GenderLookupId = request.SystemUser.GenderLookupId; // Fixed: Use GenderLookupId (Guid)
