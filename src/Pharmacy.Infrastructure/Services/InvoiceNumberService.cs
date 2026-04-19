@@ -54,7 +54,7 @@ public sealed class InvoiceNumberService : IInvoiceNumberService
                 $"Add a branch-specific row or ensure the global template exists.");
 
         // Format: e.g.  PosInv0000001
-        return $"{result.Format}{result.NumberValue:D7}";
+        return $"{result.Format}-{result.NumberValue:D7}";
     }
 
     // EF Core SqlQuery<T> maps OUTPUT columns by name to this record's properties.
