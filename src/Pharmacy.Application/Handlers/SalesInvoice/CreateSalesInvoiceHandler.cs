@@ -1,6 +1,7 @@
 using AutoMapper;
 using Pharmacy.Application.Commands.SalesInvoice;
 using Pharmacy.Application.DTOs.SalesInvoice;
+using Pharmacy.Application.Interfaces;
 using Pharmacy.Domain.Entities;
 using Pharmacy.Domain.Interfaces;
 using MediatR;
@@ -20,6 +21,7 @@ public class CreateSalesInvoiceHandler : IRequestHandler<CreateSalesInvoiceComma
     private readonly IProductRepository _productRepository;
     private readonly IBranchRepository _branchRepository;
     private readonly IAppLookupDetailRepository _lookupRepository;
+    private readonly IInvoiceNumberService _invoiceNumberService;
     private readonly IMapper _mapper;
 
     public CreateSalesInvoiceHandler(
@@ -30,6 +32,7 @@ public class CreateSalesInvoiceHandler : IRequestHandler<CreateSalesInvoiceComma
         IProductRepository productRepository,
         IBranchRepository branchRepository,
         IAppLookupDetailRepository lookupRepository,
+        IInvoiceNumberService invoiceNumberService,
         IMapper mapper)
     {
         _invoiceRepository = invoiceRepository;
@@ -39,6 +42,7 @@ public class CreateSalesInvoiceHandler : IRequestHandler<CreateSalesInvoiceComma
         _productRepository = productRepository;
         _branchRepository = branchRepository;
         _lookupRepository = lookupRepository;
+        _invoiceNumberService = invoiceNumberService;
         _mapper = mapper;
     }
 
@@ -78,8 +82,11 @@ public class CreateSalesInvoiceHandler : IRequestHandler<CreateSalesInvoiceComma
         var transactionTypes = await _lookupRepository.GetByMasterCodeAsync("TRANSACTION_TYPE", cancellationToken);
         var outType = transactionTypes.FirstOrDefault(t => t.ValueCode == "OUT");
 
-        // Generate invoice number
-        var invoiceNumber = await _invoiceRepository.GenerateInvoiceNumberAsync(request.Invoice.BranchId, cancellationToken);
+        // Generate invoice number from InvoiceSetup table (atomic increment)
+        var invoiceNumber = await _invoiceNumberService.GenerateNextAsync(
+            request.Invoice.BranchId,
+            IInvoiceNumberService.FormatPosInvoice,
+            cancellationToken);
 
         // Calculate totals
         decimal subTotal = 0;

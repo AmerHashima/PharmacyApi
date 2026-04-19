@@ -1,6 +1,7 @@
 using AutoMapper;
 using Pharmacy.Application.Commands.ReturnInvoice;
 using Pharmacy.Application.DTOs.ReturnInvoice;
+using Pharmacy.Application.Interfaces;
 using Pharmacy.Domain.Entities;
 using Pharmacy.Domain.Interfaces;
 using MediatR;
@@ -22,6 +23,7 @@ public class CreateReturnInvoiceHandler : IRequestHandler<CreateReturnInvoiceCom
     private readonly IProductRepository _productRepository;
     private readonly IBranchRepository _branchRepository;
     private readonly IAppLookupDetailRepository _lookupRepository;
+    private readonly IInvoiceNumberService _invoiceNumberService;
     private readonly IMapper _mapper;
 
     public CreateReturnInvoiceHandler(
@@ -34,6 +36,7 @@ public class CreateReturnInvoiceHandler : IRequestHandler<CreateReturnInvoiceCom
         IProductRepository productRepository,
         IBranchRepository branchRepository,
         IAppLookupDetailRepository lookupRepository,
+        IInvoiceNumberService invoiceNumberService,
         IMapper mapper)
     {
         _returnInvoiceRepository = returnInvoiceRepository;
@@ -45,6 +48,7 @@ public class CreateReturnInvoiceHandler : IRequestHandler<CreateReturnInvoiceCom
         _productRepository = productRepository;
         _branchRepository = branchRepository;
         _lookupRepository = lookupRepository;
+        _invoiceNumberService = invoiceNumberService;
         _mapper = mapper;
     }
 
@@ -99,8 +103,11 @@ public class CreateReturnInvoiceHandler : IRequestHandler<CreateReturnInvoiceCom
         var transactionTypes = await _lookupRepository.GetByMasterCodeAsync("TRANSACTION_TYPE", cancellationToken);
         var inType = transactionTypes.FirstOrDefault(t => t.ValueCode == "IN");
 
-        // Generate return number
-        var returnNumber = await _returnInvoiceRepository.GenerateReturnNumberAsync(request.ReturnInvoice.BranchId, cancellationToken);
+        // Generate return number from InvoiceSetup table (atomic increment)
+        var returnNumber = await _invoiceNumberService.GenerateNextAsync(
+            request.ReturnInvoice.BranchId,
+            IInvoiceNumberService.FormatReturnPosInvoice,
+            cancellationToken);
 
         // Calculate totals
         decimal subTotal = 0;

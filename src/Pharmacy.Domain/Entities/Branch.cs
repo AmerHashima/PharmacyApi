@@ -59,18 +59,6 @@ public class Branch : BaseEntity
     public string? LogoImage { get; set; }
 
     /// <summary>
-    /// Invoice format template identifier (e.g. "A4", "THERMAL_80", "THERMAL_58")
-    /// </summary>
-    [MaxLength(50)]
-    public string? InvoiceFormat { get; set; }
-
-    /// <summary>
-    /// Last used invoice number — auto-incremented when a new invoice is created
-    /// </summary>
-    [MaxLength(50)]
-    public int?  InvoiceNumber { get; set; }
-
-    /// <summary>
     /// Street name for detailed addressing
     /// </summary>
     [MaxLength(500)]
@@ -124,4 +112,5 @@ public class Branch : BaseEntity
     public virtual ICollection<StockTransaction> IncomingTransactions { get; set; } = new List<StockTransaction>();
     public virtual ICollection<SalesInvoice> SalesInvoices { get; set; } = new List<SalesInvoice>();
     public virtual ICollection<Store> Stores { get; set; } = new List<Store>();
+    public virtual ICollection<InvoiceSetup> InvoiceSetups { get; set; } = new List<InvoiceSetup>();
 }

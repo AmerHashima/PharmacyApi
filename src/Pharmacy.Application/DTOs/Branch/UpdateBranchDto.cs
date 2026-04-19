@@ -58,11 +58,5 @@ public class UpdateBranchDto
     public string? RegistrationName { get; set; }
 
     public int? Status { get; set; }
-
-    [MaxLength(50, ErrorMessage = "Invoice format cannot exceed 50 characters")]
-    public string? InvoiceFormat { get; set; }
-
-    [MaxLength(50, ErrorMessage = "Invoice number cannot exceed 50 characters")]
-    public int?  InvoiceNumber { get; set; }
 }
 

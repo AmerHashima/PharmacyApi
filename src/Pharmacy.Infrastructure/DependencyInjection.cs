@@ -63,6 +63,7 @@ public static class DependencyInjection
         services.AddScoped<IStakeholderRepository, StakeholderRepository>();
         services.AddScoped<IStoreRepository, StoreRepository>();
         services.AddScoped<IInvoiceShapeRepository, InvoiceShapeRepository>();
+        services.AddScoped<IInvoiceSetupRepository, InvoiceSetupRepository>();
 
         // ====================================
         // Register repositories - Products & Inventory
@@ -113,6 +114,7 @@ public static class DependencyInjection
         services.AddScoped<IQueryBuilderService, QueryBuilderService>();
         services.AddScoped<IBarcodeParserService, BarcodeParserService>();
         services.AddScoped<IFileStorageService, FileStorageService>();
+        services.AddScoped<IInvoiceNumberService, InvoiceNumberService>();
 
         // Drug sync job tracker — singleton so it survives across request scopes
         services.AddSingleton<IDrugListSyncTracker, DrugListSyncTracker>();

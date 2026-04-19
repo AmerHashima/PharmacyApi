@@ -42,6 +42,7 @@ public class PharmacyDbContext : DbContext
     public DbSet<ReturnInvoice> ReturnInvoices { get; set; }
     public DbSet<ReturnInvoiceItem> ReturnInvoiceItems { get; set; }
     public DbSet<InvoiceShape> InvoiceShapes { get; set; }
+    public DbSet<InvoiceSetup> InvoiceSetups { get; set; }
 
     // Integrations
     public DbSet<IntegrationProvider> IntegrationProviders { get; set; }
@@ -90,6 +91,13 @@ public class PharmacyDbContext : DbContext
             .HasOne(u => u.DefaultBranch)
             .WithMany()
             .HasForeignKey(u => u.DefaultBranchId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // 🔹 InvoiceSetup → Branch (nullable FK, no cascade)
+        modelBuilder.Entity<InvoiceSetup>()
+            .HasOne(i => i.Branch)
+            .WithMany(b => b.InvoiceSetups)
+            .HasForeignKey(i => i.BranchId)
             .OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<Product>()
