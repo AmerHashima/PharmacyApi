@@ -17,6 +17,16 @@ public interface IProductRepository : IBaseRepository<Product>
     /// Get product by GTIN
     /// </summary>
     Task<Product?> GetByGTINAsync(string gtin, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Get product by Barcode
+    /// </summary>
+    Task<Product?> GetByBarcodeAsync(string barcode, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Get product by GTIN or Barcode (tries GTIN first, then Barcode)
+    /// </summary>
+    Task<Product?> GetByGtinOrBarcodeAsync(string value, CancellationToken cancellationToken = default);
     
     /// <summary>
     /// Get products by type

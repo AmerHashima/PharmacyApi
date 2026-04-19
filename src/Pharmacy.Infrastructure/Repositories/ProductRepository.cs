@@ -30,7 +30,23 @@ public class ProductRepository : BaseRepository<Product>, IProductRepository
     {
         return await _dbSet
             .Include(p => p.ProductType)
-            .Where(p => '0'+p.GTIN == gtin && !p.IsDeleted)
+            .Where(p => p.GTIN == gtin && !p.IsDeleted)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    public async Task<Product?> GetByBarcodeAsync(string barcode, CancellationToken cancellationToken = default)
+    {
+        return await _dbSet
+            .Include(p => p.ProductType)
+            .Where(p => p.Barcode == barcode && !p.IsDeleted)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    public async Task<Product?> GetByGtinOrBarcodeAsync(string value, CancellationToken cancellationToken = default)
+    {
+        return await _dbSet
+            .Include(p => p.ProductType)
+            .Where(p => !p.IsDeleted && (p.GTIN == value || p.Barcode == value))
             .FirstOrDefaultAsync(cancellationToken);
     }
 

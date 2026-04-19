@@ -6,7 +6,6 @@ using Pharmacy.Application.Commands.StockTransaction;
 using Pharmacy.Application.DTOs.Common;
 using Pharmacy.Application.DTOs.StockTransaction;
 using Pharmacy.Application.Queries.StockTransaction;
-
 namespace Pharmacy.Api.Controllers;
 
 /// <summary>
@@ -194,5 +193,41 @@ public class StockTransactionController : BaseApiController
     {
         // TODO: Implement cancellation logic
         return ErrorResponse<StockTransactionWithDetailsDto>("Not implemented yet", 501);
+    }
+
+    /// <summary>
+    /// Open Stock — resolve a list of items by GTIN or Barcode and return product + stock data.
+    /// No data is inserted or updated in the database.
+    /// </summary>
+    /// <param name="dto">List of items: GtinOrBarcode, Quantity, UnitCost, BatchNumber, ExpiryDate</param>
+    /// <returns>Resolved product details and totals for every line</returns>
+    /// <remarks>
+    /// Example request:
+    ///
+    ///     POST /api/StockTransaction/open-stock
+    ///     {
+    ///       "items": [
+    ///         { "gtinOrBarcode": "6281033704245", "quantity": 100, "unitCost": 12.50, "batchNumber": "B001", "expiryDate": "2028-06-30" },
+    ///         { "gtinOrBarcode": "6281033704246", "quantity": 50,  "unitCost": 8.75,  "batchNumber": "B002", "expiryDate": "2027-12-31" }
+    ///       ]
+    ///     }
+    /// </remarks>
+    [HttpPost("open-stock")]
+    public async Task<ActionResult<ApiResponse<OpenStockResultDto>>> OpenStock([FromBody] ResolveOpenStockDto dto)
+    {
+        try
+        {
+            var result = await _mediator.Send(new ResolveOpenStockQuery(dto));
+
+            var message = result.TotalNotFound == 0
+                ? $"All {result.TotalFound} line(s) resolved successfully"
+                : $"{result.TotalFound} line(s) resolved, {result.TotalNotFound} line(s) not found";
+
+            return SuccessResponse(result, message);
+        }
+        catch (Exception ex)
+        {
+            return ErrorResponse<OpenStockResultDto>($"Error resolving open stock: {ex.Message}", 500);
+        }
     }
 }
