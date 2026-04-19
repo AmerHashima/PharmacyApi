@@ -15,15 +15,29 @@ public class FileStorageService : IFileStorageService
 
     public async Task<string> SaveFileAsync(string subFolder, string fileName, Stream content, string contentType, CancellationToken cancellationToken = default)
     {
-        var folder = Path.Combine(_uploadRootPath, subFolder);
-        Directory.CreateDirectory(folder);
+        try
+        {
+            var folder = Path.Combine(_uploadRootPath, subFolder);
+            Directory.CreateDirectory(folder);
 
-        var fullPath = Path.Combine(folder, fileName);
-        await using var fs = new FileStream(fullPath, FileMode.Create, FileAccess.Write, FileShare.None);
-        await content.CopyToAsync(fs, cancellationToken);
+            var fullPath = Path.Combine(folder, fileName);
+            await using var fs = new FileStream(fullPath, FileMode.Create, FileAccess.Write, FileShare.None);
+            await content.CopyToAsync(fs, cancellationToken);
 
-        // Return a URL-friendly relative path starting with /uploads/
-        return $"/uploads/{subFolder.Replace('\\', '/')}/{fileName}";
+            // Return a URL-friendly relative path starting with /uploads/
+            return $"/uploads/{subFolder.Replace('\\', '/')}/{fileName}";
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            throw new InvalidOperationException(
+                $"The application does not have write permission to the upload folder '{_uploadRootPath}'. " +
+                $"Please ensure the folder exists and the application has write access. Detail: {ex.Message}", ex);
+        }
+        catch (DirectoryNotFoundException ex)
+        {
+            throw new InvalidOperationException(
+                $"Upload path not found: '{_uploadRootPath}'. Detail: {ex.Message}", ex);
+        }
     }
 
     public Task<bool> DeleteFileAsync(string? relativeUrl, CancellationToken cancellationToken = default)

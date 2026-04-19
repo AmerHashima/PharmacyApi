@@ -249,6 +249,13 @@ try
     var app = builder.Build();
 
     // --------------------------
+    // Ensure upload folders exist and are writable at startup
+    // --------------------------
+    var uploadRoot = Path.Combine(builder.Environment.ContentRootPath,
+        builder.Configuration["FileStorage:UploadPath"] ?? "wwwroot/uploads");
+    Directory.CreateDirectory(Path.Combine(uploadRoot, "logos", "branches"));
+
+    // --------------------------
     // Configure middleware pipeline
     // --------------------------
     

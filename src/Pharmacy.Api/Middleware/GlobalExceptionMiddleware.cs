@@ -74,12 +74,12 @@ public class GlobalExceptionMiddleware
                 Data = null,
                 StatusCode = (int)HttpStatusCode.Forbidden
             },
-            UnauthorizedAccessException => new ApiResponse
+            UnauthorizedAccessException unauthorizedAccessEx => new ApiResponse
             {
                 Success = false,
-                Message = "Unauthorized access",
+                Message = $"File system access denied: {unauthorizedAccessEx.Message}",
                 Data = null,
-                StatusCode = (int)HttpStatusCode.Unauthorized
+                StatusCode = (int)HttpStatusCode.InternalServerError
             },
             InvalidOperationException invalidOpEx => new ApiResponse
             {
