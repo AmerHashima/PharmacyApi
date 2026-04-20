@@ -30,7 +30,7 @@ public class GetSystemUserDataHandler : IRequestHandler<GetSystemUserDataQuery, 
         // Start with base query - all non-deleted users
         var query = _repository.GetQueryable()
             .Include(x => x.Role)
-            .Include(x => x.GenderLookup)
+            .Include(x => x.Gender)
             .Include(x => x.DefaultBranch)
             .Where(x => !x.IsDeleted);
 

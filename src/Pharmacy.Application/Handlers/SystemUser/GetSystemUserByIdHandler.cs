@@ -22,7 +22,7 @@ public class GetSystemUserByIdHandler : IRequestHandler<GetSystemUserByIdQuery, 
     {
         var user = await _repository.GetQueryable()
             .Include(x => x.Role)
-            .Include(x => x.GenderLookup)
+            .Include(x => x.Gender)
             .Include(x => x.DefaultBranch)
             .Where(x => x.Oid == request.Id && !x.IsDeleted)
             .FirstOrDefaultAsync(cancellationToken);
