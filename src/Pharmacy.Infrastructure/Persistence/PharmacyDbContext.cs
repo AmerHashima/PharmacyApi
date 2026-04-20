@@ -100,6 +100,13 @@ public class PharmacyDbContext : DbContext
             .HasForeignKey(i => i.BranchId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        // 🔹 InvoiceSetup → AppLookupDetail (nullable FK, no cascade)
+        modelBuilder.Entity<InvoiceSetup>()
+            .HasOne(i => i.InvoiceType)
+            .WithMany()
+            .HasForeignKey(i => i.InvoiceTypeId)
+            .OnDelete(DeleteBehavior.Restrict);
+
         modelBuilder.Entity<Product>()
             .HasIndex(p => p.GTIN)
             .IsUnique()

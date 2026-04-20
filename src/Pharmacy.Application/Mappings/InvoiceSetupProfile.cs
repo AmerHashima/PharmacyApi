@@ -9,7 +9,8 @@ public class InvoiceSetupProfile : Profile
     public InvoiceSetupProfile()
     {
         CreateMap<InvoiceSetup, InvoiceSetupDto>()
-            .ForMember(dest => dest.BranchName, opt => opt.MapFrom(src => src.Branch != null ? src.Branch.BranchName : null));
+            .ForMember(dest => dest.BranchName,     opt => opt.MapFrom(src => src.Branch != null ? src.Branch.BranchName : null))
+            .ForMember(dest => dest.InvoiceTypeName, opt => opt.MapFrom(src => src.InvoiceType != null ? src.InvoiceType.ValueNameEn : null));
 
         CreateMap<CreateInvoiceSetupDto, InvoiceSetup>();
 

@@ -22,4 +22,6 @@ public class UpdateInvoiceSetupDto
     public int NumberValue { get; set; }
 
     public Guid? BranchId { get; set; }
+
+    public Guid? InvoiceTypeId { get; set; }
 }

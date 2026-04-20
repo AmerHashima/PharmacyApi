@@ -9,5 +9,7 @@ public class InvoiceSetupDto
     public int NumberValue { get; set; }
     public Guid? BranchId { get; set; }
     public string? BranchName { get; set; }
+    public Guid? InvoiceTypeId { get; set; }
+    public string? InvoiceTypeName { get; set; }
     public DateTime? CreatedAt { get; set; }
 }

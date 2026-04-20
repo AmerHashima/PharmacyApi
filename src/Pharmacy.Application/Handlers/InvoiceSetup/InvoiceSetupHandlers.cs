@@ -27,6 +27,7 @@ public class GetInvoiceSetupByIdHandler : IRequestHandler<GetInvoiceSetupByIdQue
     {
         var entity = await _repo.GetQueryable()
             .Include(x => x.Branch)
+            .Include(x => x.InvoiceType)
             .Where(x => x.Oid == request.Id && !x.IsDeleted)
             .FirstOrDefaultAsync(cancellationToken);
 
@@ -90,6 +91,7 @@ public class GetInvoiceSetupDataHandler : IRequestHandler<GetInvoiceSetupDataQue
     {
         var query = _repo.GetQueryable()
             .Include(x => x.Branch)
+            .Include(x => x.InvoiceType)
             .Where(x => !x.IsDeleted);
 
         query = _queryBuilder.ApplyFilters(query, request.Request.Request.Filters);

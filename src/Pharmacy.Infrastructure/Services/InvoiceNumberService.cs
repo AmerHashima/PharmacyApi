@@ -9,9 +9,9 @@ namespace Pharmacy.Infrastructure.Services;
 /// in a single SQL <c>UPDATE … OUTPUT</c> statement, guaranteeing uniqueness even under
 /// high concurrency without application-level locking.
 ///
-/// Preference order:
-///   1. Branch-specific row  (BranchId = <paramref name="branchId"/>)
-///   2. Global template row  (BranchId IS NULL)
+/// Lookup order:
+///   1. Branch-specific row  (InvoiceTypeId = <paramref name="invoiceTypeId"/> AND BranchId = <paramref name="branchId"/>)
+///   2. Global template row  (InvoiceTypeId = <paramref name="invoiceTypeId"/> AND BranchId IS NULL)
 /// </summary>
 public sealed class InvoiceNumberService : IInvoiceNumberService
 {
@@ -24,13 +24,14 @@ public sealed class InvoiceNumberService : IInvoiceNumberService
 
     public async Task<string> GenerateNextAsync(
         Guid branchId,
-        string format,
+        Guid invoiceTypeId,
         CancellationToken cancellationToken = default)
     {
         // Single atomic statement:
-        //   - Finds the correct row (branch-specific first, global fallback)
+        //   - Resolves the correct row: branch-specific first, global template fallback
+        //     using InvoiceTypeId (AppLookupDetail FK) + BranchId — NOT the Format string
         //   - Increments NumberValue in the database
-        //   - Returns the new value in one round-trip — no race conditions possible
+        //   - Returns Format + new NumberValue in one round-trip — no race conditions
         var results = await _context.Database
             .SqlQuery<InvoiceNumberResult>(
                 $"""
@@ -40,8 +41,8 @@ public sealed class InvoiceNumberService : IInvoiceNumberService
                 WHERE  Oid = (
                     SELECT TOP 1 Oid
                     FROM   InvoiceSetups
-                    WHERE  Format    = {format}
-                      AND  IsDeleted = 0
+                    WHERE  InvoiceTypeId = {invoiceTypeId}
+                      AND  IsDeleted     = 0
                       AND  (BranchId = {branchId} OR BranchId IS NULL)
                     ORDER BY CASE WHEN BranchId IS NOT NULL THEN 0 ELSE 1 END
                 )
@@ -50,10 +51,11 @@ public sealed class InvoiceNumberService : IInvoiceNumberService
 
         var result = results.FirstOrDefault()
             ?? throw new InvalidOperationException(
-                $"No InvoiceSetup row found for format '{format}'. " +
+                $"No InvoiceSetup row found for InvoiceTypeId '{invoiceTypeId}' " +
+                $"(branch '{branchId}' or global). " +
                 $"Add a branch-specific row or ensure the global template exists.");
 
-        // Format: e.g.  PosInv0000001
+        // Format: e.g.  PosInv-0000001
         return $"{result.Format}-{result.NumberValue:D7}";
     }
 

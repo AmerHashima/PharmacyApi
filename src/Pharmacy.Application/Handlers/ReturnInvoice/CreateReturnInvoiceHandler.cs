@@ -106,7 +106,7 @@ public class CreateReturnInvoiceHandler : IRequestHandler<CreateReturnInvoiceCom
         // Generate return number from InvoiceSetup table (atomic increment)
         var returnNumber = await _invoiceNumberService.GenerateNextAsync(
             request.ReturnInvoice.BranchId,
-            IInvoiceNumberService.FormatReturnPosInvoice,
+            IInvoiceNumberService.LookupDetailReturnPosInvoiceId,
             cancellationToken);
 
         // Calculate totals

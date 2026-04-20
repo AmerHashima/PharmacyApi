@@ -19,4 +19,6 @@ public class CreateInvoiceSetupDto
     public int NumberValue { get; set; } = 1;
 
     public Guid? BranchId { get; set; }
+
+    public Guid? InvoiceTypeId { get; set; }
 }

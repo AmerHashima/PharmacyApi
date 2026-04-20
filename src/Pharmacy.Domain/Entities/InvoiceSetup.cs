@@ -36,4 +36,10 @@ public class InvoiceSetup : BaseEntity
 
     [ForeignKey(nameof(BranchId))]
     public virtual Branch? Branch { get; set; }
+
+    /// <summary>FK to AppLookupDetail — classifies the invoice type (e.g. POS Invoice, Supplier Invoice).</summary>
+    public Guid? InvoiceTypeId { get; set; }
+
+    [ForeignKey(nameof(InvoiceTypeId))]
+    public virtual AppLookupDetail? InvoiceType { get; set; }
 }

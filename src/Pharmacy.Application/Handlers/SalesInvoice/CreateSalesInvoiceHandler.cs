@@ -85,7 +85,7 @@ public class CreateSalesInvoiceHandler : IRequestHandler<CreateSalesInvoiceComma
         // Generate invoice number from InvoiceSetup table (atomic increment)
         var invoiceNumber = await _invoiceNumberService.GenerateNextAsync(
             request.Invoice.BranchId,
-            IInvoiceNumberService.FormatPosInvoice,
+            IInvoiceNumberService.LookupDetailPosInvoiceId,
             cancellationToken);
 
         // Calculate totals
