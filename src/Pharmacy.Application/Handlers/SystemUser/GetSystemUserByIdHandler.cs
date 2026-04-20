@@ -1,4 +1,5 @@
 using AutoMapper;
+using Microsoft.EntityFrameworkCore;
 using Pharmacy.Application.DTOs.SystemUserSpace;
 using Pharmacy.Application.Queries.SystemUserSpace;
 using Pharmacy.Domain.Interfaces;
@@ -19,7 +20,13 @@ public class GetSystemUserByIdHandler : IRequestHandler<GetSystemUserByIdQuery, 
 
     public async Task<SystemUserDto?> Handle(GetSystemUserByIdQuery request, CancellationToken cancellationToken)
     {
-        var user = await _repository.GetByIdAsync(request.Id, cancellationToken);
+        var user = await _repository.GetQueryable()
+            .Include(x => x.Role)
+            .Include(x => x.GenderLookup)
+            .Include(x => x.DefaultBranch)
+            .Where(x => x.Oid == request.Id && !x.IsDeleted)
+            .FirstOrDefaultAsync(cancellationToken);
+
         return user == null ? null : _mapper.Map<SystemUserDto>(user);
     }
 }

@@ -1,4 +1,5 @@
 using AutoMapper;
+using Microsoft.EntityFrameworkCore;
 using Pharmacy.Application.DTOs.SystemUserSpace;
 using Pharmacy.Application.DTOs.Common;
 using Pharmacy.Application.Queries.SystemUserSpace;
@@ -28,6 +29,9 @@ public class GetSystemUserDataHandler : IRequestHandler<GetSystemUserDataQuery, 
     {
         // Start with base query - all non-deleted users
         var query = _repository.GetQueryable()
+            .Include(x => x.Role)
+            .Include(x => x.GenderLookup)
+            .Include(x => x.DefaultBranch)
             .Where(x => !x.IsDeleted);
 
 
