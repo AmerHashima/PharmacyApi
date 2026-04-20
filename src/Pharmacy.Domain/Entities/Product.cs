@@ -29,6 +29,12 @@ public class Product : BaseEntity
     public virtual AppLookupDetail? VatType { get; set; }
     [MaxLength(500)]
     public string? GenericName { get; set; }
+
+    public Guid? GenericNameId { get; set; }
+
+    [ForeignKey(nameof(GenericNameId))]
+    public virtual GenericName? GenericNameRef { get; set; }
+
     public Guid? ProductGroupId { get; set; }
 
     [ForeignKey(nameof(ProductGroupId))]

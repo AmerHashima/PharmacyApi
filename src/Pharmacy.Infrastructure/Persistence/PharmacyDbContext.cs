@@ -20,6 +20,9 @@ public class PharmacyDbContext : DbContext
     public DbSet<AppLookupMaster> AppLookupMasters { get; set; }
     public DbSet<AppLookupDetail> AppLookupDetails { get; set; }
 
+    // Reference Data
+    public DbSet<GenericName> GenericNames { get; set; }
+
     // Pharmacy Structure
     public DbSet<Branch> Branches { get; set; }
     public DbSet<Stakeholder> Stakeholders { get; set; }
@@ -111,6 +114,13 @@ public class PharmacyDbContext : DbContext
             .HasIndex(p => p.GTIN)
             .IsUnique()
             .HasFilter("[GTIN] IS NOT NULL AND [IsDeleted] = 0");
+
+        // 🔹 Product → GenericName (nullable FK, no cascade)
+        modelBuilder.Entity<Product>()
+            .HasOne(p => p.GenericNameRef)
+            .WithMany(g => g.Products)
+            .HasForeignKey(p => p.GenericNameId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<SalesInvoice>()
             .HasIndex(i => i.InvoiceNumber)

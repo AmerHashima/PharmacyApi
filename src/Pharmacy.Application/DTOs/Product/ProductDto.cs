@@ -18,6 +18,9 @@ public class ProductDto
     public string? DosageFormName { get; set; }
     public string? DosageFormNameAr { get; set; }
     public string? GenericName { get; set; }
+    public Guid? GenericNameId { get; set; }
+    public string? GenericNameEN { get; set; }
+    public string? GenericNameAR { get; set; }
     
     public Guid? ProductGroupId { get; set; }
     public string? ProductGroupName { get; set; }

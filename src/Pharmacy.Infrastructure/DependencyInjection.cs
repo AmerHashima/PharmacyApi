@@ -57,6 +57,11 @@ public static class DependencyInjection
         services.AddScoped<IAppLookupDetailRepository, AppLookupDetailRepository>();
 
         // ====================================
+        // Register repositories - Reference Data
+        // ====================================
+        services.AddScoped<IGenericNameRepository, GenericNameRepository>();
+
+        // ====================================
         // Register repositories - Pharmacy Structure
         // ====================================
         services.AddScoped<IBranchRepository, BranchRepository>();

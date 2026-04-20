@@ -32,7 +32,11 @@ public class ProductProfile : Profile
             .ForMember(dest => dest.DosageFormName,
                 opt => opt.MapFrom(src => src.DosageForm != null ? src.DosageForm.ValueNameEn : null))
             .ForMember(dest => dest.DosageFormNameAr,
-                opt => opt.MapFrom(src => src.DosageForm != null ? src.DosageForm.ValueNameAr : null));
+                opt => opt.MapFrom(src => src.DosageForm != null ? src.DosageForm.ValueNameAr : null))
+            .ForMember(dest => dest.GenericNameEN,
+                opt => opt.MapFrom(src => src.GenericNameRef != null ? src.GenericNameRef.NameEN : null))
+            .ForMember(dest => dest.GenericNameAR,
+                opt => opt.MapFrom(src => src.GenericNameRef != null ? src.GenericNameRef.NameAR : null));
 
         // Create DTO to Entity
         CreateMap<CreateProductDto, Product>();

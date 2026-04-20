@@ -30,6 +30,7 @@ public class ProductRepository : BaseRepository<Product>, IProductRepository
     {
         return await _dbSet
             .Include(p => p.ProductType)
+            .Include(p => p.GenericNameRef)
             .Where(p => p.GTIN == gtin && !p.IsDeleted)
             .FirstOrDefaultAsync(cancellationToken);
     }
@@ -38,6 +39,7 @@ public class ProductRepository : BaseRepository<Product>, IProductRepository
     {
         return await _dbSet
             .Include(p => p.ProductType)
+            .Include(p => p.GenericNameRef)
             .Where(p => p.Barcode == barcode && !p.IsDeleted)
             .FirstOrDefaultAsync(cancellationToken);
     }
@@ -46,6 +48,7 @@ public class ProductRepository : BaseRepository<Product>, IProductRepository
     {
         return await _dbSet
             .Include(p => p.ProductType)
+            .Include(p => p.GenericNameRef)
             .Where(p => !p.IsDeleted && (p.GTIN == value || p.Barcode == value))
             .FirstOrDefaultAsync(cancellationToken);
     }

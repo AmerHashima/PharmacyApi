@@ -1,4 +1,5 @@
 using AutoMapper;
+using Microsoft.EntityFrameworkCore;
 using Pharmacy.Application.DTOs.Product;
 using Pharmacy.Application.Queries.Product;
 using Pharmacy.Domain.Interfaces;
@@ -22,7 +23,16 @@ public class GetProductByIdHandler : IRequestHandler<GetProductByIdQuery, Produc
 
     public async Task<ProductDto?> Handle(GetProductByIdQuery request, CancellationToken cancellationToken)
     {
-        var product = await _repository.GetByIdAsync(request.Id, cancellationToken);
+        var product = await _repository.GetQueryable()
+            .Include(x => x.ProductType)
+            .Include(x => x.PackageType)
+            .Include(x => x.DosageForm)
+            .Include(x => x.VatType)
+            .Include(x => x.ProductGroup)
+            .Include(x => x.GenericNameRef)
+            .Where(x => x.Oid == request.Id && !x.IsDeleted)
+            .FirstOrDefaultAsync(cancellationToken);
+
         return product == null ? null : _mapper.Map<ProductDto>(product);
     }
 }

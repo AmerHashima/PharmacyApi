@@ -37,6 +37,7 @@ public class GetProductDataHandler : IRequestHandler<GetProductDataQuery, PagedR
                         .Include(x => x.DosageForm)
                         .Include(x => x.VatType)
                         .Include(x => x.ProductGroup)
+                        .Include(x => x.GenericNameRef)
 .Where(x => !x.IsDeleted);
 
  
