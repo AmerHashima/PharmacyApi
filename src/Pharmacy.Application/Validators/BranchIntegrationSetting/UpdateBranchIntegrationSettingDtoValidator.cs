@@ -20,9 +20,9 @@ public class UpdateBranchIntegrationSettingDtoValidator : AbstractValidator<Upda
             .MaximumLength(255).WithMessage("Integration key cannot exceed 255 characters")
             .When(x => !string.IsNullOrEmpty(x.IntegrationKey));
 
-        RuleFor(x => x.IntegrationValue)
-            .MaximumLength(255).WithMessage("Integration value cannot exceed 255 characters")
-            .When(x => !string.IsNullOrEmpty(x.IntegrationValue));
+        //RuleFor(x => x.IntegrationValue)
+        //    .MaximumLength(255).WithMessage("Integration value cannot exceed 255 characters")
+        //    .When(x => !string.IsNullOrEmpty(x.IntegrationValue));
 
         RuleFor(x => x.Status)
             .InclusiveBetween(0, 2).WithMessage("Status must be 0 (Inactive), 1 (Active), or 2 (Testing)");

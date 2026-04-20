@@ -19,7 +19,7 @@ public class BranchIntegrationSetting : BaseEntity
     [MaxLength(255)]
     public string? IntegrationKey { get; set; }
 
-    [MaxLength(255)]
+    [MaxLength(int.MaxValue)]
     public string? IntegrationValue { get; set; }
 
     /// <summary>
