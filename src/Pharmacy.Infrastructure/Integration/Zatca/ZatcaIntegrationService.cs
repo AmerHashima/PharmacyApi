@@ -13,13 +13,15 @@ namespace Pharmacy.Infrastructure.Integration.Zatca;
 
 public class ZatcaIntegrationService : IZatcaIntegrationService
 {
-    private const string ZatcaProviderName = "ZATCA";
+    private const string ZatcaProviderName = "Zatca";
     private const string SettingKeyBaseUrl = "BaseUrl";
     private const string SettingKeyBinarySecurityToken = "BinarySecurityToken";
     private const string SettingKeySecret = "Secret";
     private const string SettingKeyCertificateContent = "CertificateContent";
     private const string SettingKeyPrivateKeyContent = "PrivateKeyContent";
     private const string SettingKeyEnvironment = "Environment";
+    private const string SettingKeyLastInvoicePIH = "LastInvoicePIH";
+    private const string SettingKeyIcv = "Icv";
 
     private const string SimulationBaseUrl = "https://gw-apic-gov.gazt.gov.sa/e-invoicing/simulation/";
     private const string ProductionBaseUrl = "https://gw-apic-gov.gazt.gov.sa/e-invoicing/core/";
@@ -81,6 +83,8 @@ public class ZatcaIntegrationService : IZatcaIntegrationService
             await SaveSettingAsync(request.BranchId, provider.Oid, SettingKeyCertificateContent, certResponse.CertificateContent);
             await SaveSettingAsync(request.BranchId, provider.Oid, SettingKeyPrivateKeyContent, certResponse.PrivateKeyContent);
             await SaveSettingAsync(request.BranchId, provider.Oid, SettingKeyEnvironment, environment);
+            await SaveSettingAsync(request.BranchId, provider.Oid, SettingKeyLastInvoicePIH, "0000000000000000000000000000000000000000000000000000000000000000");
+            await SaveSettingAsync(request.BranchId, provider.Oid, SettingKeyIcv, "0");
 
             _logger.LogInformation("ZATCA Onboard success - Branch: {BranchId}, Environment: {Env}", request.BranchId, environment);
 
@@ -120,16 +124,22 @@ public class ZatcaIntegrationService : IZatcaIntegrationService
         try
         {
             var settings = await ResolveSettingsAsync(request.BranchId);
+            var provider = await GetOrCreateProviderAsync();
 
             _logger.LogInformation("ZATCA {Op} - Branch: {BranchId}, InvoiceId: {Id}",
                 operationType, request.BranchId, request.InvoiceData.ID);
 
-            // Inject credentials from settings
+            // Increment ICV and persist before submission
+            var nextIcv = settings.Icv + 1;
+            await SaveSettingAsync(request.BranchId, provider.Oid, SettingKeyIcv, nextIcv.ToString());
+
+            // Inject credentials and counter from settings
             request.InvoiceData.CertificateContent = settings.CertificateContent;
             request.InvoiceData.PrivateKeyContent = settings.PrivateKeyContent;
             request.InvoiceData.BinarySecurityToken = settings.BinarySecurityToken;
             request.InvoiceData.Secret = settings.Secret;
             request.InvoiceData.ZatcaUrl = new Uri(settings.BaseUrl);
+            request.InvoiceData.PIH = settings.LastInvoicePIH;
 
             // Set invoice type based on operation
             if (operationType == "Reporting")
@@ -143,6 +153,10 @@ public class ZatcaIntegrationService : IZatcaIntegrationService
             var zatcaResponse = result.clearanceResponse as ZatcaValidationResponse;
             string invoiceHash = result.Pih as string ?? string.Empty;
             string errorMsg = result.ErrorMsg as string ?? string.Empty;
+
+            // Persist the new PIH for the next invoice chain
+            if (!string.IsNullOrEmpty(invoiceHash))
+                await SaveSettingAsync(request.BranchId, provider.Oid, SettingKeyLastInvoicePIH, invoiceHash);
 
             var warnings = zatcaResponse?.ValidationResults?.WarningMessages?
                 .Select(w => new ZatcaValidationMessageDto { Type = w.Type, Code = w.Code, Category = w.Category, Message = w.Message, Status = w.Status })
@@ -192,7 +206,9 @@ public class ZatcaIntegrationService : IZatcaIntegrationService
             Get(SettingKeyBinarySecurityToken) ?? throw new InvalidOperationException("ZATCA BinarySecurityToken not configured"),
             Get(SettingKeySecret) ?? throw new InvalidOperationException("ZATCA Secret not configured"),
             Get(SettingKeyCertificateContent) ?? throw new InvalidOperationException("ZATCA CertificateContent not configured"),
-            Get(SettingKeyPrivateKeyContent) ?? throw new InvalidOperationException("ZATCA PrivateKeyContent not configured"));
+            Get(SettingKeyPrivateKeyContent) ?? throw new InvalidOperationException("ZATCA PrivateKeyContent not configured"),
+            Get(SettingKeyLastInvoicePIH) ?? "0000000000000000000000000000000000000000000000000000000000000000",
+            long.TryParse(Get(SettingKeyIcv), out var icv) ? icv : 0);
     }
 
     private async Task<Domain.Entities.IntegrationProvider> GetOrCreateProviderAsync()
@@ -233,5 +249,5 @@ public class ZatcaIntegrationService : IZatcaIntegrationService
         }
     }
 
-    private record ZatcaBranchSettings(string BaseUrl, string BinarySecurityToken, string Secret, string CertificateContent, string PrivateKeyContent);
+    private record ZatcaBranchSettings(string BaseUrl, string BinarySecurityToken, string Secret, string CertificateContent, string PrivateKeyContent, string LastInvoicePIH, long Icv);
 }

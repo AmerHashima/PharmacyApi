@@ -10,6 +10,13 @@ public class CreateSalesInvoiceDto
     [Required(ErrorMessage = "Branch ID is required")]
     public Guid BranchId { get; set; }
 
+    /// <summary>
+    /// Provide an existing CustomerId OR the convenience fields below.
+    /// If both are omitted the invoice is linked to the default Cash Patient.
+    /// </summary>
+    public Guid? CustomerId { get; set; }
+
+    // ── Convenience fields — used to auto-create / resolve a Customer ─────
     [MaxLength(200)]
     public string? CustomerName { get; set; }
 

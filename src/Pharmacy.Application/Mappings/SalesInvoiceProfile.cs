@@ -1,4 +1,5 @@
 using AutoMapper;
+using Pharmacy.Application.DTOs.Customer;
 using Pharmacy.Application.DTOs.SalesInvoice;
 using Pharmacy.Domain.Entities;
 
@@ -13,22 +14,24 @@ public class SalesInvoiceProfile : Profile
     {
         // SalesInvoice Entity to DTO
         CreateMap<SalesInvoice, SalesInvoiceDto>()
-            .ForMember(dest => dest.BranchName, 
+            .ForMember(dest => dest.BranchName,
                 opt => opt.MapFrom(src => src.Branch != null ? src.Branch.BranchName : string.Empty))
-            .ForMember(dest => dest.PaymentMethodName, 
+            .ForMember(dest => dest.Customer,
+                opt => opt.MapFrom(src => src.Customer))
+            .ForMember(dest => dest.PaymentMethodName,
                 opt => opt.MapFrom(src => src.PaymentMethod != null ? src.PaymentMethod.ValueNameEn : null))
-            .ForMember(dest => dest.InvoiceStatusName, 
+            .ForMember(dest => dest.InvoiceStatusName,
                 opt => opt.MapFrom(src => src.InvoiceStatus != null ? src.InvoiceStatus.ValueNameEn : null))
-            .ForMember(dest => dest.CashierName, 
+            .ForMember(dest => dest.CashierName,
                 opt => opt.MapFrom(src => src.Cashier != null ? src.Cashier.FullName : null))
-            .ForMember(dest => dest.Items, 
+            .ForMember(dest => dest.Items,
                 opt => opt.MapFrom(src => src.Items));
 
         // SalesInvoiceItem Entity to DTO
         CreateMap<SalesInvoiceItem, SalesInvoiceItemDto>()
-            .ForMember(dest => dest.ProductName, 
+            .ForMember(dest => dest.ProductName,
                 opt => opt.MapFrom(src => src.Product != null ? src.Product.DrugName : string.Empty))
-            .ForMember(dest => dest.ProductGTIN, 
+            .ForMember(dest => dest.ProductGTIN,
                 opt => opt.MapFrom(src => src.Product != null ? src.Product.GTIN : null));
     }
 }

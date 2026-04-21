@@ -70,13 +70,23 @@ public class SalesInvoiceRepository : BaseRepository<SalesInvoice>, ISalesInvoic
             .ToListAsync(cancellationToken);
     }
 
-    public async Task<SalesInvoice?> GetWithItemsAsync(Guid invoiceId, CancellationToken cancellationToken = default)
-    {
+    public async Task<SalesInvoice?> GetWithItemsAsync(Guid invoiceId, CancellationToken cancellationToken = default)    {
         return await _dbSet
             .Include(i => i.Branch)
             .Include(i => i.PaymentMethod)
             .Include(i => i.InvoiceStatus)
             .Include(i => i.Cashier)
+            .Include(i => i.Items)
+                .ThenInclude(item => item.Product)
+            .Where(i => i.Oid == invoiceId && !i.IsDeleted)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    public async Task<SalesInvoice?> GetForZatcaAsync(Guid invoiceId, CancellationToken cancellationToken = default)
+    {
+        return await _dbSet
+            .Include(i => i.Branch)
+            .Include(i => i.Customer)
             .Include(i => i.Items)
                 .ThenInclude(item => item.Product)
             .Where(i => i.Oid == invoiceId && !i.IsDeleted)

@@ -583,8 +583,6 @@ public static class PharmacySeeder
         {
             InvoiceNumber = "INV-HQ-001-20240120-0001",
             BranchId = Branch1,
-            CustomerName = "Mohammed Abdullah",
-            CustomerPhone = "+967771234000",
             SubTotal = 25.50m,
             DiscountPercent = 0,
             DiscountAmount = 0,
@@ -613,8 +611,6 @@ public static class PharmacySeeder
         {
             InvoiceNumber = "INV-HQ-001-20240120-0002",
             BranchId = Branch1,
-            CustomerName = "Sara Ahmed",
-            CustomerPhone = "+967772345000",
             SubTotal = 97.50m,
             DiscountPercent = 5,
             DiscountAmount = 4.875m,
@@ -644,8 +640,6 @@ public static class PharmacySeeder
         {
             InvoiceNumber = "INV-BR-002-20240121-0001",
             BranchId = Branch2,
-            CustomerName = "Ali Hassan",
-            CustomerPhone = "+967773456000",
             SubTotal = 38.00m,
             TotalAmount = 38.00m,
             PaidAmount = 40m,
@@ -671,8 +665,6 @@ public static class PharmacySeeder
         {
             InvoiceNumber = "INV-BR-002-20240121-0002",
             BranchId = Branch2,
-            CustomerName = "Nadia Khalil",
-            CustomerPhone = "+967774567000",
             SubTotal = 127.50m,
             DiscountPercent = 10,
             DiscountAmount = 12.75m,

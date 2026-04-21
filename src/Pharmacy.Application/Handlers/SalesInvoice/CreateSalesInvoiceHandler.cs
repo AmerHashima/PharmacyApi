@@ -5,7 +5,6 @@ using Pharmacy.Application.Interfaces;
 using Pharmacy.Domain.Entities;
 using Pharmacy.Domain.Interfaces;
 using MediatR;
-
 namespace Pharmacy.Application.Handlers.SalesInvoice;
 
 /// <summary>
@@ -21,6 +20,7 @@ public class CreateSalesInvoiceHandler : IRequestHandler<CreateSalesInvoiceComma
     private readonly IProductRepository _productRepository;
     private readonly IBranchRepository _branchRepository;
     private readonly IAppLookupDetailRepository _lookupRepository;
+    private readonly ICustomerRepository _customerRepository;
     private readonly IInvoiceNumberService _invoiceNumberService;
     private readonly IMapper _mapper;
 
@@ -32,6 +32,7 @@ public class CreateSalesInvoiceHandler : IRequestHandler<CreateSalesInvoiceComma
         IProductRepository productRepository,
         IBranchRepository branchRepository,
         IAppLookupDetailRepository lookupRepository,
+        ICustomerRepository customerRepository,
         IInvoiceNumberService invoiceNumberService,
         IMapper mapper)
     {
@@ -42,6 +43,7 @@ public class CreateSalesInvoiceHandler : IRequestHandler<CreateSalesInvoiceComma
         _productRepository = productRepository;
         _branchRepository = branchRepository;
         _lookupRepository = lookupRepository;
+        _customerRepository = customerRepository;
         _invoiceNumberService = invoiceNumberService;
         _mapper = mapper;
     }
@@ -88,6 +90,34 @@ public class CreateSalesInvoiceHandler : IRequestHandler<CreateSalesInvoiceComma
             IInvoiceNumberService.LookupDetailPosInvoiceId,
             cancellationToken);
 
+        // ── Resolve customer ──────────────────────────────────────────────
+        // Priority: explicit CustomerId > convenience name/phone fields > default Cash Patient
+        Guid? customerId = request.Invoice.CustomerId;
+
+        if (customerId == null && !string.IsNullOrWhiteSpace(request.Invoice.CustomerPhone))
+        {
+            var existing = await _customerRepository.GetByPhoneAsync(request.Invoice.CustomerPhone, cancellationToken);
+            customerId = existing?.Oid;
+        }
+
+        if (customerId == null && !string.IsNullOrWhiteSpace(request.Invoice.CustomerName))
+        {
+            var newCustomer = new Domain.Entities.Customer
+            {
+                NameEN     = request.Invoice.CustomerName,
+                Phone      = request.Invoice.CustomerPhone,
+                Email      = request.Invoice.CustomerEmail,
+                CreatedAt  = DateTime.UtcNow
+            };
+            await _customerRepository.AddAsync(newCustomer, cancellationToken);
+            customerId = newCustomer.Oid;
+        }
+
+        if (customerId == null)
+        {
+            var walkIn = await _customerRepository.GetDefaultWalkInAsync(cancellationToken);
+            customerId = walkIn?.Oid;
+        }
         // Calculate totals
         decimal subTotal = 0;
         var invoiceItems = new List<SalesInvoiceItem>();
@@ -128,22 +158,20 @@ public class CreateSalesInvoiceHandler : IRequestHandler<CreateSalesInvoiceComma
         // Create invoice
         var invoice = new Domain.Entities.SalesInvoice
         {
-            InvoiceNumber = invoiceNumber,
-            BranchId = request.Invoice.BranchId,
-            CustomerName = request.Invoice.CustomerName,
-            CustomerPhone = request.Invoice.CustomerPhone,
-            CustomerEmail = request.Invoice.CustomerEmail,
-            SubTotal = subTotal,
-            DiscountPercent = request.Invoice.DiscountPercent,
-            DiscountAmount = invoiceDiscountAmount,
-            TotalAmount = totalAmount,
-            InvoiceDate = request.Invoice.InvoiceDate ?? DateTime.UtcNow,
-            PaymentMethodId = request.Invoice.PaymentMethodId,
-            InvoiceStatusId = completedStatus?.Oid,
-            CashierId = request.Invoice.CashierId,
+            InvoiceNumber     = invoiceNumber,
+            BranchId          = request.Invoice.BranchId,
+            CustomerId        = customerId,
+            SubTotal          = subTotal,
+            DiscountPercent   = request.Invoice.DiscountPercent,
+            DiscountAmount    = invoiceDiscountAmount,
+            TotalAmount       = totalAmount,
+            InvoiceDate       = request.Invoice.InvoiceDate ?? DateTime.UtcNow,
+            PaymentMethodId   = request.Invoice.PaymentMethodId,
+            InvoiceStatusId   = completedStatus?.Oid,
+            CashierId         = request.Invoice.CashierId,
             PrescriptionNumber = request.Invoice.PrescriptionNumber,
-            DoctorName = request.Invoice.DoctorName,
-            Notes = request.Invoice.Notes
+            DoctorName        = request.Invoice.DoctorName,
+            Notes             = request.Invoice.Notes
         };
 
         var createdInvoice = await _invoiceRepository.AddAsync(invoice, cancellationToken);

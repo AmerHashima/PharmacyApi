@@ -40,6 +40,7 @@ public class PharmacyDbContext : DbContext
     // Sales & POS
     public DbSet<SalesInvoice> SalesInvoices { get; set; }
     public DbSet<SalesInvoiceItem> SalesInvoiceItems { get; set; }
+    public DbSet<Customer> Customers { get; set; }
 
     // Returns & Refunds
     public DbSet<ReturnInvoice> ReturnInvoices { get; set; }
@@ -126,6 +127,13 @@ public class PharmacyDbContext : DbContext
             .HasIndex(i => i.InvoiceNumber)
             .IsUnique()
             .HasFilter("[IsDeleted] = 0");
+
+        // 🔹 SalesInvoice → Customer (nullable FK, no cascade)
+        modelBuilder.Entity<SalesInvoice>()
+            .HasOne(i => i.Customer)
+            .WithMany(c => c.SalesInvoices)
+            .HasForeignKey(i => i.CustomerId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         // 🔹 Configure relationships for StockTransaction
         modelBuilder.Entity<StockTransaction>()

@@ -21,23 +21,11 @@ public class SalesInvoice : BaseEntity
     [ForeignKey(nameof(BranchId))]
     public virtual Branch Branch { get; set; } = null!;
 
-    /// <summary>
-    /// Customer name (optional for walk-in customers)
-    /// </summary>
-    [MaxLength(200)]
-    public string? CustomerName { get; set; }
+    /// <summary>FK to Customer. Null falls back to the default Cash Patient row.</summary>
+    public Guid? CustomerId { get; set; }
 
-    /// <summary>
-    /// Customer phone number
-    /// </summary>
-    [MaxLength(50)]
-    public string? CustomerPhone { get; set; }
-
-    /// <summary>
-    /// Customer email
-    /// </summary>
-    [MaxLength(100)]
-    public string? CustomerEmail { get; set; }
+    [ForeignKey(nameof(CustomerId))]
+    public virtual Customer? Customer { get; set; }
 
     /// <summary>
     /// Total amount before discount

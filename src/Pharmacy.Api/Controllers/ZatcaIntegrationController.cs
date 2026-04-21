@@ -59,6 +59,26 @@ public class ZatcaIntegrationController : BaseApiController
     }
 
     /// <summary>
+    /// Report a sales invoice to ZATCA by its ID.
+    /// All invoice data (branch, customer, items) is loaded automatically from the database.
+    /// </summary>
+    [HttpPost("report-sales-invoice/{invoiceId:guid}")]
+    public async Task<ActionResult<ApiResponse<ZatcaSubmitInvoiceResponseDto>>> ReportSalesInvoice(Guid invoiceId)
+    {
+        try
+        {
+            var result = await _mediator.Send(new ZatcaReportSalesInvoiceCommand(invoiceId));
+            return result.Success
+                ? SuccessResponse(result, "Invoice reported to ZATCA successfully")
+                : ErrorResponse<ZatcaSubmitInvoiceResponseDto>(result.ErrorMessage ?? "Reporting failed", 400);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return ErrorResponse<ZatcaSubmitInvoiceResponseDto>(ex.Message, 400);
+        }
+    }
+
+    /// <summary>
     /// Clear a standard invoice with ZATCA (Phase 2 — B2B).
     /// Credentials are loaded from BranchIntegrationSettings automatically.
     /// </summary>

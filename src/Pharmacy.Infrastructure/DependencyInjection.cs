@@ -60,6 +60,7 @@ public static class DependencyInjection
         // Register repositories - Reference Data
         // ====================================
         services.AddScoped<IGenericNameRepository, GenericNameRepository>();
+        services.AddScoped<ICustomerRepository, CustomerRepository>();
 
         // ====================================
         // Register repositories - Pharmacy Structure

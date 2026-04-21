@@ -27,6 +27,11 @@ public interface ISalesInvoiceRepository : IBaseRepository<SalesInvoice>
     /// Get invoices within a date range
     /// </summary>
     Task<IEnumerable<SalesInvoice>> GetByDateRangeAsync(DateTime startDate, DateTime endDate, Guid? branchId = null, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Get a fully-loaded invoice for ZATCA submission (Branch, Customer, Items + Products)
+    /// </summary>
+    Task<SalesInvoice?> GetForZatcaAsync(Guid invoiceId, CancellationToken cancellationToken = default);
     
     /// <summary>
     /// Get invoice with items

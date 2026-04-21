@@ -1,5 +1,7 @@
 namespace Pharmacy.Application.DTOs.SalesInvoice;
 
+using Pharmacy.Application.DTOs.Customer;
+
 /// <summary>
 /// DTO for reading Sales Invoice data
 /// </summary>
@@ -9,9 +11,8 @@ public class SalesInvoiceDto
     public string InvoiceNumber { get; set; } = string.Empty;
     public Guid BranchId { get; set; }
     public string BranchName { get; set; } = string.Empty;
-    public string? CustomerName { get; set; }
-    public string? CustomerPhone { get; set; }
-    public string? CustomerEmail { get; set; }
+    public Guid? CustomerId { get; set; }
+    public CustomerDto? Customer { get; set; }
     public decimal? SubTotal { get; set; }
     public decimal? DiscountPercent { get; set; }
     public decimal? DiscountAmount { get; set; }
