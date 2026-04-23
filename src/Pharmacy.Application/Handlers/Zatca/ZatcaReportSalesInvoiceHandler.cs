@@ -61,14 +61,16 @@ public class ZatcaReportSalesInvoiceHandler : IRequestHandler<ZatcaReportSalesIn
             : new ZatcaCustomer { RegistrationName = "Cash Customer" };
 
         // ── Invoice lines ─────────────────────────────────────────────────
+        // Items with no VatType on the product are zero-rated medicines (VATEX-SA-35)
         var lines = invoice.Items.Select((item, index) =>
         {
             var unitPrice = item.UnitPrice ?? 0m;
             var qty = item.Quantity;
             var discount = item.DiscountAmount ?? 0m;
-            var lineNet = qty * unitPrice - discount;
-            var vatPercent = 15m;
-            var taxAmount = lineNet * vatPercent / 100m;
+
+            var isStandard = item.Product?.VatTypeId != null;
+            var vatPercent = isStandard ? 15m : 0m;
+            var taxCategory = isStandard ? TaxCategoryIdType.S : TaxCategoryIdType.Z;
 
             return new InvoiceLineData(
                 id: (index + 1).ToString(),
@@ -76,21 +78,51 @@ public class ZatcaReportSalesInvoiceHandler : IRequestHandler<ZatcaReportSalesIn
                 name: item.Product?.DrugName ?? item.Product?.DrugNameAr ?? "Product",
                 priceAmount: unitPrice,
                 vatPercent: vatPercent,
-                taxCategoryId: TaxCategoryIdType.S,
+                taxCategoryId: taxCategory,
                 discount: discount);
         }).ToList();
 
-        // ── Tax total ─────────────────────────────────────────────────────
-        var subTotal = invoice.SubTotal ?? lines.Sum(l => l.LineExtensionAmount);
-        var totalDiscount = invoice.DiscountAmount ?? 0m;
-        var taxableAmount = subTotal - totalDiscount;
-        var taxAmount = invoice.TaxAmount ?? taxableAmount * 0.15m;
+        // ── Tax subtotals — one entry per tax category ────────────────────
+        var subtotals = new List<InvoiceTaxSubtotal>();
+
+        var standardLines = lines.Where(l => l.TaxCategoryId == TaxCategoryIdType.S).ToList();
+        if (standardLines.Count > 0)
+        {
+            var stdTaxable = standardLines.Sum(l => l.LineExtensionAmount);
+            var stdTax = Math.Round(stdTaxable * 0.15m, 2);
+            subtotals.Add(new InvoiceTaxSubtotal(
+                taxAmount: stdTax,
+                taxableAmount: stdTaxable,
+                vatPercent: 15m,
+                taxCategoryId: TaxCategoryIdType.S));
+        }
+
+        var zeroLines = lines.Where(l => l.TaxCategoryId == TaxCategoryIdType.Z).ToList();
+        if (zeroLines.Count > 0)
+        {
+            var zeroTaxable = zeroLines.Sum(l => l.LineExtensionAmount);
+            subtotals.Add(new InvoiceTaxSubtotal(
+                taxAmount: 0m,
+                taxableAmount: zeroTaxable,
+                vatPercent: 0m,
+                taxCategoryId: TaxCategoryIdType.Z,
+                taxExemptionReasonCode: ZatcaTaxExemptionReasonCode.VATEX_SA_35,
+                taxExemptionReason: TaxExemptionReason.MedicinesAndMedicalEquipment));
+        }
+
+        // ── Tax total (header) ────────────────────────────────────────────
+        var totalTaxable = lines.Sum(l => l.LineExtensionAmount);
+        var totalDiscount = invoice.DiscountAmount ?? lines.Sum(l => l.Discount);
+        var totalTax = invoice.TaxAmount ?? subtotals.Sum(s => s.TaxAmount);
 
         var taxTotal = new InvoiceTaxTotal(
-            taxAmount: taxAmount,
-            taxableAmount: taxableAmount,
-            totalDiscount: totalDiscount,
-            vatPercent: 15m);
+            taxAmount: totalTax,
+            taxableAmount: totalTaxable,
+            vatPercent: totalTaxable > 0 ? Math.Round(totalTax / totalTaxable * 100m, 2) : 0m,
+            totalDiscount: totalDiscount)
+        {
+            TaxSubtotal = subtotals
+        };
 
         // ── InvoiceData ───────────────────────────────────────────────────
         var issueDate = invoice.InvoiceDate ?? DateTime.UtcNow;

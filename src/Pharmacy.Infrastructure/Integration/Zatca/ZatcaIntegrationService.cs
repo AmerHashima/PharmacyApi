@@ -14,9 +14,9 @@ namespace Pharmacy.Infrastructure.Integration.Zatca;
 public class ZatcaIntegrationService : IZatcaIntegrationService
 {
     private const string ZatcaProviderName = "Zatca";
-    private const string SettingKeyBaseUrl = "BaseUrl";
-    private const string SettingKeyBinarySecurityToken = "BinarySecurityToken";
-    private const string SettingKeySecret = "Secret";
+    private const string SettingKeyBaseUrl = "Zatcalink";
+    private const string SettingKeyBinarySecurityToken = "InvoiceBinarySecurityToken";
+    private const string SettingKeySecret = "InvoiceSecret";
     private const string SettingKeyCertificateContent = "CertificateContent";
     private const string SettingKeyPrivateKeyContent = "PrivateKeyContent";
     private const string SettingKeyEnvironment = "Environment";
