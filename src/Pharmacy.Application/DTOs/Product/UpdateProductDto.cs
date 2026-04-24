@@ -85,6 +85,12 @@ public class UpdateProductDto
     [Range(0, double.MaxValue, ErrorMessage = "Maximum stock level must be a positive value")]
     public decimal? MaxStockLevel { get; set; }
 
+    [Range(0, 100, ErrorMessage = "Discount percent must be between 0 and 100")]
+    public decimal? DiscountPercentSupplierOne { get; set; }
+
+    [Range(0, 100, ErrorMessage = "Discount percent must be between 0 and 100")]
+    public decimal? DiscountPercentSupplierTwo { get; set; }
+
     /// <summary>
     /// Status field from JSON (optional, for compatibility)
     /// </summary>

@@ -49,6 +49,9 @@ public class ProductDto
     public decimal? MinStockLevel { get; set; }
     public decimal? MaxStockLevel { get; set; }
     
+    public decimal? DiscountPercentSupplierOne { get; set; }
+    public decimal? DiscountPercentSupplierTwo { get; set; }
+
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
 }

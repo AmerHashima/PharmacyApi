@@ -160,6 +160,18 @@ public class Product : BaseEntity
     [Column(TypeName = "decimal(18,2)")]
     public decimal? MaxStockLevel { get; set; }
 
+    /// <summary>
+    /// Discount percentage from primary supplier
+    /// </summary>
+    [Column(TypeName = "decimal(5,2)")]
+    public decimal? DiscountPercentSupplierOne { get; set; }
+
+    /// <summary>
+    /// Discount percentage from secondary supplier
+    /// </summary>
+    [Column(TypeName = "decimal(5,2)")]
+    public decimal? DiscountPercentSupplierTwo { get; set; }
+
     // Navigation Properties
     public virtual ICollection<Stock> Stocks { get; set; } = new List<Stock>();
     public virtual ICollection<StockTransaction> StockTransactions { get; set; } = new List<StockTransaction>();

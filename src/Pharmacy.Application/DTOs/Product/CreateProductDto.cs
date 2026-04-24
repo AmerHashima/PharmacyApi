@@ -28,4 +28,6 @@ public class CreateProductDto
     public string? CountryOfOrigin { get; set; }
     public decimal? MinStockLevel { get; set; }
     public decimal? MaxStockLevel { get; set; }
+    public decimal? DiscountPercentSupplierOne { get; set; }
+    public decimal? DiscountPercentSupplierTwo { get; set; }
 }
