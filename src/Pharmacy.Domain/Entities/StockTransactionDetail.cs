@@ -81,4 +81,22 @@ public class StockTransactionDetail : BaseEntity
     /// </summary>
     [MaxLength(500)]
     public string? Notes { get; set; }
+
+    /// <summary>
+    /// Discount percentage from primary supplier for this line
+    /// </summary>
+    [Column(TypeName = "decimal(5,2)")]
+    public decimal? DiscountPercentOne { get; set; }
+
+    /// <summary>
+    /// Discount percentage from secondary supplier for this line
+    /// </summary>
+    [Column(TypeName = "decimal(5,2)")]
+    public decimal? DiscountPercentTwo { get; set; }
+
+    /// <summary>
+    /// Product selling price at the time of transaction
+    /// </summary>
+    [Column(TypeName = "decimal(18,2)")]
+    public decimal? ProductPrice { get; set; }
 }

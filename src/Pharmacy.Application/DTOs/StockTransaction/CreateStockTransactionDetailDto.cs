@@ -39,4 +39,13 @@ public class CreateStockTransactionDetailDto
 
     [StringLength(500, ErrorMessage = "Notes cannot exceed 500 characters")]
     public string? Notes { get; set; }
+
+    [Range(0, 100, ErrorMessage = "Discount percent must be between 0 and 100")]
+    public decimal? DiscountPercentOne { get; set; }
+
+    [Range(0, 100, ErrorMessage = "Discount percent must be between 0 and 100")]
+    public decimal? DiscountPercentTwo { get; set; }
+
+    [Range(0, double.MaxValue, ErrorMessage = "Product price must be a positive value")]
+    public decimal? ProductPrice { get; set; }
 }

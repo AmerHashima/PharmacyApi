@@ -19,5 +19,8 @@ public class StockTransactionDetailDto
     public decimal? TotalCost { get; set; }
     public int LineNumber { get; set; }
     public string? Notes { get; set; }
+    public decimal? DiscountPercentOne { get; set; }
+    public decimal? DiscountPercentTwo { get; set; }
+    public decimal? ProductPrice { get; set; }
     public DateTime CreatedAt { get; set; }
 }
