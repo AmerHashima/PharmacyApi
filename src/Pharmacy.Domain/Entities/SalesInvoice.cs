@@ -27,6 +27,12 @@ public class SalesInvoice : BaseEntity
     [ForeignKey(nameof(CustomerId))]
     public virtual Customer? Customer { get; set; }
 
+    /// <summary>FK to Doctor — prescribing/referring doctor for this invoice.</summary>
+    public Guid? DoctorId { get; set; }
+
+    [ForeignKey(nameof(DoctorId))]
+    public virtual Doctor? Doctor { get; set; }
+
     /// <summary>
     /// Total amount before discount
     /// </summary>

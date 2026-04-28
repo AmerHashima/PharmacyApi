@@ -18,6 +18,10 @@ public class SalesInvoiceProfile : Profile
                 opt => opt.MapFrom(src => src.Branch != null ? src.Branch.BranchName : string.Empty))
             .ForMember(dest => dest.Customer,
                 opt => opt.MapFrom(src => src.Customer))
+            .ForMember(dest => dest.DoctorFullNameEn,
+                opt => opt.MapFrom(src => src.Doctor != null ? src.Doctor.FullNameEn : null))
+            .ForMember(dest => dest.DoctorFullNameAr,
+                opt => opt.MapFrom(src => src.Doctor != null ? src.Doctor.FullNameAr : null))
             .ForMember(dest => dest.PaymentMethodName,
                 opt => opt.MapFrom(src => src.PaymentMethod != null ? src.PaymentMethod.ValueNameEn : null))
             .ForMember(dest => dest.InvoiceStatusName,
@@ -32,6 +36,10 @@ public class SalesInvoiceProfile : Profile
             .ForMember(dest => dest.ProductName,
                 opt => opt.MapFrom(src => src.Product != null ? src.Product.DrugName : string.Empty))
             .ForMember(dest => dest.ProductGTIN,
-                opt => opt.MapFrom(src => src.Product != null ? src.Product.GTIN : null));
+                opt => opt.MapFrom(src => src.Product != null ? src.Product.GTIN : null))
+            .ForMember(dest => dest.OfferDetailId,
+                opt => opt.MapFrom(src => src.OfferDetailId))
+            .ForMember(dest => dest.OfferNameSnapshot,
+                opt => opt.MapFrom(src => src.OfferNameSnapshot));
     }
 }

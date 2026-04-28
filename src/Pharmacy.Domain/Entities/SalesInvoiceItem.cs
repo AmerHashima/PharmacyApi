@@ -80,4 +80,15 @@ public class SalesInvoiceItem : BaseEntity
     /// </summary>
     [MaxLength(500)]
     public string? Notes { get; set; }
+
+    // ── Offer applied on this line ────────────────────────────────────────
+    /// <summary>FK to OfferDetail — the specific offer line applied when this item was sold.</summary>
+    public Guid? OfferDetailId { get; set; }
+
+    [ForeignKey(nameof(OfferDetailId))]
+    public virtual OfferDetail? OfferDetail { get; set; }
+
+    /// <summary>Human-readable offer name snapshot (preserved if offer is later deleted).</summary>
+    [MaxLength(300)]
+    public string? OfferNameSnapshot { get; set; }
 }

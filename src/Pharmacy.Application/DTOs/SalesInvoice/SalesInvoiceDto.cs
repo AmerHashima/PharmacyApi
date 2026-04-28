@@ -13,6 +13,9 @@ public class SalesInvoiceDto
     public string BranchName { get; set; } = string.Empty;
     public Guid? CustomerId { get; set; }
     public CustomerDto? Customer { get; set; }
+    public Guid? DoctorId { get; set; }
+    public string? DoctorFullNameEn { get; set; }
+    public string? DoctorFullNameAr { get; set; }
     public decimal? SubTotal { get; set; }
     public decimal? DiscountPercent { get; set; }
     public decimal? DiscountAmount { get; set; }

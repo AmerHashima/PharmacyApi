@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Pharmacy.Infrastructure.Persistence;
 
@@ -11,9 +12,11 @@ using Pharmacy.Infrastructure.Persistence;
 namespace Pharmacy.Infrastructure.Migrations
 {
     [DbContext(typeof(PharmacyDbContext))]
-    partial class PharmacyDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260427222927_links")]
+    partial class links
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -737,143 +740,6 @@ namespace Pharmacy.Infrastructure.Migrations
                     b.HasKey("Oid");
 
                     b.ToTable("Links");
-                });
-
-            modelBuilder.Entity("Pharmacy.Domain.Entities.OfferDetail", b =>
-                {
-                    b.Property<Guid>("Oid")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<int?>("BuyQuantity")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime?>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<Guid?>("CreatedBy")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<Guid?>("DeletedBy")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<decimal?>("DiscountAmount")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<decimal?>("DiscountPercent")
-                        .HasColumnType("decimal(5,2)");
-
-                    b.Property<Guid?>("FreeProductId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<int?>("FreeQuantity")
-                        .HasColumnType("int");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("Notes")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<Guid>("OfferMasterId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<decimal?>("PackagePrice")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<int?>("PackageQuantity")
-                        .HasColumnType("int");
-
-                    b.Property<Guid>("ProductId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<int?>("Status")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<Guid?>("UpdatedBy")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.HasKey("Oid");
-
-                    b.HasIndex("FreeProductId");
-
-                    b.HasIndex("OfferMasterId");
-
-                    b.HasIndex("ProductId");
-
-                    b.ToTable("OfferDetails");
-                });
-
-            modelBuilder.Entity("Pharmacy.Domain.Entities.OfferMaster", b =>
-                {
-                    b.Property<Guid>("Oid")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid?>("BranchId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime?>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<Guid?>("CreatedBy")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<Guid?>("DeletedBy")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime?>("EndDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("Notes")
-                        .HasMaxLength(1000)
-                        .HasColumnType("nvarchar(1000)");
-
-                    b.Property<string>("OfferNameAr")
-                        .IsRequired()
-                        .HasMaxLength(300)
-                        .HasColumnType("nvarchar(300)");
-
-                    b.Property<string>("OfferNameEn")
-                        .IsRequired()
-                        .HasMaxLength(300)
-                        .HasColumnType("nvarchar(300)");
-
-                    b.Property<Guid>("OfferTypeId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime>("StartDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int?>("Status")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<Guid?>("UpdatedBy")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.HasKey("Oid");
-
-                    b.HasIndex("BranchId");
-
-                    b.HasIndex("OfferTypeId");
-
-                    b.ToTable("OfferMasters");
                 });
 
             modelBuilder.Entity("Pharmacy.Domain.Entities.Product", b =>
@@ -1726,13 +1592,6 @@ namespace Pharmacy.Infrastructure.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
-                    b.Property<Guid?>("OfferDetailId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("OfferNameSnapshot")
-                        .HasMaxLength(300)
-                        .HasColumnType("nvarchar(300)");
-
                     b.Property<Guid>("ProductId")
                         .HasColumnType("uniqueidentifier");
 
@@ -1765,8 +1624,6 @@ namespace Pharmacy.Infrastructure.Migrations
                     b.HasKey("Oid");
 
                     b.HasIndex("InvoiceId");
-
-                    b.HasIndex("OfferDetailId");
 
                     b.HasIndex("ProductId");
 
@@ -2611,49 +2468,6 @@ namespace Pharmacy.Infrastructure.Migrations
                     b.Navigation("Branch");
                 });
 
-            modelBuilder.Entity("Pharmacy.Domain.Entities.OfferDetail", b =>
-                {
-                    b.HasOne("Pharmacy.Domain.Entities.Product", "FreeProduct")
-                        .WithMany()
-                        .HasForeignKey("FreeProductId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.HasOne("Pharmacy.Domain.Entities.OfferMaster", "OfferMaster")
-                        .WithMany("OfferDetails")
-                        .HasForeignKey("OfferMasterId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("Pharmacy.Domain.Entities.Product", "Product")
-                        .WithMany()
-                        .HasForeignKey("ProductId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("FreeProduct");
-
-                    b.Navigation("OfferMaster");
-
-                    b.Navigation("Product");
-                });
-
-            modelBuilder.Entity("Pharmacy.Domain.Entities.OfferMaster", b =>
-                {
-                    b.HasOne("Pharmacy.Domain.Entities.Branch", "Branch")
-                        .WithMany()
-                        .HasForeignKey("BranchId");
-
-                    b.HasOne("Pharmacy.Domain.Entities.AppLookupDetail", "OfferType")
-                        .WithMany()
-                        .HasForeignKey("OfferTypeId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Branch");
-
-                    b.Navigation("OfferType");
-                });
-
             modelBuilder.Entity("Pharmacy.Domain.Entities.Product", b =>
                 {
                     b.HasOne("Pharmacy.Domain.Entities.AppLookupDetail", "DosageForm")
@@ -2905,11 +2719,6 @@ namespace Pharmacy.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("Pharmacy.Domain.Entities.OfferDetail", "OfferDetail")
-                        .WithMany()
-                        .HasForeignKey("OfferDetailId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
                     b.HasOne("Pharmacy.Domain.Entities.Product", "Product")
                         .WithMany("SalesInvoiceItems")
                         .HasForeignKey("ProductId")
@@ -2917,8 +2726,6 @@ namespace Pharmacy.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("Invoice");
-
-                    b.Navigation("OfferDetail");
 
                     b.Navigation("Product");
                 });
@@ -3181,11 +2988,6 @@ namespace Pharmacy.Infrastructure.Migrations
             modelBuilder.Entity("Pharmacy.Domain.Entities.Link", b =>
                 {
                     b.Navigation("ReportParameters");
-                });
-
-            modelBuilder.Entity("Pharmacy.Domain.Entities.OfferMaster", b =>
-                {
-                    b.Navigation("OfferDetails");
                 });
 
             modelBuilder.Entity("Pharmacy.Domain.Entities.Product", b =>

@@ -20,4 +20,8 @@ public class SalesInvoiceItemDto
     public string? BatchNumber { get; set; }
     public DateTime? ExpiryDate { get; set; }
     public string? Notes { get; set; }
+
+    // Offer applied
+    public Guid? OfferDetailId { get; set; }
+    public string? OfferNameSnapshot { get; set; }
 }

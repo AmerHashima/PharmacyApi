@@ -59,6 +59,17 @@ public class PharmacyDbContext : DbContext
     // RSD Operation Logs
     public DbSet<RsdOperationLog> RsdOperationLogs { get; set; }
     public DbSet<RsdOperationLogDetail> RsdOperationLogDetails { get; set; }
+
+    public DbSet<Link> Links { get; set; }
+    public DbSet<ReportParameter> ReportParameters { get; set; }
+
+    // Doctors
+    public DbSet<Doctor> Doctors { get; set; }
+
+    // Offers
+    public DbSet<OfferMaster> OfferMasters { get; set; }
+    public DbSet<OfferDetail> OfferDetails { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -121,6 +132,26 @@ public class PharmacyDbContext : DbContext
             .HasOne(p => p.GenericNameRef)
             .WithMany(g => g.Products)
             .HasForeignKey(p => p.GenericNameId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // 🔹 OfferDetail → Product (two FKs — restrict both to avoid cascade conflicts)
+        modelBuilder.Entity<OfferDetail>()
+            .HasOne(od => od.Product)
+            .WithMany()
+            .HasForeignKey(od => od.ProductId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<OfferDetail>()
+            .HasOne(od => od.FreeProduct)
+            .WithMany()
+            .HasForeignKey(od => od.FreeProductId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // 🔹 SalesInvoiceItem → OfferDetail (nullable FK, no cascade)
+        modelBuilder.Entity<SalesInvoiceItem>()
+            .HasOne(i => i.OfferDetail)
+            .WithMany()
+            .HasForeignKey(i => i.OfferDetailId)
             .OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<SalesInvoice>()

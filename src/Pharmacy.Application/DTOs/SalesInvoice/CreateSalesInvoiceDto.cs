@@ -27,6 +27,9 @@ public class CreateSalesInvoiceDto
     [MaxLength(100)]
     public string? CustomerEmail { get; set; }
 
+    /// <summary>FK to Doctor — prescribing or referring doctor for this invoice.</summary>
+    public Guid? DoctorId { get; set; }
+
     [Range(0, 100, ErrorMessage = "Discount percent must be between 0 and 100")]
     public decimal? DiscountPercent { get; set; }
 
@@ -75,4 +78,7 @@ public class CreateSalesInvoiceItemDto
 
     [MaxLength(500)]
     public string? Notes { get; set; }
+
+    /// <summary>Optional: pass the OfferDetail ID to apply an offer on this line.</summary>
+    public Guid? OfferDetailId { get; set; }
 }

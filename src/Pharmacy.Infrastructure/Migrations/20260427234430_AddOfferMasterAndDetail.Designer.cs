@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Pharmacy.Infrastructure.Persistence;
 
@@ -11,9 +12,11 @@ using Pharmacy.Infrastructure.Persistence;
 namespace Pharmacy.Infrastructure.Migrations
 {
     [DbContext(typeof(PharmacyDbContext))]
-    partial class PharmacyDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260427234430_AddOfferMasterAndDetail")]
+    partial class AddOfferMasterAndDetail
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1726,13 +1729,6 @@ namespace Pharmacy.Infrastructure.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
-                    b.Property<Guid?>("OfferDetailId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("OfferNameSnapshot")
-                        .HasMaxLength(300)
-                        .HasColumnType("nvarchar(300)");
-
                     b.Property<Guid>("ProductId")
                         .HasColumnType("uniqueidentifier");
 
@@ -1765,8 +1761,6 @@ namespace Pharmacy.Infrastructure.Migrations
                     b.HasKey("Oid");
 
                     b.HasIndex("InvoiceId");
-
-                    b.HasIndex("OfferDetailId");
 
                     b.HasIndex("ProductId");
 
@@ -2905,11 +2899,6 @@ namespace Pharmacy.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("Pharmacy.Domain.Entities.OfferDetail", "OfferDetail")
-                        .WithMany()
-                        .HasForeignKey("OfferDetailId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
                     b.HasOne("Pharmacy.Domain.Entities.Product", "Product")
                         .WithMany("SalesInvoiceItems")
                         .HasForeignKey("ProductId")
@@ -2917,8 +2906,6 @@ namespace Pharmacy.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("Invoice");
-
-                    b.Navigation("OfferDetail");
 
                     b.Navigation("Product");
                 });

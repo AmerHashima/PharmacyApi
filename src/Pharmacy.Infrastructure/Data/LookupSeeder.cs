@@ -144,6 +144,10 @@ public static class LookupSeeder
     public static readonly Guid LookupMasterProductGroup = Guid.Parse("11111111-1111-1111-1111-111111111015");
     public static readonly Guid LookupMasterDosageForm = Guid.Parse("11111111-1111-1111-1111-111111111016");
     public static readonly Guid LookupMasterReturnReason = Guid.Parse("11111111-1111-1111-1111-111111111017");
+    public static readonly Guid LookupMasterIdentityType = Guid.Parse("11111111-1111-1111-1111-111111111018");
+    public static readonly Guid LookupMasterDoctorSpecialty = Guid.Parse("11111111-1111-1111-1111-111111111019");
+    public static readonly Guid LookupMasterReferralType = Guid.Parse("11111111-1111-1111-1111-111111111020");
+    public static readonly Guid LookupMasterOfferType = Guid.Parse("11111111-1111-1111-1111-111111111021");
     #endregion
 
     #region Lookup Detail IDs - VAT Type
@@ -186,6 +190,40 @@ public static class LookupSeeder
     public static readonly Guid LookupDetailReturnCustomerRequest = Guid.Parse("22222222-2222-2222-2222-2222222220F3");
     public static readonly Guid LookupDetailReturnAdverseReaction = Guid.Parse("22222222-2222-2222-2222-2222222220F4");
     public static readonly Guid LookupDetailReturnOther = Guid.Parse("22222222-2222-2222-2222-2222222220F5");
+    #endregion
+
+    #region Lookup Detail IDs - Identity Type
+    public static readonly Guid LookupDetailIdentityNIN = Guid.Parse("22222222-2222-2222-2222-222222221001");
+    public static readonly Guid LookupDetailIdentityIqama = Guid.Parse("22222222-2222-2222-2222-222222221002");
+    public static readonly Guid LookupDetailIdentityPassport = Guid.Parse("22222222-2222-2222-2222-222222221003");
+    public static readonly Guid LookupDetailIdentityBorderNumber = Guid.Parse("22222222-2222-2222-2222-222222221004");
+    public static readonly Guid LookupDetailIdentityGCCNational = Guid.Parse("22222222-2222-2222-2222-222222221005");
+    #endregion
+
+    #region Lookup Detail IDs - Doctor Specialty
+    public static readonly Guid LookupDetailSpecialtyGeneral = Guid.Parse("22222222-2222-2222-2222-222222221010");
+    public static readonly Guid LookupDetailSpecialtyCardiology = Guid.Parse("22222222-2222-2222-2222-222222221011");
+    public static readonly Guid LookupDetailSpecialtyPediatrics = Guid.Parse("22222222-2222-2222-2222-222222221012");
+    public static readonly Guid LookupDetailSpecialtyDermatology = Guid.Parse("22222222-2222-2222-2222-222222221013");
+    public static readonly Guid LookupDetailSpecialtyOrthopedics = Guid.Parse("22222222-2222-2222-2222-222222221014");
+    public static readonly Guid LookupDetailSpecialtyGynecology = Guid.Parse("22222222-2222-2222-2222-222222221015");
+    public static readonly Guid LookupDetailSpecialtyOphthalmology = Guid.Parse("22222222-2222-2222-2222-222222221016");
+    public static readonly Guid LookupDetailSpecialtyDentistry = Guid.Parse("22222222-2222-2222-2222-222222221017");
+    public static readonly Guid LookupDetailSpecialtyNeurology = Guid.Parse("22222222-2222-2222-2222-222222221018");
+    public static readonly Guid LookupDetailSpecialtyOther = Guid.Parse("22222222-2222-2222-2222-222222221019");
+    #endregion
+
+    #region Lookup Detail IDs - Referral Type
+    public static readonly Guid LookupDetailReferralDoctor = Guid.Parse("22222222-2222-2222-2222-222222221030");
+    public static readonly Guid LookupDetailReferralClinic = Guid.Parse("22222222-2222-2222-2222-222222221031");
+    public static readonly Guid LookupDetailReferralHospital = Guid.Parse("22222222-2222-2222-2222-222222221032");
+    public static readonly Guid LookupDetailReferralOther = Guid.Parse("22222222-2222-2222-2222-222222221033");
+    #endregion
+
+    #region Lookup Detail IDs - Offer Type
+    public static readonly Guid LookupDetailOfferDiscount = Guid.Parse("22222222-2222-2222-2222-222222221040");
+    public static readonly Guid LookupDetailOfferPackagePrice = Guid.Parse("22222222-2222-2222-2222-222222221041");
+    public static readonly Guid LookupDetailOfferTakeNumberFreeItems = Guid.Parse("22222222-2222-2222-2222-222222221042");
     #endregion
 
     /// <summary>
@@ -584,6 +622,97 @@ public static class LookupSeeder
             new AppLookupDetail { Oid = LookupDetailReturnCustomerRequest, MasterID = LookupMasterReturnReason, ValueCode = "CUSTOMER_REQUEST", ValueNameAr = "طلب العميل", ValueNameEn = "Customer Request", SortOrder = 4, IsActive = true },
             new AppLookupDetail { Oid = LookupDetailReturnAdverseReaction, MasterID = LookupMasterReturnReason, ValueCode = "ADVERSE_REACTION", ValueNameAr = "تفاعل عكسي", ValueNameEn = "Adverse Reaction", SortOrder = 5, IsActive = true },
             new AppLookupDetail { Oid = LookupDetailReturnOther, MasterID = LookupMasterReturnReason, ValueCode = "OTHER", ValueNameAr = "أخرى", ValueNameEn = "Other", SortOrder = 99, IsActive = true }
+        });
+
+        // ========================================
+        // 18. IDENTITY_TYPE - Used in Doctor.IdentityTypeId, Customer.IdentityTypeId
+        // ========================================
+        masters.Add(new AppLookupMaster
+        {
+            Oid = LookupMasterIdentityType,
+            LookupCode = "IDENTITY_TYPE",
+            LookupNameAr = "نوع الهوية",
+            LookupNameEn = "Identity Type",
+            Description = "Identity document types (NIN, Iqama, Passport, etc.)",
+            IsSystem = true
+        });
+
+        details.AddRange(new[]
+        {
+            new AppLookupDetail { Oid = LookupDetailIdentityNIN,          MasterID = LookupMasterIdentityType, ValueCode = "NIN",         ValueNameAr = "هوية وطنية",         ValueNameEn = "National ID (NIN)",     SortOrder = 1, IsDefault = true,  IsActive = true },
+            new AppLookupDetail { Oid = LookupDetailIdentityIqama,        MasterID = LookupMasterIdentityType, ValueCode = "IQAMA",       ValueNameAr = "إقامة",              ValueNameEn = "Iqama (Residency)",     SortOrder = 2, IsDefault = false, IsActive = true },
+            new AppLookupDetail { Oid = LookupDetailIdentityPassport,     MasterID = LookupMasterIdentityType, ValueCode = "PASSPORT",    ValueNameAr = "جواز سفر",           ValueNameEn = "Passport",              SortOrder = 3, IsDefault = false, IsActive = true },
+            new AppLookupDetail { Oid = LookupDetailIdentityBorderNumber, MasterID = LookupMasterIdentityType, ValueCode = "BORDER",      ValueNameAr = "رقم الحدود",         ValueNameEn = "Border Number",         SortOrder = 4, IsDefault = false, IsActive = true },
+            new AppLookupDetail { Oid = LookupDetailIdentityGCCNational,  MasterID = LookupMasterIdentityType, ValueCode = "GCC",         ValueNameAr = "مواطن خليجي",        ValueNameEn = "GCC National",          SortOrder = 5, IsDefault = false, IsActive = true }
+        });
+
+        // ========================================
+        // 19. DOCTOR_SPECIALTY - Used in Doctor.SpecialtyId
+        // ========================================
+        masters.Add(new AppLookupMaster
+        {
+            Oid = LookupMasterDoctorSpecialty,
+            LookupCode = "DOCTOR_SPECIALTY",
+            LookupNameAr = "تخصص الطبيب",
+            LookupNameEn = "Doctor Specialty",
+            Description = "Medical specialties for doctors and referral sources",
+            IsSystem = true
+        });
+
+        details.AddRange(new[]
+        {
+            new AppLookupDetail { Oid = LookupDetailSpecialtyGeneral,      MasterID = LookupMasterDoctorSpecialty, ValueCode = "GENERAL",       ValueNameAr = "طب عام",              ValueNameEn = "General Medicine",    SortOrder = 1,  IsDefault = true,  IsActive = true },
+            new AppLookupDetail { Oid = LookupDetailSpecialtyCardiology,   MasterID = LookupMasterDoctorSpecialty, ValueCode = "CARDIOLOGY",    ValueNameAr = "طب القلب",            ValueNameEn = "Cardiology",          SortOrder = 2,  IsDefault = false, IsActive = true },
+            new AppLookupDetail { Oid = LookupDetailSpecialtyPediatrics,   MasterID = LookupMasterDoctorSpecialty, ValueCode = "PEDIATRICS",    ValueNameAr = "طب الأطفال",          ValueNameEn = "Pediatrics",          SortOrder = 3,  IsDefault = false, IsActive = true },
+            new AppLookupDetail { Oid = LookupDetailSpecialtyDermatology,  MasterID = LookupMasterDoctorSpecialty, ValueCode = "DERMATOLOGY",   ValueNameAr = "الأمراض الجلدية",     ValueNameEn = "Dermatology",         SortOrder = 4,  IsDefault = false, IsActive = true },
+            new AppLookupDetail { Oid = LookupDetailSpecialtyOrthopedics,  MasterID = LookupMasterDoctorSpecialty, ValueCode = "ORTHOPEDICS",   ValueNameAr = "العظام والمفاصل",     ValueNameEn = "Orthopedics",         SortOrder = 5,  IsDefault = false, IsActive = true },
+            new AppLookupDetail { Oid = LookupDetailSpecialtyGynecology,   MasterID = LookupMasterDoctorSpecialty, ValueCode = "GYNECOLOGY",    ValueNameAr = "النساء والتوليد",     ValueNameEn = "Gynecology",          SortOrder = 6,  IsDefault = false, IsActive = true },
+            new AppLookupDetail { Oid = LookupDetailSpecialtyOphthalmology,MasterID = LookupMasterDoctorSpecialty, ValueCode = "OPHTHALMOLOGY", ValueNameAr = "طب العيون",           ValueNameEn = "Ophthalmology",       SortOrder = 7,  IsDefault = false, IsActive = true },
+            new AppLookupDetail { Oid = LookupDetailSpecialtyDentistry,    MasterID = LookupMasterDoctorSpecialty, ValueCode = "DENTISTRY",     ValueNameAr = "طب الأسنان",          ValueNameEn = "Dentistry",           SortOrder = 8,  IsDefault = false, IsActive = true },
+            new AppLookupDetail { Oid = LookupDetailSpecialtyNeurology,    MasterID = LookupMasterDoctorSpecialty, ValueCode = "NEUROLOGY",     ValueNameAr = "طب الأعصاب",          ValueNameEn = "Neurology",           SortOrder = 9,  IsDefault = false, IsActive = true },
+            new AppLookupDetail { Oid = LookupDetailSpecialtyOther,        MasterID = LookupMasterDoctorSpecialty, ValueCode = "OTHER",         ValueNameAr = "تخصص آخر",           ValueNameEn = "Other Specialty",     SortOrder = 99, IsDefault = false, IsActive = true }
+        });
+
+        // ========================================
+        // 20. REFERRAL_TYPE - Used in Doctor.ReferralTypeId
+        // 1=Doctor, 2=Clinic, 3=Hospital, 4=Other
+        // ========================================
+        masters.Add(new AppLookupMaster
+        {
+            Oid = LookupMasterReferralType,
+            LookupCode = "REFERRAL_TYPE",
+            LookupNameAr = "نوع مصدر الإحالة",
+            LookupNameEn = "Referral Type",
+            Description = "Types of referral sources (Doctor, Clinic, Hospital, Other)",
+            IsSystem = true
+        });
+
+        details.AddRange(new[]
+        {
+            new AppLookupDetail { Oid = LookupDetailReferralDoctor,   MasterID = LookupMasterReferralType, ValueCode = "DOCTOR",   ValueNameAr = "طبيب",    ValueNameEn = "Doctor",   SortOrder = 1, IsDefault = true,  IsActive = true },
+            new AppLookupDetail { Oid = LookupDetailReferralClinic,   MasterID = LookupMasterReferralType, ValueCode = "CLINIC",   ValueNameAr = "عيادة",   ValueNameEn = "Clinic",   SortOrder = 2, IsDefault = false, IsActive = true },
+            new AppLookupDetail { Oid = LookupDetailReferralHospital, MasterID = LookupMasterReferralType, ValueCode = "HOSPITAL", ValueNameAr = "مستشفى",  ValueNameEn = "Hospital", SortOrder = 3, IsDefault = false, IsActive = true },
+            new AppLookupDetail { Oid = LookupDetailReferralOther,    MasterID = LookupMasterReferralType, ValueCode = "OTHER",    ValueNameAr = "أخرى",    ValueNameEn = "Other",    SortOrder = 4, IsDefault = false, IsActive = true }
+        });
+
+        // ========================================
+        // 21. OFFER_TYPE - Used in Offer.OfferTypeId
+        // ========================================
+        masters.Add(new AppLookupMaster
+        {
+            Oid = LookupMasterOfferType,
+            LookupCode = "OFFER_TYPE",
+            LookupNameAr = "نوع العرض",
+            LookupNameEn = "Offer Type",
+            Description = "Types of promotional offers (Discount, Package Price, Free Items)",
+            IsSystem = true
+        });
+
+        details.AddRange(new[]
+        {
+            new AppLookupDetail { Oid = LookupDetailOfferDiscount,            MasterID = LookupMasterOfferType, ValueCode = "DISCOUNT",      ValueNameAr = "خصم على السعر",        ValueNameEn = "Offer Discount",           SortOrder = 1, IsDefault = true,  IsActive = true },
+            new AppLookupDetail { Oid = LookupDetailOfferPackagePrice,        MasterID = LookupMasterOfferType, ValueCode = "PACKAGE_PRICE",  ValueNameAr = "سعر الحزمة",           ValueNameEn = "Package Price",            SortOrder = 2, IsDefault = false, IsActive = true },
+            new AppLookupDetail { Oid = LookupDetailOfferTakeNumberFreeItems, MasterID = LookupMasterOfferType, ValueCode = "FREE_ITEMS",     ValueNameAr = "اشترِ X وخذ Y مجاناً",  ValueNameEn = "Take Number Free Items",   SortOrder = 3, IsDefault = false, IsActive = true }
         });
 
         // ========================================
