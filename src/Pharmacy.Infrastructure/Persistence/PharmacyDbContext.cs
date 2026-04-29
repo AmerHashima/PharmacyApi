@@ -154,6 +154,13 @@ public class PharmacyDbContext : DbContext
             .HasForeignKey(i => i.OfferDetailId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        // 🔹 ReportParameter → Link (no cascade)
+        modelBuilder.Entity<ReportParameter>()
+            .HasOne(p => p.Link)
+            .WithMany(l => l.ReportParameters)
+            .HasForeignKey(p => p.LinksOid)
+            .OnDelete(DeleteBehavior.Restrict);
+
         modelBuilder.Entity<SalesInvoice>()
             .HasIndex(i => i.InvoiceNumber)
             .IsUnique()

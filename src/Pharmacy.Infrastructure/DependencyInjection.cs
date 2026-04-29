@@ -64,6 +64,8 @@ public static class DependencyInjection
         services.AddScoped<IDoctorRepository, DoctorRepository>();
         services.AddScoped<IOfferMasterRepository, OfferMasterRepository>();
         services.AddScoped<IOfferDetailRepository, OfferDetailRepository>();
+        services.AddScoped<ILinkRepository, LinkRepository>();
+        services.AddScoped<IReportParameterRepository, ReportParameterRepository>();
 
         // ====================================
         // Register repositories - Pharmacy Structure
