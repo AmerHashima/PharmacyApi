@@ -3,8 +3,10 @@ using Pharmacy.Application.Mappings;
 using Pharmacy.Application.Options;
 using Pharmacy.Application.Services;
 using Pharmacy.Domain.Interfaces;
+using Pharmacy.Domain.Interfaces.Accounting;
 using Pharmacy.Infrastructure.Persistence;
 using Pharmacy.Infrastructure.Repositories;
+using Pharmacy.Infrastructure.Repositories.Accounting;
 using Pharmacy.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -66,6 +68,19 @@ public static class DependencyInjection
         services.AddScoped<IOfferDetailRepository, OfferDetailRepository>();
         services.AddScoped<ILinkRepository, LinkRepository>();
         services.AddScoped<IReportParameterRepository, ReportParameterRepository>();
+
+        // ====================================
+        // Register repositories - Accounting
+        // ====================================
+        services.AddScoped<IFiscalYearRepository, FiscalYearRepository>();
+        services.AddScoped<IAccountRepository, AccountRepository>();
+        services.AddScoped<ICostCenterRepository, CostCenterRepository>();
+        services.AddScoped<ICashBoxRepository, CashBoxRepository>();
+        services.AddScoped<IBankAccountRepository, BankAccountRepository>();
+        services.AddScoped<IJournalEntryRepository, JournalEntryRepository>();
+        services.AddScoped<IJournalEntryDetailRepository, JournalEntryDetailRepository>();
+        services.AddScoped<IReceiptVoucherRepository, ReceiptVoucherRepository>();
+        services.AddScoped<IPaymentVoucherRepository, PaymentVoucherRepository>();
 
         // ====================================
         // Register repositories - Pharmacy Structure

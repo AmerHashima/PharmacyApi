@@ -1,5 +1,6 @@
 using Pharmacy.Domain.Common;
 using Pharmacy.Domain.Entities;
+using Pharmacy.Domain.Entities.Accounting;
 using Microsoft.EntityFrameworkCore;
 using System.Reflection;
 using System.Linq.Expressions;
@@ -69,6 +70,17 @@ public class PharmacyDbContext : DbContext
     // Offers
     public DbSet<OfferMaster> OfferMasters { get; set; }
     public DbSet<OfferDetail> OfferDetails { get; set; }
+
+    // Accounting
+    public DbSet<FiscalYear> FiscalYears { get; set; }
+    public DbSet<Account> Accounts { get; set; }
+    public DbSet<CostCenter> CostCenters { get; set; }
+    public DbSet<CashBox> CashBoxes { get; set; }
+    public DbSet<BankAccount> BankAccounts { get; set; }
+    public DbSet<JournalEntry> JournalEntries { get; set; }
+    public DbSet<JournalEntryDetail> JournalEntryDetails { get; set; }
+    public DbSet<ReceiptVoucher> ReceiptVouchers { get; set; }
+    public DbSet<PaymentVoucher> PaymentVouchers { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -295,6 +307,172 @@ public class PharmacyDbContext : DbContext
 
         modelBuilder.Entity<StockTransactionReturnDetail>()
             .Property(d => d.TotalCost)
+            .HasPrecision(18, 2);
+
+        // =========================================
+        // 🔹 Accounting module FK configurations
+        // =========================================
+
+        // Account self-referencing parent
+        modelBuilder.Entity<Account>()
+            .HasOne(a => a.Parent)
+            .WithMany(a => a.Children)
+            .HasForeignKey(a => a.ParentId)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        modelBuilder.Entity<Account>()
+            .HasIndex(a => a.AccountCode)
+            .IsUnique()
+            .HasFilter("[IsDeleted] = 0");
+
+        // CostCenter self-referencing parent
+        modelBuilder.Entity<CostCenter>()
+            .HasOne(c => c.Parent)
+            .WithMany(c => c.Children)
+            .HasForeignKey(c => c.ParentId)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        // CashBox FKs
+        modelBuilder.Entity<CashBox>()
+            .HasOne(cb => cb.Branch)
+            .WithMany()
+            .HasForeignKey(cb => cb.BranchId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<CashBox>()
+            .HasOne(cb => cb.Account)
+            .WithMany()
+            .HasForeignKey(cb => cb.AccountId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // BankAccount FKs
+        modelBuilder.Entity<BankAccount>()
+            .HasOne(ba => ba.Branch)
+            .WithMany()
+            .HasForeignKey(ba => ba.BranchId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<BankAccount>()
+            .HasOne(ba => ba.Account)
+            .WithMany()
+            .HasForeignKey(ba => ba.AccountId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<BankAccount>()
+            .HasOne(ba => ba.CurrencyCode)
+            .WithMany()
+            .HasForeignKey(ba => ba.CurrencyCodeId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // JournalEntry FKs
+        modelBuilder.Entity<JournalEntry>()
+            .HasIndex(j => j.EntryNumber)
+            .IsUnique()
+            .HasFilter("[IsDeleted] = 0");
+
+        modelBuilder.Entity<JournalEntry>()
+            .HasOne(j => j.FiscalYear)
+            .WithMany()
+            .HasForeignKey(j => j.FiscalYearId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<JournalEntry>()
+            .HasOne(j => j.Branch)
+            .WithMany()
+            .HasForeignKey(j => j.BranchId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<JournalEntry>()
+            .Property(j => j.TotalDebit)
+            .HasPrecision(18, 2);
+
+        modelBuilder.Entity<JournalEntry>()
+            .Property(j => j.TotalCredit)
+            .HasPrecision(18, 2);
+
+        // JournalEntryDetail FKs
+        modelBuilder.Entity<JournalEntryDetail>()
+            .HasOne(d => d.JournalEntry)
+            .WithMany(j => j.Details)
+            .HasForeignKey(d => d.JournalEntryId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<JournalEntryDetail>()
+            .HasOne(d => d.Account)
+            .WithMany()
+            .HasForeignKey(d => d.AccountId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<JournalEntryDetail>()
+            .HasOne(d => d.CostCenter)
+            .WithMany()
+            .HasForeignKey(d => d.CostCenterId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<JournalEntryDetail>()
+            .Property(d => d.Debit)
+            .HasPrecision(18, 2);
+
+        modelBuilder.Entity<JournalEntryDetail>()
+            .Property(d => d.Credit)
+            .HasPrecision(18, 2);
+
+        // ReceiptVoucher FKs
+        modelBuilder.Entity<ReceiptVoucher>()
+            .HasOne(rv => rv.Customer)
+            .WithMany()
+            .HasForeignKey(rv => rv.CustomerId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<ReceiptVoucher>()
+            .HasOne(rv => rv.CashBox)
+            .WithMany()
+            .HasForeignKey(rv => rv.CashBoxId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<ReceiptVoucher>()
+            .HasOne(rv => rv.BankAccount)
+            .WithMany()
+            .HasForeignKey(rv => rv.BankAccountId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<ReceiptVoucher>()
+            .HasOne(rv => rv.JournalEntry)
+            .WithMany()
+            .HasForeignKey(rv => rv.JournalEntryId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<ReceiptVoucher>()
+            .Property(rv => rv.Amount)
+            .HasPrecision(18, 2);
+
+        // PaymentVoucher FKs
+        modelBuilder.Entity<PaymentVoucher>()
+            .HasOne(pv => pv.Stakeholder)
+            .WithMany()
+            .HasForeignKey(pv => pv.StakeholderId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<PaymentVoucher>()
+            .HasOne(pv => pv.CashBox)
+            .WithMany()
+            .HasForeignKey(pv => pv.CashBoxId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<PaymentVoucher>()
+            .HasOne(pv => pv.BankAccount)
+            .WithMany()
+            .HasForeignKey(pv => pv.BankAccountId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<PaymentVoucher>()
+            .HasOne(pv => pv.JournalEntry)
+            .WithMany()
+            .HasForeignKey(pv => pv.JournalEntryId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<PaymentVoucher>()
+            .Property(pv => pv.Amount)
             .HasPrecision(18, 2);
     }
 

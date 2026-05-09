@@ -148,6 +148,29 @@ public static class LookupSeeder
     public static readonly Guid LookupMasterDoctorSpecialty = Guid.Parse("11111111-1111-1111-1111-111111111019");
     public static readonly Guid LookupMasterReferralType = Guid.Parse("11111111-1111-1111-1111-111111111020");
     public static readonly Guid LookupMasterOfferType = Guid.Parse("11111111-1111-1111-1111-111111111021");
+    public static readonly Guid LookupMasterAccountType   = Guid.Parse("11111111-1111-1111-1111-111111111022");
+    public static readonly Guid LookupMasterAccountNature = Guid.Parse("11111111-1111-1111-1111-111111111023");
+    public static readonly Guid LookupMasterCurrencyCode  = Guid.Parse("11111111-1111-1111-1111-111111111024");
+    #endregion
+
+    #region Lookup Detail IDs - Account Type
+    public static readonly Guid LookupDetailAccountTypeAssets      = Guid.Parse("22222222-2222-2222-2222-222222221050");
+    public static readonly Guid LookupDetailAccountTypeLiabilities = Guid.Parse("22222222-2222-2222-2222-222222221051");
+    public static readonly Guid LookupDetailAccountTypeEquity      = Guid.Parse("22222222-2222-2222-2222-222222221052");
+    public static readonly Guid LookupDetailAccountTypeRevenue     = Guid.Parse("22222222-2222-2222-2222-222222221053");
+    public static readonly Guid LookupDetailAccountTypeExpense     = Guid.Parse("22222222-2222-2222-2222-222222221054");
+    #endregion
+
+    #region Lookup Detail IDs - Account Nature
+    public static readonly Guid LookupDetailAccountNatureDebit  = Guid.Parse("22222222-2222-2222-2222-222222221060");
+    public static readonly Guid LookupDetailAccountNatureCredit = Guid.Parse("22222222-2222-2222-2222-222222221061");
+    #endregion
+
+    #region Lookup Detail IDs - Currency Code
+    public static readonly Guid LookupDetailCurrencySAR = Guid.Parse("22222222-2222-2222-2222-222222221070");
+    public static readonly Guid LookupDetailCurrencyUSD = Guid.Parse("22222222-2222-2222-2222-222222221071");
+    public static readonly Guid LookupDetailCurrencyEUR = Guid.Parse("22222222-2222-2222-2222-222222221072");
+    public static readonly Guid LookupDetailCurrencyGBP = Guid.Parse("22222222-2222-2222-2222-222222221073");
     #endregion
 
     #region Lookup Detail IDs - VAT Type
@@ -713,6 +736,68 @@ public static class LookupSeeder
             new AppLookupDetail { Oid = LookupDetailOfferDiscount,            MasterID = LookupMasterOfferType, ValueCode = "DISCOUNT",      ValueNameAr = "خصم على السعر",        ValueNameEn = "Offer Discount",           SortOrder = 1, IsDefault = true,  IsActive = true },
             new AppLookupDetail { Oid = LookupDetailOfferPackagePrice,        MasterID = LookupMasterOfferType, ValueCode = "PACKAGE_PRICE",  ValueNameAr = "سعر الحزمة",           ValueNameEn = "Package Price",            SortOrder = 2, IsDefault = false, IsActive = true },
             new AppLookupDetail { Oid = LookupDetailOfferTakeNumberFreeItems, MasterID = LookupMasterOfferType, ValueCode = "FREE_ITEMS",     ValueNameAr = "اشترِ X وخذ Y مجاناً",  ValueNameEn = "Take Number Free Items",   SortOrder = 3, IsDefault = false, IsActive = true }
+        });
+
+        // ========================================
+        // 22. ACCOUNT_TYPE - Used in Account.AccountTypeId
+        // ========================================
+        masters.Add(new AppLookupMaster
+        {
+            Oid = LookupMasterAccountType,
+            LookupCode = "ACCOUNT_TYPE",
+            LookupNameAr = "نوع الحساب",
+            LookupNameEn = "Account Type",
+            Description = "Chart of accounts type (Assets, Liabilities, Equity, Revenue, Expense)",
+            IsSystem = true
+        });
+
+        details.AddRange(new[]
+        {
+            new AppLookupDetail { Oid = LookupDetailAccountTypeAssets,      MasterID = LookupMasterAccountType, ValueCode = "ASSETS",       ValueNameAr = "الأصول",        ValueNameEn = "Assets",       SortOrder = 1, IsDefault = true,  IsActive = true },
+            new AppLookupDetail { Oid = LookupDetailAccountTypeLiabilities, MasterID = LookupMasterAccountType, ValueCode = "LIABILITIES",  ValueNameAr = "الخصوم",        ValueNameEn = "Liabilities",  SortOrder = 2, IsDefault = false, IsActive = true },
+            new AppLookupDetail { Oid = LookupDetailAccountTypeEquity,      MasterID = LookupMasterAccountType, ValueCode = "EQUITY",       ValueNameAr = "حقوق الملكية", ValueNameEn = "Equity",       SortOrder = 3, IsDefault = false, IsActive = true },
+            new AppLookupDetail { Oid = LookupDetailAccountTypeRevenue,     MasterID = LookupMasterAccountType, ValueCode = "REVENUE",      ValueNameAr = "الإيرادات",     ValueNameEn = "Revenue",      SortOrder = 4, IsDefault = false, IsActive = true },
+            new AppLookupDetail { Oid = LookupDetailAccountTypeExpense,     MasterID = LookupMasterAccountType, ValueCode = "EXPENSE",      ValueNameAr = "المصروفات",     ValueNameEn = "Expense",      SortOrder = 5, IsDefault = false, IsActive = true }
+        });
+
+        // ========================================
+        // 23. ACCOUNT_NATURE - Used in Account.NatureId
+        // ========================================
+        masters.Add(new AppLookupMaster
+        {
+            Oid = LookupMasterAccountNature,
+            LookupCode = "ACCOUNT_NATURE",
+            LookupNameAr = "طبيعة الحساب",
+            LookupNameEn = "Account Nature",
+            Description = "Normal balance side of an account (Debit or Credit)",
+            IsSystem = true
+        });
+
+        details.AddRange(new[]
+        {
+            new AppLookupDetail { Oid = LookupDetailAccountNatureDebit,  MasterID = LookupMasterAccountNature, ValueCode = "DEBIT",  ValueNameAr = "مدين", ValueNameEn = "Debit",  SortOrder = 1, IsDefault = true,  IsActive = true },
+            new AppLookupDetail { Oid = LookupDetailAccountNatureCredit, MasterID = LookupMasterAccountNature, ValueCode = "CREDIT", ValueNameAr = "دائن", ValueNameEn = "Credit", SortOrder = 2, IsDefault = false, IsActive = true }
+        });
+
+        // ========================================
+        // 24. CURRENCY_CODE - Used in BankAccount.CurrencyCodeId
+        // ========================================
+        masters.Add(new AppLookupMaster
+        {
+            Oid = LookupMasterCurrencyCode,
+            LookupCode = "CURRENCY_CODE",
+            LookupNameAr = "رمز العملة",
+            LookupNameEn = "Currency Code",
+            Description = "ISO currency codes",
+            IsSystem = true
+        });
+
+        details.AddRange(new[]
+        {
+            new AppLookupDetail { Oid = LookupDetailCurrencySAR, MasterID = LookupMasterCurrencyCode, ValueCode = "SAR", ValueNameAr = "ريال سعودي",  ValueNameEn = "Saudi Riyal",  SortOrder = 1, IsDefault = true,  IsActive = true },
+            new AppLookupDetail { Oid = LookupDetailCurrencyUSD, MasterID = LookupMasterCurrencyCode, ValueCode = "USD", ValueNameAr = "دولار أمريكي", ValueNameEn = "US Dollar",    SortOrder = 2, IsDefault = false, IsActive = true },
+            new AppLookupDetail { Oid = LookupDetailCurrencyEUR, MasterID = LookupMasterCurrencyCode, ValueCode = "EUR", ValueNameAr = "يورو",         ValueNameEn = "Euro",         SortOrder = 3, IsDefault = false, IsActive = true },
+            new AppLookupDetail { Oid = LookupDetailCurrencyGBP, MasterID = LookupMasterCurrencyCode, ValueCode = "GBP", ValueNameAr = "جنيه إسترليني", ValueNameEn = "British Pound", SortOrder = 4, IsDefault = false, IsActive = true }
         });
 
         // ========================================
