@@ -71,7 +71,7 @@ public class OfferController : BaseApiController
         try
         {
             var result = await _mediator.Send(new CreateOfferMasterCommand(dto), cancellationToken);
-            return CreatedResponse(result, "Offer created successfully", new { id = result.Oid });
+            return CreatedResponse(result, nameof(GetById), new { id = result.Oid }, "Offer created successfully");
         }
         catch (Exception ex)
         {

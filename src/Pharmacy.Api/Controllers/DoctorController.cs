@@ -54,7 +54,7 @@ public class DoctorController : BaseApiController
         try
         {
             var result = await _mediator.Send(new CreateDoctorCommand(dto), cancellationToken);
-            return CreatedResponse(result, "Doctor created successfully", new { id = result.Oid });
+            return CreatedResponse(result, nameof(GetById), new { id = result.Oid }, "Doctor created successfully");
         }
         catch (Exception ex)
         {

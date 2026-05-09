@@ -71,7 +71,7 @@ public class LinkController : BaseApiController
         try
         {
             var result = await _mediator.Send(new CreateLinkCommand(dto), cancellationToken);
-            return CreatedResponse(result, "Link created successfully", new { id = result.Oid });
+            return CreatedResponse(result, nameof(GetById), new { id = result.Oid }, "Link created successfully");
         }
         catch (Exception ex)
         {
