@@ -18,11 +18,13 @@ public class AccountingProfile : Profile
 
         // Account
         CreateMap<Account, AccountDto>()
-            .ForMember(d => d.ParentNameAr,     o => o.MapFrom(s => s.Parent != null ? s.Parent.AccountNameAr : null))
-            .ForMember(d => d.AccountTypeName,  o => o.MapFrom(s => s.AccountType != null ? s.AccountType.ValueNameEn : null))
-            .ForMember(d => d.AccountTypeNameAr,o => o.MapFrom(s => s.AccountType != null ? s.AccountType.ValueNameAr : null))
-            .ForMember(d => d.NatureName,       o => o.MapFrom(s => s.Nature != null ? s.Nature.ValueNameEn : null))
-            .ForMember(d => d.NatureNameAr,     o => o.MapFrom(s => s.Nature != null ? s.Nature.ValueNameAr : null));
+            .ForMember(d => d.ParentNameAr,       o => o.MapFrom(s => s.Parent != null ? s.Parent.AccountNameAr : null))
+            .ForMember(d => d.AccountTypeName,    o => o.MapFrom(s => s.AccountType != null ? s.AccountType.ValueNameEn : null))
+            .ForMember(d => d.AccountTypeNameAr,  o => o.MapFrom(s => s.AccountType != null ? s.AccountType.ValueNameAr : null))
+            .ForMember(d => d.NatureName,         o => o.MapFrom(s => s.Nature != null ? s.Nature.ValueNameEn : null))
+            .ForMember(d => d.NatureNameAr,       o => o.MapFrom(s => s.Nature != null ? s.Nature.ValueNameAr : null))
+            .ForMember(d => d.FinalAccountName,   o => o.MapFrom(s => s.FinalAccount != null ? s.FinalAccount.ValueNameEn : null))
+            .ForMember(d => d.FinalAccountNameAr, o => o.MapFrom(s => s.FinalAccount != null ? s.FinalAccount.ValueNameAr : null));
         CreateMap<CreateAccountDto, Account>();
         CreateMap<UpdateAccountDto, Account>()
             .ForMember(d => d.Oid,       o => o.Ignore())
@@ -72,8 +74,9 @@ public class AccountingProfile : Profile
 
         // JournalEntry
         CreateMap<JournalEntry, JournalEntryDto>()
-            .ForMember(d => d.FiscalYearName, o => o.MapFrom(s => s.FiscalYear != null ? s.FiscalYear.NameEn : null))
-            .ForMember(d => d.BranchName,     o => o.MapFrom(s => s.Branch != null ? s.Branch.BranchName : null));
+            .ForMember(d => d.FiscalYearName,    o => o.MapFrom(s => s.FiscalYear != null ? s.FiscalYear.NameEn : null))
+            .ForMember(d => d.BranchName,        o => o.MapFrom(s => s.Branch != null ? s.Branch.BranchName : null))
+            .ForMember(d => d.ReferenceTypeName, o => o.MapFrom(s => s.ReferenceType != null ? s.ReferenceType.ValueNameEn : null));
         CreateMap<CreateJournalEntryDto, JournalEntry>()
             .ForMember(d => d.Details, o => o.Ignore());
         CreateMap<UpdateJournalEntryDto, JournalEntry>()

@@ -1,4 +1,5 @@
 using Pharmacy.Domain.Common;
+using Pharmacy.Domain.Entities;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
@@ -25,8 +26,10 @@ public class JournalEntry : BaseEntity
 
     public string? Description { get; set; }
 
-    [MaxLength(100)]
-    public string? ReferenceType { get; set; }
+    public Guid? ReferenceTypeId { get; set; }
+
+    [ForeignKey(nameof(ReferenceTypeId))]
+    public virtual AppLookupDetail? ReferenceType { get; set; }
 
     public Guid? ReferenceId { get; set; }
 

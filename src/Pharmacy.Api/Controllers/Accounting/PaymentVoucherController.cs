@@ -15,7 +15,7 @@ public class PaymentVoucherController : BaseApiController
 {
     private readonly IMediator _mediator;
 
-    public PaymentVoucherController(IMediator mediator) => _mediator = mediator;
+    public PaymentVoucherController(IMediator mediator) => _mediator = mediator;   
 
     [HttpPost("query")]
     public async Task<ActionResult<ApiResponse<PagedResult<PaymentVoucherDto>>>> Query([FromBody] QueryRequest request, CancellationToken cancellationToken)

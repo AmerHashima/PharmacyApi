@@ -15,6 +15,9 @@ public class AccountDto
     public Guid? NatureId { get; set; }
     public string? NatureName { get; set; }
     public string? NatureNameAr { get; set; }
+    public Guid? FinalAccountId { get; set; }
+    public string? FinalAccountName { get; set; }
+    public string? FinalAccountNameAr { get; set; }
     public bool IsLeaf { get; set; }
     public bool IsActive { get; set; }
     public int? Status { get; set; }
@@ -30,6 +33,7 @@ public class CreateAccountDto
     public int AccountLevel { get; set; } = 1;
     public Guid? AccountTypeId { get; set; }
     public Guid? NatureId { get; set; }
+    public Guid? FinalAccountId { get; set; }
     public bool IsLeaf { get; set; } = true;
     public bool IsActive { get; set; } = true;
 }
@@ -44,6 +48,7 @@ public class UpdateAccountDto
     public int AccountLevel { get; set; }
     public Guid? AccountTypeId { get; set; }
     public Guid? NatureId { get; set; }
+    public Guid? FinalAccountId { get; set; }
     public bool IsLeaf { get; set; }
     public bool IsActive { get; set; }
 }

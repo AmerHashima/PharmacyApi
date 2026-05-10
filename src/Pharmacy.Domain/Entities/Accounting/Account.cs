@@ -39,6 +39,12 @@ public class Account : BaseEntity
     [ForeignKey(nameof(NatureId))]
     public virtual AppLookupDetail? Nature { get; set; }
 
+    /// <summary>FK to AppLookupDetail — FINAL_ACCOUNT (BalanceSheet, IncomeStatement, etc.).</summary>
+    public Guid? FinalAccountId { get; set; }
+
+    [ForeignKey(nameof(FinalAccountId))]
+    public virtual AppLookupDetail? FinalAccount { get; set; }
+
     public bool IsLeaf { get; set; } = true;
     public bool IsActive { get; set; } = true;
 }

@@ -321,6 +321,12 @@ public class PharmacyDbContext : DbContext
             .OnDelete(DeleteBehavior.NoAction);
 
         modelBuilder.Entity<Account>()
+            .HasOne(a => a.FinalAccount)
+            .WithMany()
+            .HasForeignKey(a => a.FinalAccountId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<Account>()
             .HasIndex(a => a.AccountCode)
             .IsUnique()
             .HasFilter("[IsDeleted] = 0");
@@ -380,6 +386,12 @@ public class PharmacyDbContext : DbContext
             .HasOne(j => j.Branch)
             .WithMany()
             .HasForeignKey(j => j.BranchId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<JournalEntry>()
+            .HasOne(j => j.ReferenceType)
+            .WithMany()
+            .HasForeignKey(j => j.ReferenceTypeId)
             .OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<JournalEntry>()

@@ -151,6 +151,8 @@ public static class LookupSeeder
     public static readonly Guid LookupMasterAccountType   = Guid.Parse("11111111-1111-1111-1111-111111111022");
     public static readonly Guid LookupMasterAccountNature = Guid.Parse("11111111-1111-1111-1111-111111111023");
     public static readonly Guid LookupMasterCurrencyCode  = Guid.Parse("11111111-1111-1111-1111-111111111024");
+    public static readonly Guid LookupMasterJournalReferenceType = Guid.Parse("11111111-1111-1111-1111-111111111025");
+    public static readonly Guid LookupMasterFinalAccount         = Guid.Parse("11111111-1111-1111-1111-111111111026");
     #endregion
 
     #region Lookup Detail IDs - Account Type
@@ -171,6 +173,22 @@ public static class LookupSeeder
     public static readonly Guid LookupDetailCurrencyUSD = Guid.Parse("22222222-2222-2222-2222-222222221071");
     public static readonly Guid LookupDetailCurrencyEUR = Guid.Parse("22222222-2222-2222-2222-222222221072");
     public static readonly Guid LookupDetailCurrencyGBP = Guid.Parse("22222222-2222-2222-2222-222222221073");
+    #endregion
+
+    #region Lookup Detail IDs - Journal Reference Type
+    public static readonly Guid LookupDetailRefTypeSalesInvoice    = Guid.Parse("22222222-2222-2222-2222-222222221080");
+    public static readonly Guid LookupDetailRefTypeReturnInvoice   = Guid.Parse("22222222-2222-2222-2222-222222221081");
+    public static readonly Guid LookupDetailRefTypeStockTransaction = Guid.Parse("22222222-2222-2222-2222-222222221082");
+    public static readonly Guid LookupDetailRefTypeReceiptVoucher  = Guid.Parse("22222222-2222-2222-2222-222222221083");
+    public static readonly Guid LookupDetailRefTypePaymentVoucher  = Guid.Parse("22222222-2222-2222-2222-222222221084");
+    public static readonly Guid LookupDetailRefTypeManual          = Guid.Parse("22222222-2222-2222-2222-222222221085");
+    #endregion
+
+    #region Lookup Detail IDs - Final Account
+    public static readonly Guid LookupDetailFinalAccountBalanceSheet    = Guid.Parse("22222222-2222-2222-2222-222222221090");
+    public static readonly Guid LookupDetailFinalAccountIncomeStatement = Guid.Parse("22222222-2222-2222-2222-222222221091");
+    public static readonly Guid LookupDetailFinalAccountRetainedEarnings = Guid.Parse("22222222-2222-2222-2222-222222221092");
+    public static readonly Guid LookupDetailFinalAccountCostOfGoods     = Guid.Parse("22222222-2222-2222-2222-222222221093");
     #endregion
 
     #region Lookup Detail IDs - VAT Type
@@ -798,6 +816,50 @@ public static class LookupSeeder
             new AppLookupDetail { Oid = LookupDetailCurrencyUSD, MasterID = LookupMasterCurrencyCode, ValueCode = "USD", ValueNameAr = "دولار أمريكي", ValueNameEn = "US Dollar",    SortOrder = 2, IsDefault = false, IsActive = true },
             new AppLookupDetail { Oid = LookupDetailCurrencyEUR, MasterID = LookupMasterCurrencyCode, ValueCode = "EUR", ValueNameAr = "يورو",         ValueNameEn = "Euro",         SortOrder = 3, IsDefault = false, IsActive = true },
             new AppLookupDetail { Oid = LookupDetailCurrencyGBP, MasterID = LookupMasterCurrencyCode, ValueCode = "GBP", ValueNameAr = "جنيه إسترليني", ValueNameEn = "British Pound", SortOrder = 4, IsDefault = false, IsActive = true }
+        });
+
+        // ========================================
+        // 25. JOURNAL_REFERENCE_TYPE - Used in JournalEntry.ReferenceTypeId
+        // ========================================
+        masters.Add(new AppLookupMaster
+        {
+            Oid = LookupMasterJournalReferenceType,
+            LookupCode = "JOURNAL_REFERENCE_TYPE",
+            LookupNameAr = "نوع مرجع القيد",
+            LookupNameEn = "Journal Reference Type",
+            Description = "Source document type that originated the journal entry",
+            IsSystem = true
+        });
+
+        details.AddRange(new[]
+        {
+            new AppLookupDetail { Oid = LookupDetailRefTypeSalesInvoice,     MasterID = LookupMasterJournalReferenceType, ValueCode = "SALES_INVOICE",     ValueNameAr = "فاتورة مبيعات",    ValueNameEn = "Sales Invoice",     SortOrder = 1, IsDefault = false, IsActive = true },
+            new AppLookupDetail { Oid = LookupDetailRefTypeReturnInvoice,    MasterID = LookupMasterJournalReferenceType, ValueCode = "RETURN_INVOICE",    ValueNameAr = "فاتورة مرتجع",     ValueNameEn = "Return Invoice",    SortOrder = 2, IsDefault = false, IsActive = true },
+            new AppLookupDetail { Oid = LookupDetailRefTypeStockTransaction, MasterID = LookupMasterJournalReferenceType, ValueCode = "STOCK_TRANSACTION", ValueNameAr = "حركة مخزون",      ValueNameEn = "Stock Transaction", SortOrder = 3, IsDefault = false, IsActive = true },
+            new AppLookupDetail { Oid = LookupDetailRefTypeReceiptVoucher,   MasterID = LookupMasterJournalReferenceType, ValueCode = "RECEIPT_VOUCHER",   ValueNameAr = "سند قبض",          ValueNameEn = "Receipt Voucher",   SortOrder = 4, IsDefault = false, IsActive = true },
+            new AppLookupDetail { Oid = LookupDetailRefTypePaymentVoucher,   MasterID = LookupMasterJournalReferenceType, ValueCode = "PAYMENT_VOUCHER",   ValueNameAr = "سند صرف",          ValueNameEn = "Payment Voucher",   SortOrder = 5, IsDefault = false, IsActive = true },
+            new AppLookupDetail { Oid = LookupDetailRefTypeManual,           MasterID = LookupMasterJournalReferenceType, ValueCode = "MANUAL",            ValueNameAr = "قيد يدوي",         ValueNameEn = "Manual",            SortOrder = 6, IsDefault = true,  IsActive = true }
+        });
+
+        // ========================================
+        // 26. FINAL_ACCOUNT - Used in Account.FinalAccountId
+        // ========================================
+        masters.Add(new AppLookupMaster
+        {
+            Oid = LookupMasterFinalAccount,
+            LookupCode = "FINAL_ACCOUNT",
+            LookupNameAr = "الحساب الختامي",
+            LookupNameEn = "Final Account",
+            Description = "Destination final financial statement for the account",
+            IsSystem = true
+        });
+
+        details.AddRange(new[]
+        {
+            new AppLookupDetail { Oid = LookupDetailFinalAccountBalanceSheet,     MasterID = LookupMasterFinalAccount, ValueCode = "BALANCE_SHEET",     ValueNameAr = "الميزانية العمومية",   ValueNameEn = "Balance Sheet",      SortOrder = 1, IsDefault = false, IsActive = true },
+            new AppLookupDetail { Oid = LookupDetailFinalAccountIncomeStatement,  MasterID = LookupMasterFinalAccount, ValueCode = "INCOME_STATEMENT",  ValueNameAr = "قائمة الدخل",          ValueNameEn = "Income Statement",   SortOrder = 2, IsDefault = false, IsActive = true },
+            new AppLookupDetail { Oid = LookupDetailFinalAccountRetainedEarnings, MasterID = LookupMasterFinalAccount, ValueCode = "RETAINED_EARNINGS", ValueNameAr = "الأرباح المبقاة",      ValueNameEn = "Retained Earnings",  SortOrder = 3, IsDefault = false, IsActive = true },
+            new AppLookupDetail { Oid = LookupDetailFinalAccountCostOfGoods,      MasterID = LookupMasterFinalAccount, ValueCode = "COST_OF_GOODS",     ValueNameAr = "تكلفة البضاعة المباعة", ValueNameEn = "Cost of Goods Sold", SortOrder = 4, IsDefault = false, IsActive = true }
         });
 
         // ========================================

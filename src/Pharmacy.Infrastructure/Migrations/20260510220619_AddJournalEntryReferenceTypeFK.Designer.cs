@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Pharmacy.Infrastructure.Persistence;
 
@@ -11,9 +12,11 @@ using Pharmacy.Infrastructure.Persistence;
 namespace Pharmacy.Infrastructure.Migrations
 {
     [DbContext(typeof(PharmacyDbContext))]
-    partial class PharmacyDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260510220619_AddJournalEntryReferenceTypeFK")]
+    partial class AddJournalEntryReferenceTypeFK
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -60,9 +63,6 @@ namespace Pharmacy.Infrastructure.Migrations
                     b.Property<Guid?>("DeletedBy")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<Guid?>("FinalAccountId")
-                        .HasColumnType("uniqueidentifier");
-
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
 
@@ -94,8 +94,6 @@ namespace Pharmacy.Infrastructure.Migrations
                         .HasFilter("[IsDeleted] = 0");
 
                     b.HasIndex("AccountTypeId");
-
-                    b.HasIndex("FinalAccountId");
 
                     b.HasIndex("NatureId");
 
@@ -3173,11 +3171,6 @@ namespace Pharmacy.Infrastructure.Migrations
                         .WithMany()
                         .HasForeignKey("AccountTypeId");
 
-                    b.HasOne("Pharmacy.Domain.Entities.AppLookupDetail", "FinalAccount")
-                        .WithMany()
-                        .HasForeignKey("FinalAccountId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
                     b.HasOne("Pharmacy.Domain.Entities.AppLookupDetail", "Nature")
                         .WithMany()
                         .HasForeignKey("NatureId");
@@ -3188,8 +3181,6 @@ namespace Pharmacy.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.NoAction);
 
                     b.Navigation("AccountType");
-
-                    b.Navigation("FinalAccount");
 
                     b.Navigation("Nature");
 

@@ -24,7 +24,8 @@ public class JournalEntryDto
     public Guid? BranchId { get; set; }
     public string? BranchName { get; set; }
     public string? Description { get; set; }
-    public string? ReferenceType { get; set; }
+    public Guid? ReferenceTypeId { get; set; }
+    public string? ReferenceTypeName { get; set; }
     public Guid? ReferenceId { get; set; }
     public decimal TotalDebit { get; set; }
     public decimal TotalCredit { get; set; }
@@ -51,7 +52,7 @@ public class CreateJournalEntryDto
     public Guid? FiscalYearId { get; set; }
     public Guid? BranchId { get; set; }
     public string? Description { get; set; }
-    public string? ReferenceType { get; set; }
+    public Guid? ReferenceTypeId { get; set; }
     public Guid? ReferenceId { get; set; }
     public List<CreateJournalEntryDetailDto> Details { get; set; } = new();
 }
@@ -74,7 +75,7 @@ public class UpdateJournalEntryDto
     public Guid? FiscalYearId { get; set; }
     public Guid? BranchId { get; set; }
     public string? Description { get; set; }
-    public string? ReferenceType { get; set; }
+    public Guid? ReferenceTypeId { get; set; }
     public Guid? ReferenceId { get; set; }
     public bool IsPosted { get; set; }
     public bool IsReversed { get; set; }
