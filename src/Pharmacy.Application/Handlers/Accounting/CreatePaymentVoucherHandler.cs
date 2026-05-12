@@ -2,6 +2,7 @@ using AutoMapper;
 using MediatR;
 using Pharmacy.Application.Commands.Accounting;
 using Pharmacy.Application.DTOs.Accounting;
+using Pharmacy.Domain.Entities.Accounting;
 using Pharmacy.Domain.Interfaces.Accounting;
 
 namespace Pharmacy.Application.Handlers.Accounting;
@@ -19,9 +20,20 @@ public class CreatePaymentVoucherHandler : IRequestHandler<CreatePaymentVoucherC
 
     public async Task<PaymentVoucherDto> Handle(CreatePaymentVoucherCommand request, CancellationToken cancellationToken)
     {
-        var entity = _mapper.Map<Domain.Entities.Accounting.PaymentVoucher>(request.PaymentVoucher);
-        entity.CreatedAt = DateTime.UtcNow;
-        await _repository.AddAsync(entity, cancellationToken);
-        return _mapper.Map<PaymentVoucherDto>(entity);
+        var master = _mapper.Map<PaymentVoucher>(request.PaymentVoucher);
+        master.CreatedAt   = DateTime.UtcNow;
+        master.TotalAmount = request.PaymentVoucher.Details.Sum(d => d.Amount);
+
+        var details = _mapper.Map<List<PaymentVoucherDetail>>(request.PaymentVoucher.Details);
+        foreach (var detail in details)
+        {
+            detail.PaymentVoucherId = master.Oid;
+            detail.CreatedAt = DateTime.UtcNow;
+        }
+
+        await _repository.InsertMasterDetailAsync(master, details, cancellationToken);
+
+        var created = await _repository.GetWithDetailsAsync(master.Oid, cancellationToken);
+        return _mapper.Map<PaymentVoucherDto>(created);
     }
 }

@@ -17,6 +17,10 @@ public class PaymentVoucherRepository : BaseRepository<PaymentVoucher>, IPayment
             .Include(pv => pv.CashBox)
             .Include(pv => pv.BankAccount)
             .Include(pv => pv.JournalEntry)
+            .Include(pv => pv.Details)
+                .ThenInclude(d => d.Account)
+            .Include(pv => pv.Details)
+                .ThenInclude(d => d.CostCenter)
             .Where(pv => pv.Oid == id && !pv.IsDeleted)
             .FirstOrDefaultAsync(cancellationToken);
     }

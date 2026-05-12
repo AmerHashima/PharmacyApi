@@ -28,7 +28,7 @@ public class ReceiptVoucher : BaseEntity
     public virtual BankAccount? BankAccount { get; set; }
 
     [Column(TypeName = "decimal(18,2)")]
-    public decimal Amount { get; set; }
+    public decimal TotalAmount { get; set; }
 
     public string? Notes { get; set; }
 
@@ -36,4 +36,6 @@ public class ReceiptVoucher : BaseEntity
 
     [ForeignKey(nameof(JournalEntryId))]
     public virtual JournalEntry? JournalEntry { get; set; }
+
+    public virtual ICollection<ReceiptVoucherDetail> Details { get; set; } = new List<ReceiptVoucherDetail>();
 }

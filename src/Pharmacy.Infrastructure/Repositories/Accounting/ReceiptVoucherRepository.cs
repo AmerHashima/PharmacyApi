@@ -17,6 +17,10 @@ public class ReceiptVoucherRepository : BaseRepository<ReceiptVoucher>, IReceipt
             .Include(rv => rv.CashBox)
             .Include(rv => rv.BankAccount)
             .Include(rv => rv.JournalEntry)
+            .Include(rv => rv.Details)
+                .ThenInclude(d => d.Account)
+            .Include(rv => rv.Details)
+                .ThenInclude(d => d.CostCenter)
             .Where(rv => rv.Oid == id && !rv.IsDeleted)
             .FirstOrDefaultAsync(cancellationToken);
     }

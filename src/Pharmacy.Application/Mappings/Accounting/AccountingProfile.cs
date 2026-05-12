@@ -85,14 +85,38 @@ public class AccountingProfile : Profile
             .ForMember(d => d.CreatedBy, o => o.Ignore())
             .ForMember(d => d.Details,   o => o.Ignore());
 
+        // ReceiptVoucherDetail
+        CreateMap<ReceiptVoucherDetail, ReceiptVoucherDetailDto>()
+            .ForMember(d => d.AccountCode,      o => o.MapFrom(s => s.Account != null ? s.Account.AccountCode : null))
+            .ForMember(d => d.AccountNameAr,    o => o.MapFrom(s => s.Account != null ? s.Account.AccountNameAr : null))
+            .ForMember(d => d.CostCenterNameAr, o => o.MapFrom(s => s.CostCenter != null ? s.CostCenter.NameAr : null));
+        CreateMap<CreateReceiptVoucherDetailDto, ReceiptVoucherDetail>();
+        CreateMap<UpdateReceiptVoucherDetailDto, ReceiptVoucherDetail>()
+            .ForMember(d => d.Oid,       o => o.Ignore())
+            .ForMember(d => d.CreatedAt, o => o.Ignore())
+            .ForMember(d => d.CreatedBy, o => o.Ignore());
+
         // ReceiptVoucher
         CreateMap<ReceiptVoucher, ReceiptVoucherDto>()
             .ForMember(d => d.CustomerName,       o => o.MapFrom(s => s.Customer != null ? s.Customer.NameEN : null))
             .ForMember(d => d.CashBoxName,        o => o.MapFrom(s => s.CashBox != null ? s.CashBox.NameAr : null))
             .ForMember(d => d.BankAccountName,    o => o.MapFrom(s => s.BankAccount != null ? s.BankAccount.NameAr : null))
             .ForMember(d => d.JournalEntryNumber, o => o.MapFrom(s => s.JournalEntry != null ? s.JournalEntry.EntryNumber : null));
-        CreateMap<CreateReceiptVoucherDto, ReceiptVoucher>();
+        CreateMap<CreateReceiptVoucherDto, ReceiptVoucher>()
+            .ForMember(d => d.Details, o => o.Ignore());
         CreateMap<UpdateReceiptVoucherDto, ReceiptVoucher>()
+            .ForMember(d => d.Oid,       o => o.Ignore())
+            .ForMember(d => d.CreatedAt, o => o.Ignore())
+            .ForMember(d => d.CreatedBy, o => o.Ignore())
+            .ForMember(d => d.Details,   o => o.Ignore());
+
+        // PaymentVoucherDetail
+        CreateMap<PaymentVoucherDetail, PaymentVoucherDetailDto>()
+            .ForMember(d => d.AccountCode,      o => o.MapFrom(s => s.Account != null ? s.Account.AccountCode : null))
+            .ForMember(d => d.AccountNameAr,    o => o.MapFrom(s => s.Account != null ? s.Account.AccountNameAr : null))
+            .ForMember(d => d.CostCenterNameAr, o => o.MapFrom(s => s.CostCenter != null ? s.CostCenter.NameAr : null));
+        CreateMap<CreatePaymentVoucherDetailDto, PaymentVoucherDetail>();
+        CreateMap<UpdatePaymentVoucherDetailDto, PaymentVoucherDetail>()
             .ForMember(d => d.Oid,       o => o.Ignore())
             .ForMember(d => d.CreatedAt, o => o.Ignore())
             .ForMember(d => d.CreatedBy, o => o.Ignore());
@@ -103,10 +127,12 @@ public class AccountingProfile : Profile
             .ForMember(d => d.CashBoxName,        o => o.MapFrom(s => s.CashBox != null ? s.CashBox.NameAr : null))
             .ForMember(d => d.BankAccountName,    o => o.MapFrom(s => s.BankAccount != null ? s.BankAccount.NameAr : null))
             .ForMember(d => d.JournalEntryNumber, o => o.MapFrom(s => s.JournalEntry != null ? s.JournalEntry.EntryNumber : null));
-        CreateMap<CreatePaymentVoucherDto, PaymentVoucher>();
+        CreateMap<CreatePaymentVoucherDto, PaymentVoucher>()
+            .ForMember(d => d.Details, o => o.Ignore());
         CreateMap<UpdatePaymentVoucherDto, PaymentVoucher>()
             .ForMember(d => d.Oid,       o => o.Ignore())
             .ForMember(d => d.CreatedAt, o => o.Ignore())
-            .ForMember(d => d.CreatedBy, o => o.Ignore());
+            .ForMember(d => d.CreatedBy, o => o.Ignore())
+            .ForMember(d => d.Details,   o => o.Ignore());
     }
 }

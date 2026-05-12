@@ -80,7 +80,9 @@ public class PharmacyDbContext : DbContext
     public DbSet<JournalEntry> JournalEntries { get; set; }
     public DbSet<JournalEntryDetail> JournalEntryDetails { get; set; }
     public DbSet<ReceiptVoucher> ReceiptVouchers { get; set; }
+    public DbSet<ReceiptVoucherDetail> ReceiptVoucherDetails { get; set; }
     public DbSet<PaymentVoucher> PaymentVouchers { get; set; }
+    public DbSet<PaymentVoucherDetail> PaymentVoucherDetails { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -455,7 +457,30 @@ public class PharmacyDbContext : DbContext
             .OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<ReceiptVoucher>()
-            .Property(rv => rv.Amount)
+            .Property(rv => rv.TotalAmount)
+            .HasPrecision(18, 2);
+
+        // ReceiptVoucherDetail FKs
+        modelBuilder.Entity<ReceiptVoucherDetail>()
+            .HasOne(d => d.ReceiptVoucher)
+            .WithMany(rv => rv.Details)
+            .HasForeignKey(d => d.ReceiptVoucherId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<ReceiptVoucherDetail>()
+            .HasOne(d => d.Account)
+            .WithMany()
+            .HasForeignKey(d => d.AccountId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<ReceiptVoucherDetail>()
+            .HasOne(d => d.CostCenter)
+            .WithMany()
+            .HasForeignKey(d => d.CostCenterId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<ReceiptVoucherDetail>()
+            .Property(d => d.Amount)
             .HasPrecision(18, 2);
 
         // PaymentVoucher FKs
@@ -484,7 +509,30 @@ public class PharmacyDbContext : DbContext
             .OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<PaymentVoucher>()
-            .Property(pv => pv.Amount)
+            .Property(pv => pv.TotalAmount)
+            .HasPrecision(18, 2);
+
+        // PaymentVoucherDetail FKs
+        modelBuilder.Entity<PaymentVoucherDetail>()
+            .HasOne(d => d.PaymentVoucher)
+            .WithMany(pv => pv.Details)
+            .HasForeignKey(d => d.PaymentVoucherId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<PaymentVoucherDetail>()
+            .HasOne(d => d.Account)
+            .WithMany()
+            .HasForeignKey(d => d.AccountId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<PaymentVoucherDetail>()
+            .HasOne(d => d.CostCenter)
+            .WithMany()
+            .HasForeignKey(d => d.CostCenterId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<PaymentVoucherDetail>()
+            .Property(d => d.Amount)
             .HasPrecision(18, 2);
     }
 

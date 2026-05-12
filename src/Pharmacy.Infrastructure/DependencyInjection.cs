@@ -80,7 +80,9 @@ public static class DependencyInjection
         services.AddScoped<IJournalEntryRepository, JournalEntryRepository>();
         services.AddScoped<IJournalEntryDetailRepository, JournalEntryDetailRepository>();
         services.AddScoped<IReceiptVoucherRepository, ReceiptVoucherRepository>();
+        services.AddScoped<IReceiptVoucherDetailRepository, ReceiptVoucherDetailRepository>();
         services.AddScoped<IPaymentVoucherRepository, PaymentVoucherRepository>();
+        services.AddScoped<IPaymentVoucherDetailRepository, PaymentVoucherDetailRepository>();
 
         // ====================================
         // Register repositories - Pharmacy Structure

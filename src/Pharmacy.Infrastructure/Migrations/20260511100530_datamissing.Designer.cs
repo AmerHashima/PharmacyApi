@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Pharmacy.Infrastructure.Persistence;
 
@@ -11,9 +12,11 @@ using Pharmacy.Infrastructure.Persistence;
 namespace Pharmacy.Infrastructure.Migrations
 {
     [DbContext(typeof(PharmacyDbContext))]
-    partial class PharmacyDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260511100530_datamissing")]
+    partial class datamissing
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -496,6 +499,10 @@ namespace Pharmacy.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<Guid?>("BankAccountId")
                         .HasColumnType("uniqueidentifier");
 
@@ -529,10 +536,6 @@ namespace Pharmacy.Infrastructure.Migrations
                     b.Property<int?>("Status")
                         .HasColumnType("int");
 
-                    b.Property<decimal>("TotalAmount")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)");
-
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
 
@@ -559,69 +562,15 @@ namespace Pharmacy.Infrastructure.Migrations
                     b.ToTable("PaymentVouchers", "Accounting");
                 });
 
-            modelBuilder.Entity("Pharmacy.Domain.Entities.Accounting.PaymentVoucherDetail", b =>
-                {
-                    b.Property<Guid>("Oid")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("AccountId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<decimal>("Amount")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<Guid?>("CostCenterId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime?>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<Guid?>("CreatedBy")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<Guid?>("DeletedBy")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("Description")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
-
-                    b.Property<Guid>("PaymentVoucherId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<int?>("Status")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<Guid?>("UpdatedBy")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.HasKey("Oid");
-
-                    b.HasIndex("AccountId");
-
-                    b.HasIndex("CostCenterId");
-
-                    b.HasIndex("PaymentVoucherId");
-
-                    b.ToTable("PaymentVoucherDetails", "Accounting");
-                });
-
             modelBuilder.Entity("Pharmacy.Domain.Entities.Accounting.ReceiptVoucher", b =>
                 {
                     b.Property<Guid>("Oid")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<Guid?>("BankAccountId")
                         .HasColumnType("uniqueidentifier");
@@ -656,10 +605,6 @@ namespace Pharmacy.Infrastructure.Migrations
                     b.Property<int?>("Status")
                         .HasColumnType("int");
 
-                    b.Property<decimal>("TotalAmount")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)");
-
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
 
@@ -684,64 +629,6 @@ namespace Pharmacy.Infrastructure.Migrations
                     b.HasIndex("JournalEntryId");
 
                     b.ToTable("ReceiptVouchers", "Accounting");
-                });
-
-            modelBuilder.Entity("Pharmacy.Domain.Entities.Accounting.ReceiptVoucherDetail", b =>
-                {
-                    b.Property<Guid>("Oid")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("AccountId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<decimal>("Amount")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<Guid?>("CostCenterId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime?>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<Guid?>("CreatedBy")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<Guid?>("DeletedBy")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("Description")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
-
-                    b.Property<Guid>("ReceiptVoucherId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<int?>("Status")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<Guid?>("UpdatedBy")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.HasKey("Oid");
-
-                    b.HasIndex("AccountId");
-
-                    b.HasIndex("CostCenterId");
-
-                    b.HasIndex("ReceiptVoucherId");
-
-                    b.ToTable("ReceiptVoucherDetails", "Accounting");
                 });
 
             modelBuilder.Entity("Pharmacy.Domain.Entities.AppLookupDetail", b =>
@@ -3444,32 +3331,6 @@ namespace Pharmacy.Infrastructure.Migrations
                     b.Navigation("Stakeholder");
                 });
 
-            modelBuilder.Entity("Pharmacy.Domain.Entities.Accounting.PaymentVoucherDetail", b =>
-                {
-                    b.HasOne("Pharmacy.Domain.Entities.Accounting.Account", "Account")
-                        .WithMany()
-                        .HasForeignKey("AccountId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("Pharmacy.Domain.Entities.Accounting.CostCenter", "CostCenter")
-                        .WithMany()
-                        .HasForeignKey("CostCenterId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.HasOne("Pharmacy.Domain.Entities.Accounting.PaymentVoucher", "PaymentVoucher")
-                        .WithMany("Details")
-                        .HasForeignKey("PaymentVoucherId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Account");
-
-                    b.Navigation("CostCenter");
-
-                    b.Navigation("PaymentVoucher");
-                });
-
             modelBuilder.Entity("Pharmacy.Domain.Entities.Accounting.ReceiptVoucher", b =>
                 {
                     b.HasOne("Pharmacy.Domain.Entities.Accounting.BankAccount", "BankAccount")
@@ -3499,32 +3360,6 @@ namespace Pharmacy.Infrastructure.Migrations
                     b.Navigation("Customer");
 
                     b.Navigation("JournalEntry");
-                });
-
-            modelBuilder.Entity("Pharmacy.Domain.Entities.Accounting.ReceiptVoucherDetail", b =>
-                {
-                    b.HasOne("Pharmacy.Domain.Entities.Accounting.Account", "Account")
-                        .WithMany()
-                        .HasForeignKey("AccountId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("Pharmacy.Domain.Entities.Accounting.CostCenter", "CostCenter")
-                        .WithMany()
-                        .HasForeignKey("CostCenterId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.HasOne("Pharmacy.Domain.Entities.Accounting.ReceiptVoucher", "ReceiptVoucher")
-                        .WithMany("Details")
-                        .HasForeignKey("ReceiptVoucherId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Account");
-
-                    b.Navigation("CostCenter");
-
-                    b.Navigation("ReceiptVoucher");
                 });
 
             modelBuilder.Entity("Pharmacy.Domain.Entities.AppLookupDetail", b =>
@@ -4174,16 +4009,6 @@ namespace Pharmacy.Infrastructure.Migrations
                 });
 
             modelBuilder.Entity("Pharmacy.Domain.Entities.Accounting.JournalEntry", b =>
-                {
-                    b.Navigation("Details");
-                });
-
-            modelBuilder.Entity("Pharmacy.Domain.Entities.Accounting.PaymentVoucher", b =>
-                {
-                    b.Navigation("Details");
-                });
-
-            modelBuilder.Entity("Pharmacy.Domain.Entities.Accounting.ReceiptVoucher", b =>
                 {
                     b.Navigation("Details");
                 });

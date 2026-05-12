@@ -1,5 +1,18 @@
 namespace Pharmacy.Application.DTOs.Accounting;
 
+public class ReceiptVoucherDetailDto
+{
+    public Guid Oid { get; set; }
+    public Guid ReceiptVoucherId { get; set; }
+    public Guid AccountId { get; set; }
+    public string? AccountCode { get; set; }
+    public string? AccountNameAr { get; set; }
+    public Guid? CostCenterId { get; set; }
+    public string? CostCenterNameAr { get; set; }
+    public string? Description { get; set; }
+    public decimal Amount { get; set; }
+}
+
 public class ReceiptVoucherDto
 {
     public Guid Oid { get; set; }
@@ -11,12 +24,21 @@ public class ReceiptVoucherDto
     public string? CashBoxName { get; set; }
     public Guid? BankAccountId { get; set; }
     public string? BankAccountName { get; set; }
-    public decimal Amount { get; set; }
+    public decimal TotalAmount { get; set; }
     public string? Notes { get; set; }
     public Guid? JournalEntryId { get; set; }
     public string? JournalEntryNumber { get; set; }
     public int? Status { get; set; }
     public DateTime? CreatedAt { get; set; }
+    public List<ReceiptVoucherDetailDto> Details { get; set; } = new();
+}
+
+public class CreateReceiptVoucherDetailDto
+{
+    public Guid AccountId { get; set; }
+    public Guid? CostCenterId { get; set; }
+    public string? Description { get; set; }
+    public decimal Amount { get; set; }
 }
 
 public class CreateReceiptVoucherDto
@@ -26,9 +48,18 @@ public class CreateReceiptVoucherDto
     public Guid? CustomerId { get; set; }
     public Guid? CashBoxId { get; set; }
     public Guid? BankAccountId { get; set; }
-    public decimal Amount { get; set; }
     public string? Notes { get; set; }
     public Guid? JournalEntryId { get; set; }
+    public List<CreateReceiptVoucherDetailDto> Details { get; set; } = new();
+}
+
+public class UpdateReceiptVoucherDetailDto
+{
+    public Guid? Oid { get; set; }
+    public Guid AccountId { get; set; }
+    public Guid? CostCenterId { get; set; }
+    public string? Description { get; set; }
+    public decimal Amount { get; set; }
 }
 
 public class UpdateReceiptVoucherDto
@@ -39,7 +70,7 @@ public class UpdateReceiptVoucherDto
     public Guid? CustomerId { get; set; }
     public Guid? CashBoxId { get; set; }
     public Guid? BankAccountId { get; set; }
-    public decimal Amount { get; set; }
     public string? Notes { get; set; }
     public Guid? JournalEntryId { get; set; }
+    public List<UpdateReceiptVoucherDetailDto> Details { get; set; } = new();
 }
