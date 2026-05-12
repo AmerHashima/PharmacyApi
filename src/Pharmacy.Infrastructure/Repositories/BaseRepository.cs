@@ -101,29 +101,32 @@ public class BaseRepository<T> : IBaseRepository<T> where T : BaseEntity
     CancellationToken cancellationToken = default)
     where TDetail : BaseEntity
     {
-        using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
+        var strategy = _context.Database.CreateExecutionStrategy();
 
-        try
+        return await strategy.ExecuteAsync(async () =>
         {
-            _dbSet.Add(master);
-            await _context.SaveChangesAsync(cancellationToken);
-
-            if (details != null && details.Any())
+            using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
+            try
             {
-                await _context.Set<TDetail>().AddRangeAsync(details, cancellationToken);
+                _dbSet.Add(master);
+                await _context.SaveChangesAsync(cancellationToken);
+
+                if (details != null && details.Any())
+                {
+                    await _context.Set<TDetail>().AddRangeAsync(details, cancellationToken);
+                }
+
+                await _context.SaveChangesAsync(cancellationToken);
+                await transaction.CommitAsync(cancellationToken);
+
+                return master;
             }
-
-            await _context.SaveChangesAsync(cancellationToken);
-
-            await transaction.CommitAsync(cancellationToken);
-
-            return master;
-        }
-        catch
-        {
-            await transaction.RollbackAsync(cancellationToken);
-            throw;
-        }
+            catch
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                throw;
+            }
+        });
     }
     public async Task UpdateMasterDetailAsync<TDetail>(
     T master,
@@ -132,36 +135,37 @@ public class BaseRepository<T> : IBaseRepository<T> where T : BaseEntity
     CancellationToken cancellationToken = default)
     where TDetail : BaseEntity
     {
-        using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
+        var strategy = _context.Database.CreateExecutionStrategy();
 
-        try
+        await strategy.ExecuteAsync(async () =>
         {
-            _dbSet.Update(master);
-
-            var detailSet = _context.Set<TDetail>();
-
-            // delete old details
-            var masterId = master.Oid;
-
-            var oldDetails = await detailSet
-                .Where(x => EF.Property<Guid>(x, foreignKey.GetPropertyAccess().Name) == masterId)
-                .ToListAsync(cancellationToken);
-
-            detailSet.RemoveRange(oldDetails);
-
-            if (details != null && details.Any())
+            using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
+            try
             {
-                await detailSet.AddRangeAsync(details, cancellationToken);
+                _dbSet.Update(master);
+
+                var detailSet = _context.Set<TDetail>();
+                var masterId = master.Oid;
+
+                var oldDetails = await detailSet
+                    .Where(x => EF.Property<Guid>(x, foreignKey.GetPropertyAccess().Name) == masterId)
+                    .ToListAsync(cancellationToken);
+
+                detailSet.RemoveRange(oldDetails);
+
+                if (details != null && details.Any())
+                {
+                    await detailSet.AddRangeAsync(details, cancellationToken);
+                }
+
+                await _context.SaveChangesAsync(cancellationToken);
+                await transaction.CommitAsync(cancellationToken);
             }
-
-            await _context.SaveChangesAsync(cancellationToken);
-
-            await transaction.CommitAsync(cancellationToken);
-        }
-        catch
-        {
-            await transaction.RollbackAsync(cancellationToken);
-            throw;
-        }
+            catch
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                throw;
+            }
+        });
     }
 }
