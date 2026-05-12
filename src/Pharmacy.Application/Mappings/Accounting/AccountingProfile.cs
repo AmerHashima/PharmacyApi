@@ -61,6 +61,30 @@ public class AccountingProfile : Profile
             .ForMember(d => d.CreatedAt, o => o.Ignore())
             .ForMember(d => d.CreatedBy, o => o.Ignore());
 
+        // JournalEntryDetail → flat report DTO
+        CreateMap<JournalEntryDetail, JournalEntryDetailReportDto>()
+            .ForMember(d => d.AccountCode,          o => o.MapFrom(s => s.Account != null ? s.Account.AccountCode : null))
+            .ForMember(d => d.AccountNameAr,        o => o.MapFrom(s => s.Account != null ? s.Account.AccountNameAr : null))
+            .ForMember(d => d.AccountNameEn,        o => o.MapFrom(s => s.Account != null ? s.Account.AccountNameEn : null))
+            .ForMember(d => d.CostCenterCode,       o => o.MapFrom(s => s.CostCenter != null ? s.CostCenter.Code : null))
+            .ForMember(d => d.CostCenterNameAr,     o => o.MapFrom(s => s.CostCenter != null ? s.CostCenter.NameAr : null))
+            .ForMember(d => d.EntryNumber,          o => o.MapFrom(s => s.JournalEntry != null ? s.JournalEntry.EntryNumber : null))
+            .ForMember(d => d.EntryDate,            o => o.MapFrom(s => s.JournalEntry != null ? s.JournalEntry.EntryDate : default))
+            .ForMember(d => d.EntryDescription,     o => o.MapFrom(s => s.JournalEntry != null ? s.JournalEntry.Description : null))
+            .ForMember(d => d.TotalDebit,           o => o.MapFrom(s => s.JournalEntry != null ? s.JournalEntry.TotalDebit : 0))
+            .ForMember(d => d.TotalCredit,          o => o.MapFrom(s => s.JournalEntry != null ? s.JournalEntry.TotalCredit : 0))
+            .ForMember(d => d.IsPosted,             o => o.MapFrom(s => s.JournalEntry != null && s.JournalEntry.IsPosted))
+            .ForMember(d => d.IsReversed,           o => o.MapFrom(s => s.JournalEntry != null && s.JournalEntry.IsReversed))
+            .ForMember(d => d.ReferenceId,          o => o.MapFrom(s => s.JournalEntry != null ? s.JournalEntry.ReferenceId : null))
+            .ForMember(d => d.FiscalYearId,         o => o.MapFrom(s => s.JournalEntry != null ? s.JournalEntry.FiscalYearId : null))
+            .ForMember(d => d.FiscalYearNameAr,     o => o.MapFrom(s => s.JournalEntry != null && s.JournalEntry.FiscalYear != null ? s.JournalEntry.FiscalYear.NameAR : null))
+            .ForMember(d => d.FiscalYearNameEn,     o => o.MapFrom(s => s.JournalEntry != null && s.JournalEntry.FiscalYear != null ? s.JournalEntry.FiscalYear.NameEn : null))
+            .ForMember(d => d.BranchId,             o => o.MapFrom(s => s.JournalEntry != null ? s.JournalEntry.BranchId : null))
+            .ForMember(d => d.BranchName,           o => o.MapFrom(s => s.JournalEntry != null && s.JournalEntry.Branch != null ? s.JournalEntry.Branch.BranchName : null))
+            .ForMember(d => d.ReferenceTypeId,      o => o.MapFrom(s => s.JournalEntry != null ? s.JournalEntry.ReferenceTypeId : null))
+            .ForMember(d => d.ReferenceTypeName,    o => o.MapFrom(s => s.JournalEntry != null && s.JournalEntry.ReferenceType != null ? s.JournalEntry.ReferenceType.ValueNameEn : null))
+            .ForMember(d => d.ReferenceTypeNameAr,  o => o.MapFrom(s => s.JournalEntry != null && s.JournalEntry.ReferenceType != null ? s.JournalEntry.ReferenceType.ValueNameAr : null));
+
         // JournalEntryDetail
         CreateMap<JournalEntryDetail, JournalEntryDetailDto>()
             .ForMember(d => d.AccountCode,      o => o.MapFrom(s => s.Account != null ? s.Account.AccountCode : null))

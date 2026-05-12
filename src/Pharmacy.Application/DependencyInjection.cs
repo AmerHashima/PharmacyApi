@@ -1,6 +1,7 @@
 using System.Reflection;
 using FluentValidation;
 using Pharmacy.Application.Common.Behaviors;
+using Pharmacy.Application.Services;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -21,6 +22,9 @@ public static class DependencyInjection
 
         // Register FluentValidation validators
         services.AddValidatorsFromAssembly(Assembly.GetExecutingAssembly());
+
+        // Register application services
+        services.AddScoped<IQueryService, QueryService>();
 
         return services;
     }

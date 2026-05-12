@@ -65,6 +65,20 @@ public class JournalEntryController : BaseApiController
         catch (Exception ex) { return ErrorResponse<JournalEntryDto>($"Error updating journal entry: {ex.Message}", 500); }
     }
 
+    [HttpPost("detail-report")]
+    public async Task<ActionResult<ApiResponse<PagedResult<JournalEntryDetailReportDto>>>> DetailReport([FromBody] QueryRequest request, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var result = await _mediator.Send(new GetJournalEntryDetailReportQuery(request), cancellationToken);
+            return SuccessResponse(result, "Journal entry detail report retrieved successfully");
+        }
+        catch (Exception ex)
+        {
+            return ErrorResponse<PagedResult<JournalEntryDetailReportDto>>($"Error retrieving journal entry detail report: {ex.Message}", 500);
+        }
+    }
+
     [HttpDelete("{id}")]
     public async Task<ActionResult<ApiResponse<bool>>> Delete(Guid id, CancellationToken cancellationToken)
     {
