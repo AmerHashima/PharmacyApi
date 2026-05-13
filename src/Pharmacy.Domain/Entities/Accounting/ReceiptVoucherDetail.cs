@@ -27,4 +27,13 @@ public class ReceiptVoucherDetail : BaseEntity
 
     [Column(TypeName = "decimal(18,2)")]
     public decimal Amount { get; set; }
+
+    public Guid? CustomerId { get; set; }
+
+    [ForeignKey(nameof(CustomerId))]
+    public virtual Customer? Customer { get; set; }
+
+    /// <summary>Optional reference to the source invoice being settled by this line.</summary>
+    [MaxLength(100)]
+    public string? ReferenceInvoiceId { get; set; }
 }

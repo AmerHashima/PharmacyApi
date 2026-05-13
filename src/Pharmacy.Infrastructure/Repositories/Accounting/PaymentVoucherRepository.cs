@@ -13,7 +13,6 @@ public class PaymentVoucherRepository : BaseRepository<PaymentVoucher>, IPayment
     public async Task<PaymentVoucher?> GetWithDetailsAsync(Guid id, CancellationToken cancellationToken = default)
     {
         return await _dbSet
-            .Include(pv => pv.Stakeholder)
             .Include(pv => pv.CashBox)
             .Include(pv => pv.BankAccount)
             .Include(pv => pv.JournalEntry)
@@ -21,6 +20,8 @@ public class PaymentVoucherRepository : BaseRepository<PaymentVoucher>, IPayment
                 .ThenInclude(d => d.Account)
             .Include(pv => pv.Details)
                 .ThenInclude(d => d.CostCenter)
+            .Include(pv => pv.Details)
+                .ThenInclude(d => d.Stakeholder)
             .Where(pv => pv.Oid == id && !pv.IsDeleted)
             .FirstOrDefaultAsync(cancellationToken);
     }

@@ -13,7 +13,6 @@ public class ReceiptVoucherRepository : BaseRepository<ReceiptVoucher>, IReceipt
     public async Task<ReceiptVoucher?> GetWithDetailsAsync(Guid id, CancellationToken cancellationToken = default)
     {
         return await _dbSet
-            .Include(rv => rv.Customer)
             .Include(rv => rv.CashBox)
             .Include(rv => rv.BankAccount)
             .Include(rv => rv.JournalEntry)
@@ -21,6 +20,8 @@ public class ReceiptVoucherRepository : BaseRepository<ReceiptVoucher>, IReceipt
                 .ThenInclude(d => d.Account)
             .Include(rv => rv.Details)
                 .ThenInclude(d => d.CostCenter)
+            .Include(rv => rv.Details)
+                .ThenInclude(d => d.Customer)
             .Where(rv => rv.Oid == id && !rv.IsDeleted)
             .FirstOrDefaultAsync(cancellationToken);
     }

@@ -25,7 +25,6 @@ public class GetPaymentVoucherDataHandler : IRequestHandler<GetPaymentVoucherDat
     public async Task<PagedResult<PaymentVoucherDto>> Handle(GetPaymentVoucherDataQuery request, CancellationToken cancellationToken)
     {
         var query = _repository.GetQueryable()
-            .Include(pv => pv.Stakeholder)
             .Include(pv => pv.CashBox)
             .Include(pv => pv.BankAccount)
             .Include(pv => pv.JournalEntry)

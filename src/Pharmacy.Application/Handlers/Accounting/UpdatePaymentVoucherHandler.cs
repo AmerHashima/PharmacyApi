@@ -11,24 +11,31 @@ namespace Pharmacy.Application.Handlers.Accounting;
 public class UpdatePaymentVoucherHandler : IRequestHandler<UpdatePaymentVoucherCommand, PaymentVoucherDto>
 {
     private readonly IPaymentVoucherRepository _repository;
+    private readonly IJournalEntryRepository _journalEntryRepository;
     private readonly IMapper _mapper;
 
-    public UpdatePaymentVoucherHandler(IPaymentVoucherRepository repository, IMapper mapper)
+    public UpdatePaymentVoucherHandler(
+        IPaymentVoucherRepository repository,
+        IJournalEntryRepository journalEntryRepository,
+        IMapper mapper)
     {
         _repository = repository;
+        _journalEntryRepository = journalEntryRepository;
         _mapper = mapper;
     }
 
     public async Task<PaymentVoucherDto> Handle(UpdatePaymentVoucherCommand request, CancellationToken cancellationToken)
     {
-        var entity = await _repository.GetWithDetailsAsync(request.PaymentVoucher.Oid, cancellationToken)
-            ?? throw new KeyNotFoundException($"PaymentVoucher '{request.PaymentVoucher.Oid}' not found");
+        var dto = request.PaymentVoucher;
 
-        _mapper.Map(request.PaymentVoucher, entity);
+        var entity = await _repository.GetWithDetailsAsync(dto.Oid, cancellationToken)
+            ?? throw new KeyNotFoundException($"PaymentVoucher '{dto.Oid}' not found");
+
+        _mapper.Map(dto, entity);
         entity.UpdatedAt   = DateTime.UtcNow;
-        entity.TotalAmount = request.PaymentVoucher.Details.Sum(d => d.Amount);
+        entity.TotalAmount = dto.Details.Sum(d => d.Amount);
 
-        var details = _mapper.Map<List<PaymentVoucherDetail>>(request.PaymentVoucher.Details);
+        var details = _mapper.Map<List<PaymentVoucherDetail>>(dto.Details);
         foreach (var detail in details)
         {
             detail.PaymentVoucherId = entity.Oid;
@@ -41,6 +48,41 @@ public class UpdatePaymentVoucherHandler : IRequestHandler<UpdatePaymentVoucherC
             details,
             (Expression<Func<PaymentVoucherDetail, object>>)(d => d.PaymentVoucherId),
             cancellationToken);
+
+        // ── Sync journal entry ───────────────────────────────────────────────
+        if (entity.JournalEntryId.HasValue)
+        {
+            var journal = await _journalEntryRepository.GetWithDetailsAsync(entity.JournalEntryId.Value, cancellationToken);
+            if (journal != null)
+            {
+                journal.EntryDate    = dto.VoucherDate;
+                journal.FiscalYearId = dto.FiscalYearId;
+                journal.BranchId     = dto.BranchId;
+                journal.Description  = dto.Notes;
+                journal.UpdatedAt    = DateTime.UtcNow;
+
+                var journalDetails = dto.Details.Select(d => new JournalEntryDetail
+                {
+                    JournalEntryId = journal.Oid,
+                    AccountId      = d.AccountId,
+                    CostCenterId   = d.CostCenterId,
+                    Description    = d.Description,
+                    Debit          = 0,
+                    Credit         = d.Amount,
+                    CreatedAt      = DateTime.UtcNow,
+                    UpdatedAt      = DateTime.UtcNow,
+                }).ToList();
+
+                journal.TotalDebit  = journalDetails.Sum(j => j.Debit);
+                journal.TotalCredit = journalDetails.Sum(j => j.Credit);
+
+                await _journalEntryRepository.UpdateMasterDetailAsync(
+                    journal,
+                    journalDetails,
+                    (Expression<Func<JournalEntryDetail, object>>)(d => d.JournalEntryId),
+                    cancellationToken);
+            }
+        }
 
         var updated = await _repository.GetWithDetailsAsync(entity.Oid, cancellationToken);
         return _mapper.Map<PaymentVoucherDto>(updated);

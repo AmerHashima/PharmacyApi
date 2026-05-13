@@ -433,9 +433,15 @@ public class PharmacyDbContext : DbContext
 
         // ReceiptVoucher FKs
         modelBuilder.Entity<ReceiptVoucher>()
-            .HasOne(rv => rv.Customer)
+            .HasOne(rv => rv.FiscalYear)
             .WithMany()
-            .HasForeignKey(rv => rv.CustomerId)
+            .HasForeignKey(rv => rv.FiscalYearId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<ReceiptVoucher>()
+            .HasOne(rv => rv.Branch)
+            .WithMany()
+            .HasForeignKey(rv => rv.BranchId)
             .OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<ReceiptVoucher>()
@@ -483,11 +489,23 @@ public class PharmacyDbContext : DbContext
             .Property(d => d.Amount)
             .HasPrecision(18, 2);
 
+        modelBuilder.Entity<ReceiptVoucherDetail>()
+            .HasOne(d => d.Customer)
+            .WithMany()
+            .HasForeignKey(d => d.CustomerId)
+            .OnDelete(DeleteBehavior.Restrict);
+
         // PaymentVoucher FKs
         modelBuilder.Entity<PaymentVoucher>()
-            .HasOne(pv => pv.Stakeholder)
+            .HasOne(pv => pv.FiscalYear)
             .WithMany()
-            .HasForeignKey(pv => pv.StakeholderId)
+            .HasForeignKey(pv => pv.FiscalYearId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<PaymentVoucher>()
+            .HasOne(pv => pv.Branch)
+            .WithMany()
+            .HasForeignKey(pv => pv.BranchId)
             .OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<PaymentVoucher>()
@@ -534,6 +552,12 @@ public class PharmacyDbContext : DbContext
         modelBuilder.Entity<PaymentVoucherDetail>()
             .Property(d => d.Amount)
             .HasPrecision(18, 2);
+
+        modelBuilder.Entity<PaymentVoucherDetail>()
+            .HasOne(d => d.Stakeholder)
+            .WithMany()
+            .HasForeignKey(d => d.StakeholderId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)

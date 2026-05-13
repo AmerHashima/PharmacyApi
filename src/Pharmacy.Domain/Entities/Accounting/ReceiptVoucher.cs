@@ -12,10 +12,15 @@ public class ReceiptVoucher : BaseEntity
 
     public DateTime VoucherDate { get; set; }
 
-    public Guid? CustomerId { get; set; }
+    public Guid? FiscalYearId { get; set; }
 
-    [ForeignKey(nameof(CustomerId))]
-    public virtual Customer? Customer { get; set; }
+    [ForeignKey(nameof(FiscalYearId))]
+    public virtual FiscalYear? FiscalYear { get; set; }
+
+    public Guid? BranchId { get; set; }
+
+    [ForeignKey(nameof(BranchId))]
+    public virtual Branch? Branch { get; set; }
 
     public Guid? CashBoxId { get; set; }
 
