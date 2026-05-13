@@ -10,7 +10,11 @@ public class CustomerProfile : Profile
     {
         CreateMap<Customer, CustomerDto>()
             .ForMember(dest => dest.IdentityTypeName,
-                opt => opt.MapFrom(src => src.IdentityType != null ? src.IdentityType.ValueNameEn : null));
+                opt => opt.MapFrom(src => src.IdentityType != null ? src.IdentityType.ValueNameEn : null))
+            .ForMember(dest => dest.ParentAccountName,
+                opt => opt.MapFrom(src => src.ParentAccount != null ? src.ParentAccount.AccountNameAr : null))
+            .ForMember(dest => dest.ChildAccountName,
+                opt => opt.MapFrom(src => src.ChildAccount != null ? src.ChildAccount.AccountNameAr : null));
 
         CreateMap<CreateCustomerDto, Customer>();
 

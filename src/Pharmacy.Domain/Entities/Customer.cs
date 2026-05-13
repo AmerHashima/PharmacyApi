@@ -1,4 +1,5 @@
 using Pharmacy.Domain.Common;
+using Pharmacy.Domain.Entities.Accounting;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
@@ -75,6 +76,20 @@ public class Customer : BaseEntity
 
     [MaxLength(500)]
     public string? Notes { get; set; }
+
+    // ── Accounting ─────────────────────────────────────────────────────────
+
+    /// <summary>FK to Account — the parent account this customer is linked to.</summary>
+    public Guid? ParentAccountId { get; set; }
+
+    [ForeignKey(nameof(ParentAccountId))]
+    public virtual Account? ParentAccount { get; set; }
+
+    /// <summary>FK to Account — the child account created specifically for this customer.</summary>
+    public Guid? ChildAccountId { get; set; }
+
+    [ForeignKey(nameof(ChildAccountId))]
+    public virtual Account? ChildAccount { get; set; }
 
     // Navigation
     public virtual ICollection<SalesInvoice> SalesInvoices { get; set; } = new List<SalesInvoice>();

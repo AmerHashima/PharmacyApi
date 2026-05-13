@@ -14,7 +14,11 @@ public class StakeholderProfile : Profile
         // Entity to DTO
         CreateMap<Stakeholder, StakeholderDto>()
             .ForMember(dest => dest.StakeholderTypeName, 
-                opt => opt.MapFrom(src => src.StakeholderType != null ? src.StakeholderType.ValueNameEn : null));
+                opt => opt.MapFrom(src => src.StakeholderType != null ? src.StakeholderType.ValueNameEn : null))
+            .ForMember(dest => dest.ParentAccountName,
+                opt => opt.MapFrom(src => src.ParentAccount != null ? src.ParentAccount.AccountNameAr : null))
+            .ForMember(dest => dest.ChildAccountName,
+                opt => opt.MapFrom(src => src.ChildAccount != null ? src.ChildAccount.AccountNameAr : null));
 
         // Create DTO to Entity
         CreateMap<CreateStakeholderDto, Stakeholder>();

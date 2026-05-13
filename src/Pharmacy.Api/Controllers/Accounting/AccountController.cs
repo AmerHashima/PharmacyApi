@@ -76,4 +76,22 @@ public class AccountController : BaseApiController
         }
         catch (Exception ex) { return ErrorResponse<bool>($"Error deleting account: {ex.Message}", 500); }
     }
+
+    /// <summary>
+    /// Creates a child account under a parent account and links it to a customer or stakeholder.
+    /// Provide either <c>customerId</c> or <c>stakeholderId</c>, not both.
+    /// </summary>
+    [HttpPost("create-child")]
+    public async Task<ActionResult<ApiResponse<AccountDto>>> CreateChildAccount(
+        [FromBody] CreateChildAccountDto dto,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var result = await _mediator.Send(new CreateChildAccountCommand(dto), cancellationToken);
+            return CreatedResponse(result, nameof(GetById), new { id = result.Oid }, "Child account created and linked successfully");
+        }
+        catch (InvalidOperationException ex) { return ErrorResponse<AccountDto>(ex.Message, 400); }
+        catch (Exception ex) { return ErrorResponse<AccountDto>($"Error creating child account: {ex.Message}", 500); }
+    }
 }

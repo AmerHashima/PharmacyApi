@@ -1,4 +1,5 @@
 using Pharmacy.Domain.Common;
+using Pharmacy.Domain.Entities.Accounting;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
@@ -49,6 +50,20 @@ public class Stakeholder : BaseEntity
 
     [MaxLength(100)]
     public string? Email { get; set; }
+
+    // ── Accounting ─────────────────────────────────────────────────────────
+
+    /// <summary>FK to Account — the parent account this stakeholder is linked to.</summary>
+    public Guid? ParentAccountId { get; set; }
+
+    [ForeignKey(nameof(ParentAccountId))]
+    public virtual Account? ParentAccount { get; set; }
+
+    /// <summary>FK to Account — the child account created specifically for this stakeholder.</summary>
+    public Guid? ChildAccountId { get; set; }
+
+    [ForeignKey(nameof(ChildAccountId))]
+    public virtual Account? ChildAccount { get; set; }
 
     // Navigation Properties - Stakeholder can have multiple branches
     public virtual ICollection<StakeholderBranch> StakeholderBranches { get; set; } = new List<StakeholderBranch>();

@@ -41,4 +41,8 @@ public class UpdateStakeholderDto
     public string? Email { get; set; }
     
     public int? Status { get; set; }
+
+    public Guid? ParentAccountId { get; set; }
+
+    public Guid? ChildAccountId { get; set; }
 }

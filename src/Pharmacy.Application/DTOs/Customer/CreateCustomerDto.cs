@@ -49,4 +49,8 @@ public class CreateCustomerDto
 
     [MaxLength(500)]
     public string? Notes { get; set; }
+
+    public Guid? ParentAccountId { get; set; }
+
+    public Guid? ChildAccountId { get; set; }
 }

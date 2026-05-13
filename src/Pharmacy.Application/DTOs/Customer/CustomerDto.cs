@@ -20,5 +20,9 @@ public class CustomerDto
     public string? AddressCountry { get; set; }
     public bool IsWalkIn { get; set; }
     public string? Notes { get; set; }
+    public Guid? ParentAccountId { get; set; }
+    public string? ParentAccountName { get; set; }
+    public Guid? ChildAccountId { get; set; }
+    public string? ChildAccountName { get; set; }
     public DateTime? CreatedAt { get; set; }
 }
