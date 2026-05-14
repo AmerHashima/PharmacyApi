@@ -101,6 +101,9 @@ public class AccountingProfile : Profile
             .ForMember(d => d.FiscalYearName,    o => o.MapFrom(s => s.FiscalYear != null ? s.FiscalYear.NameEn : null))
             .ForMember(d => d.BranchName,        o => o.MapFrom(s => s.Branch != null ? s.Branch.BranchName : null))
             .ForMember(d => d.ReferenceTypeName, o => o.MapFrom(s => s.ReferenceType != null ? s.ReferenceType.ValueNameEn : null));
+        CreateMap<JournalEntry, JournalEntryMasterDto>()
+            .ForMember(d => d.FiscalYearName, o => o.MapFrom(s => s.FiscalYear != null ? s.FiscalYear.NameEn : null))
+            .ForMember(d => d.BranchName,     o => o.MapFrom(s => s.Branch != null ? s.Branch.BranchName : null));
         CreateMap<CreateJournalEntryDto, JournalEntry>()
             .ForMember(d => d.Details, o => o.Ignore());
         CreateMap<UpdateJournalEntryDto, JournalEntry>()

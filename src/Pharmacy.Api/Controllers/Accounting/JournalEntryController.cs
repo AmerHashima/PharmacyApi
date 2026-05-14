@@ -31,6 +31,20 @@ public class JournalEntryController : BaseApiController
         }
     }
 
+    [HttpPost("master-query")]
+    public async Task<ActionResult<ApiResponse<PagedResult<JournalEntryMasterDto>>>> MasterQuery([FromBody] QueryRequest request, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var result = await _mediator.Send(new GetJournalEntryMasterQuery(request), cancellationToken);
+            return SuccessResponse(result, "Journal entries retrieved successfully");
+        }
+        catch (Exception ex)
+        {
+            return ErrorResponse<PagedResult<JournalEntryMasterDto>>($"Error retrieving journal entries: {ex.Message}", 500);
+        }
+    }
+
     [HttpGet("{id}")]
     public async Task<ActionResult<ApiResponse<JournalEntryDto>>> GetById(Guid id, CancellationToken cancellationToken)
     {

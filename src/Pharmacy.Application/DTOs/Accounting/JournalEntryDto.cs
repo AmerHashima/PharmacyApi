@@ -14,6 +14,25 @@ public class JournalEntryDetailDto
     public decimal Credit { get; set; }
 }
 
+public class JournalEntryMasterDto
+{
+    public Guid Oid { get; set; }
+    public string EntryNumber { get; set; } = string.Empty;
+    public DateTime EntryDate { get; set; }
+    public Guid? FiscalYearId { get; set; }
+    public string? FiscalYearName { get; set; }
+    public Guid? BranchId { get; set; }
+    public string? BranchName { get; set; }
+    public string? Description { get; set; }
+    public Guid? ReferenceId { get; set; }
+    public decimal TotalDebit { get; set; }
+    public decimal TotalCredit { get; set; }
+    public bool IsPosted { get; set; }
+    public bool IsReversed { get; set; }
+    public int? Status { get; set; }
+    public DateTime? CreatedAt { get; set; }
+}
+
 public class JournalEntryDto
 {
     public Guid Oid { get; set; }
