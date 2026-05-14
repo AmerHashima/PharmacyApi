@@ -2,6 +2,7 @@ using AutoMapper;
 using MediatR;
 using Pharmacy.Application.Commands.Accounting;
 using Pharmacy.Application.DTOs.Accounting;
+using Pharmacy.Application.Interfaces;
 using Pharmacy.Domain.Entities.Accounting;
 using Pharmacy.Domain.Interfaces.Accounting;
 
@@ -11,15 +12,18 @@ public class CreateReceiptVoucherHandler : IRequestHandler<CreateReceiptVoucherC
 {
     private readonly IReceiptVoucherRepository _repository;
     private readonly IJournalEntryRepository _journalEntryRepository;
+    private readonly IVoucherNumberService _voucherNumberService;
     private readonly IMapper _mapper;
 
     public CreateReceiptVoucherHandler(
         IReceiptVoucherRepository repository,
         IJournalEntryRepository journalEntryRepository,
+        IVoucherNumberService voucherNumberService,
         IMapper mapper)
     {
         _repository = repository;
         _journalEntryRepository = journalEntryRepository;
+        _voucherNumberService = voucherNumberService;
         _mapper = mapper;
     }
 
@@ -27,16 +31,23 @@ public class CreateReceiptVoucherHandler : IRequestHandler<CreateReceiptVoucherC
     {
         var dto = request.ReceiptVoucher;
 
+        var branchId = dto.BranchId
+            ?? throw new InvalidOperationException("BranchId is required to generate a voucher number.");
+
+        // ── 0. Generate voucher number ───────────────────────────────────────
+        var voucherNumber = await _voucherNumberService.GenerateAsync(
+            branchId, IVoucherNumberService.TypeReceipt, cancellationToken);
+
         // ── 1. Build and persist journal entry ──────────────────────────────
         var journalEntry = new JournalEntry
         {
-            EntryNumber   = $"RV-{dto.VoucherNumber ?? DateTime.UtcNow.Ticks.ToString()}",
-            EntryDate     = dto.VoucherDate,
-            FiscalYearId  = dto.FiscalYearId,
-            BranchId      = dto.BranchId,
-            Description   = dto.Notes,
-            ReferenceId   = null,          // will be patched after voucher is saved
-            CreatedAt     = DateTime.UtcNow,
+            EntryNumber  = $"RV-{voucherNumber}",
+            EntryDate    = dto.VoucherDate,
+            FiscalYearId = dto.FiscalYearId,
+            BranchId     = dto.BranchId,
+            Description  = dto.Notes,
+            ReferenceId  = null,
+            CreatedAt    = DateTime.UtcNow,
         };
 
         var journalDetails = dto.Details.Select(d => new JournalEntryDetail
@@ -57,8 +68,9 @@ public class CreateReceiptVoucherHandler : IRequestHandler<CreateReceiptVoucherC
 
         // ── 2. Build and persist receipt voucher ────────────────────────────
         var master = _mapper.Map<ReceiptVoucher>(dto);
-        master.CreatedAt     = DateTime.UtcNow;
-        master.TotalAmount   = dto.Details.Sum(d => d.Amount);
+        master.VoucherNumber  = voucherNumber;
+        master.CreatedAt      = DateTime.UtcNow;
+        master.TotalAmount    = dto.Details.Sum(d => d.Amount);
         master.JournalEntryId = journalEntry.Oid;
 
         var details = _mapper.Map<List<ReceiptVoucherDetail>>(dto.Details);

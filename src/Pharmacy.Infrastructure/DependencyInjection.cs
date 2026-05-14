@@ -143,6 +143,7 @@ public static class DependencyInjection
         services.AddScoped<IBarcodeParserService, BarcodeParserService>();
         services.AddScoped<IFileStorageService, FileStorageService>();
         services.AddScoped<IInvoiceNumberService, InvoiceNumberService>();
+        services.AddScoped<IVoucherNumberService, VoucherNumberService>();
 
         // Drug sync job tracker — singleton so it survives across request scopes
         services.AddSingleton<IDrugListSyncTracker, DrugListSyncTracker>();

@@ -2,6 +2,7 @@ using AutoMapper;
 using MediatR;
 using Pharmacy.Application.Commands.Accounting;
 using Pharmacy.Application.DTOs.Accounting;
+using Pharmacy.Application.Interfaces;
 using Pharmacy.Domain.Entities.Accounting;
 using Pharmacy.Domain.Interfaces.Accounting;
 
@@ -11,15 +12,18 @@ public class CreatePaymentVoucherHandler : IRequestHandler<CreatePaymentVoucherC
 {
     private readonly IPaymentVoucherRepository _repository;
     private readonly IJournalEntryRepository _journalEntryRepository;
+    private readonly IVoucherNumberService _voucherNumberService;
     private readonly IMapper _mapper;
 
     public CreatePaymentVoucherHandler(
         IPaymentVoucherRepository repository,
         IJournalEntryRepository journalEntryRepository,
+        IVoucherNumberService voucherNumberService,
         IMapper mapper)
     {
         _repository = repository;
         _journalEntryRepository = journalEntryRepository;
+        _voucherNumberService = voucherNumberService;
         _mapper = mapper;
     }
 
@@ -27,16 +31,23 @@ public class CreatePaymentVoucherHandler : IRequestHandler<CreatePaymentVoucherC
     {
         var dto = request.PaymentVoucher;
 
+        var branchId = dto.BranchId
+            ?? throw new InvalidOperationException("BranchId is required to generate a voucher number.");
+
+        // ── 0. Generate voucher number ───────────────────────────────────────
+        var voucherNumber = await _voucherNumberService.GenerateAsync(
+            branchId, IVoucherNumberService.TypePayment, cancellationToken);
+
         // ── 1. Build and persist journal entry ──────────────────────────────
         var journalEntry = new JournalEntry
         {
-            EntryNumber   = $"PV-{dto.VoucherNumber ?? DateTime.UtcNow.Ticks.ToString()}",
-            EntryDate     = dto.VoucherDate,
-            FiscalYearId  = dto.FiscalYearId,
-            BranchId      = dto.BranchId,
-            Description   = dto.Notes,
-            ReferenceId   = null,          // patched after voucher save
-            CreatedAt     = DateTime.UtcNow,
+            EntryNumber  = $"PV-{voucherNumber}",
+            EntryDate    = dto.VoucherDate,
+            FiscalYearId = dto.FiscalYearId,
+            BranchId     = dto.BranchId,
+            Description  = dto.Notes,
+            ReferenceId  = null,
+            CreatedAt    = DateTime.UtcNow,
         };
 
         var journalDetails = dto.Details.Select(d => new JournalEntryDetail
@@ -57,6 +68,7 @@ public class CreatePaymentVoucherHandler : IRequestHandler<CreatePaymentVoucherC
 
         // ── 2. Build and persist payment voucher ────────────────────────────
         var master = _mapper.Map<PaymentVoucher>(dto);
+        master.VoucherNumber  = voucherNumber;
         master.CreatedAt      = DateTime.UtcNow;
         master.TotalAmount    = dto.Details.Sum(d => d.Amount);
         master.JournalEntryId = journalEntry.Oid;

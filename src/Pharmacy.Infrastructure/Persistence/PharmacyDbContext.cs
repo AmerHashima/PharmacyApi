@@ -83,6 +83,7 @@ public class PharmacyDbContext : DbContext
     public DbSet<ReceiptVoucherDetail> ReceiptVoucherDetails { get; set; }
     public DbSet<PaymentVoucher> PaymentVouchers { get; set; }
     public DbSet<PaymentVoucherDetail> PaymentVoucherDetails { get; set; }
+    public DbSet<VoucherSequence> VoucherSequences { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
