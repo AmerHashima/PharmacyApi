@@ -47,8 +47,8 @@ public sealed class VoucherNumberService : IVoucherNumberService
                 WHEN MATCHED THEN
                     UPDATE SET LastSequence = target.LastSequence + 1
                 WHEN NOT MATCHED THEN
-                    INSERT (Oid, BranchId, VoucherType, [Year], LastSequence)
-                    VALUES (NEWID(), {branchId}, {voucherType}, {year}, 1)
+                    INSERT (Oid, BranchId, VoucherType, [Year], LastSequence, IsDeleted, CreatedAt)
+                    VALUES (NEWID(), {branchId}, {voucherType}, {year}, 1, 0, GETUTCDATE())
                 OUTPUT INSERTED.LastSequence;
                 """)
             .ToListAsync(cancellationToken);
