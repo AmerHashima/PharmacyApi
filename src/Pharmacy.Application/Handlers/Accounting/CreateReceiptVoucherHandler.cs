@@ -1,5 +1,6 @@
 using AutoMapper;
 using MediatR;
+using Microsoft.EntityFrameworkCore;
 using Pharmacy.Application.Commands.Accounting;
 using Pharmacy.Application.DTOs.Accounting;
 using Pharmacy.Application.Interfaces;
@@ -13,17 +14,23 @@ public class CreateReceiptVoucherHandler : IRequestHandler<CreateReceiptVoucherC
     private readonly IReceiptVoucherRepository _repository;
     private readonly IJournalEntryRepository _journalEntryRepository;
     private readonly IVoucherNumberService _voucherNumberService;
+    private readonly ICashBoxRepository _cashBoxRepository;
+    private readonly IBankAccountRepository _bankAccountRepository;
     private readonly IMapper _mapper;
 
     public CreateReceiptVoucherHandler(
         IReceiptVoucherRepository repository,
         IJournalEntryRepository journalEntryRepository,
         IVoucherNumberService voucherNumberService,
+        ICashBoxRepository cashBoxRepository,
+        IBankAccountRepository bankAccountRepository,
         IMapper mapper)
     {
         _repository = repository;
         _journalEntryRepository = journalEntryRepository;
         _voucherNumberService = voucherNumberService;
+        _cashBoxRepository = cashBoxRepository;
+        _bankAccountRepository = bankAccountRepository;
         _mapper = mapper;
     }
 
@@ -61,6 +68,24 @@ public class CreateReceiptVoucherHandler : IRequestHandler<CreateReceiptVoucherC
             CreatedAt      = DateTime.UtcNow,
         }).ToList();
 
+        // ── Balancing row: Credit the bank or cashbox account ────────────────
+        var balancingAccountId = await ResolveBalancingAccountIdAsync(
+            dto.BankAccountId, dto.CashBoxId, cancellationToken);
+
+        if (balancingAccountId.HasValue)
+        {
+            var total = journalDetails.Sum(d => d.Debit);
+            journalDetails.Add(new JournalEntryDetail
+            {
+                JournalEntryId = journalEntry.Oid,
+                AccountId      = balancingAccountId.Value,
+                Description    = dto.Notes,
+                Debit          = 0,
+                Credit         = total,
+                CreatedAt      = DateTime.UtcNow,
+            });
+        }
+
         journalEntry.TotalDebit  = journalDetails.Sum(d => d.Debit);
         journalEntry.TotalCredit = journalDetails.Sum(d => d.Credit);
 
@@ -88,5 +113,21 @@ public class CreateReceiptVoucherHandler : IRequestHandler<CreateReceiptVoucherC
 
         var created = await _repository.GetWithDetailsAsync(master.Oid, cancellationToken);
         return _mapper.Map<ReceiptVoucherDto>(created);
+    }
+
+    private async Task<Guid?> ResolveBalancingAccountIdAsync(
+        Guid? bankAccountId, Guid? cashBoxId, CancellationToken ct)
+    {
+        if (bankAccountId.HasValue)
+        {
+            var bank = await _bankAccountRepository.GetByIdAsync(bankAccountId.Value, ct);
+            if (bank?.AccountId != null) return bank.AccountId;
+        }
+        if (cashBoxId.HasValue)
+        {
+            var cashBox = await _cashBoxRepository.GetByIdAsync(cashBoxId.Value, ct);
+            if (cashBox?.AccountId != null) return cashBox.AccountId;
+        }
+        return null;
     }
 }
