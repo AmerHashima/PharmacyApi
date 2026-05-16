@@ -53,9 +53,9 @@ public class CreateReceiptVoucherHandler : IRequestHandler<CreateReceiptVoucherC
 
         // Resolve ReferenceTypeId from AppLookup (LookupCode=VOUCHER_TYPE, ValueCode=RV)
         var lookupDetails = await _lookupDetailRepository
-            .GetByLookupCodeAsync("VOUCHER_TYPE", cancellationToken);
+            .GetByLookupCodeAsync("JOURNAL_REFERENCE_TYPE", cancellationToken);
         var referenceTypeId = lookupDetails
-            .FirstOrDefault(d => d.ValueCode == IVoucherNumberService.TypeReceipt)?.Oid;
+            .FirstOrDefault(d => d.ValueCode == IVoucherNumberService.RECEIPT_VOUCHER)?.Oid;
 
         // ── 1. Build and persist journal entry ──────────────────────────────
         var journalEntry = new JournalEntry

@@ -10,6 +10,7 @@ public interface IVoucherNumberService
     public const string TypeReceipt      = "RV";
     public const string TypePayment      = "PV";
     public const string TypeJournalEntry = "JE";
+    public const string RECEIPT_VOUCHER = "RECEIPT_VOUCHER";
 
     /// <summary>
     /// Atomically generates the next voucher number for the given branch and voucher type.
