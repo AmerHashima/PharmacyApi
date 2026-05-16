@@ -76,6 +76,7 @@ public static class DependencyInjection
         services.AddScoped<IAccountRepository, AccountRepository>();
         services.AddScoped<ICostCenterRepository, CostCenterRepository>();
         services.AddScoped<ICashBoxRepository, CashBoxRepository>();
+        services.AddScoped<IAccountingSettingsRepository, AccountingSettingsRepository>();
         services.AddScoped<IBankAccountRepository, BankAccountRepository>();
         services.AddScoped<IJournalEntryRepository, JournalEntryRepository>();
         services.AddScoped<IJournalEntryDetailRepository, JournalEntryDetailRepository>();

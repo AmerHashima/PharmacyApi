@@ -175,5 +175,21 @@ public class AccountingProfile : Profile
             .ForMember(d => d.CreatedAt, o => o.Ignore())
             .ForMember(d => d.CreatedBy, o => o.Ignore())
             .ForMember(d => d.Details,   o => o.Ignore());
+            // AccountingSettings
+            CreateMap<AccountingSettings, AccountingSettingsDto>()
+                .ForMember(d => d.BranchName,          o => o.MapFrom(s => s.Branch != null ? s.Branch.BranchName : null))
+                .ForMember(d => d.SalesAccountName,    o => o.MapFrom(s => s.SalesAccount != null ? s.SalesAccount.AccountNameAr : null))
+                .ForMember(d => d.VatAccountName,      o => o.MapFrom(s => s.VatAccount != null ? s.VatAccount.AccountNameAr : null))
+                .ForMember(d => d.DiscountAccountName, o => o.MapFrom(s => s.DiscountAccount != null ? s.DiscountAccount.AccountNameAr : null))
+                .ForMember(d => d.CogsAccountName,     o => o.MapFrom(s => s.CogsAccount != null ? s.CogsAccount.AccountNameAr : null))
+                .ForMember(d => d.InventoryAccountName,o => o.MapFrom(s => s.InventoryAccount != null ? s.InventoryAccount.AccountNameAr : null))
+                .ForMember(d => d.CashAccountName,     o => o.MapFrom(s => s.CashAccount != null ? s.CashAccount.AccountNameAr : null))
+                .ForMember(d => d.BankAccountName,     o => o.MapFrom(s => s.BankAccount != null ? s.BankAccount.AccountNameAr : null))
+                .ForMember(d => d.ReceivableAccountName,o => o.MapFrom(s => s.ReceivableAccount != null ? s.ReceivableAccount.AccountNameAr : null));
+            CreateMap<CreateAccountingSettingsDto, AccountingSettings>();
+            CreateMap<UpdateAccountingSettingsDto, AccountingSettings>()
+                .ForMember(d => d.Oid,       o => o.Ignore())
+                .ForMember(d => d.CreatedAt, o => o.Ignore())
+                .ForMember(d => d.CreatedBy, o => o.Ignore());
+        }
     }
-}
