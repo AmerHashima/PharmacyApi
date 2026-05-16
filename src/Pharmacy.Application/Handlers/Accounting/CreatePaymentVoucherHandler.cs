@@ -5,6 +5,7 @@ using Pharmacy.Application.Commands.Accounting;
 using Pharmacy.Application.DTOs.Accounting;
 using Pharmacy.Application.Interfaces;
 using Pharmacy.Domain.Entities.Accounting;
+using Pharmacy.Domain.Interfaces;
 using Pharmacy.Domain.Interfaces.Accounting;
 
 namespace Pharmacy.Application.Handlers.Accounting;
@@ -16,6 +17,7 @@ public class CreatePaymentVoucherHandler : IRequestHandler<CreatePaymentVoucherC
     private readonly IVoucherNumberService _voucherNumberService;
     private readonly ICashBoxRepository _cashBoxRepository;
     private readonly IBankAccountRepository _bankAccountRepository;
+    private readonly IAppLookupDetailRepository _lookupDetailRepository;
     private readonly IMapper _mapper;
 
     public CreatePaymentVoucherHandler(
@@ -24,6 +26,7 @@ public class CreatePaymentVoucherHandler : IRequestHandler<CreatePaymentVoucherC
         IVoucherNumberService voucherNumberService,
         ICashBoxRepository cashBoxRepository,
         IBankAccountRepository bankAccountRepository,
+        IAppLookupDetailRepository lookupDetailRepository,
         IMapper mapper)
     {
         _repository = repository;
@@ -31,6 +34,7 @@ public class CreatePaymentVoucherHandler : IRequestHandler<CreatePaymentVoucherC
         _voucherNumberService = voucherNumberService;
         _cashBoxRepository = cashBoxRepository;
         _bankAccountRepository = bankAccountRepository;
+        _lookupDetailRepository = lookupDetailRepository;
         _mapper = mapper;
     }
 
@@ -41,14 +45,23 @@ public class CreatePaymentVoucherHandler : IRequestHandler<CreatePaymentVoucherC
         var branchId = dto.BranchId
             ?? throw new InvalidOperationException("BranchId is required to generate a voucher number.");
 
-        // ── 0. Generate voucher number ───────────────────────────────────────
+        // ── 0. Generate voucher number & journal entry number (independent sequences) ──
         var voucherNumber = await _voucherNumberService.GenerateAsync(
             branchId, IVoucherNumberService.TypePayment, cancellationToken);
+        var journalEntryNumber = await _voucherNumberService.GenerateJournalEntryNumberAsync(
+            branchId, cancellationToken);
+
+        // Resolve ReferenceTypeId from AppLookup (LookupCode=VOUCHER_TYPE, ValueCode=PV)
+        var lookupDetails = await _lookupDetailRepository
+            .GetByLookupCodeAsync("VOUCHER_TYPE", cancellationToken);
+        var referenceTypeId = lookupDetails
+            .FirstOrDefault(d => d.ValueCode == IVoucherNumberService.TypePayment)?.Oid;
 
         // ── 1. Build and persist journal entry ──────────────────────────────
         var journalEntry = new JournalEntry
         {
-            EntryNumber  = $"PV-{voucherNumber}",
+            EntryNumber     = journalEntryNumber,
+            ReferenceTypeId = referenceTypeId,
             EntryDate    = dto.VoucherDate,
             FiscalYearId = dto.FiscalYearId,
             BranchId     = dto.BranchId,

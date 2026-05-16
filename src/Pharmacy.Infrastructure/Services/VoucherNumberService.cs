@@ -58,5 +58,10 @@ public sealed class VoucherNumberService : IVoucherNumberService
         return $"{year}-{branch.BranchCode}-{voucherType}-{seq:D7}";
     }
 
+    public Task<string> GenerateJournalEntryNumberAsync(
+        Guid branchId,
+        CancellationToken cancellationToken = default)
+        => GenerateAsync(branchId, IVoucherNumberService.TypeJournalEntry, cancellationToken);
+
     private sealed record VoucherSequenceResult(int LastSequence);
 }

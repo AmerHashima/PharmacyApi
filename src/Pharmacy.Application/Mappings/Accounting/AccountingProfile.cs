@@ -129,6 +129,11 @@ public class AccountingProfile : Profile
             .ForMember(d => d.CashBoxName,        o => o.MapFrom(s => s.CashBox != null ? s.CashBox.NameAr : null))
             .ForMember(d => d.BankAccountName,    o => o.MapFrom(s => s.BankAccount != null ? s.BankAccount.NameAr : null))
             .ForMember(d => d.JournalEntryNumber, o => o.MapFrom(s => s.JournalEntry != null ? s.JournalEntry.EntryNumber : null));
+        CreateMap<ReceiptVoucher, ReceiptVoucherMasterDto>()
+            .ForMember(d => d.BranchName,         o => o.MapFrom(s => s.Branch != null ? s.Branch.BranchName : null))
+            .ForMember(d => d.CashBoxName,        o => o.MapFrom(s => s.CashBox != null ? s.CashBox.NameAr : null))
+            .ForMember(d => d.BankAccountName,    o => o.MapFrom(s => s.BankAccount != null ? s.BankAccount.NameAr : null))
+            .ForMember(d => d.JournalEntryNumber, o => o.MapFrom(s => s.JournalEntry != null ? s.JournalEntry.EntryNumber : null));
         CreateMap<CreateReceiptVoucherDto, ReceiptVoucher>()
             .ForMember(d => d.Details, o => o.Ignore());
         CreateMap<UpdateReceiptVoucherDto, ReceiptVoucher>()
@@ -151,6 +156,11 @@ public class AccountingProfile : Profile
 
         // PaymentVoucher
         CreateMap<PaymentVoucher, PaymentVoucherDto>()
+            .ForMember(d => d.CashBoxName,        o => o.MapFrom(s => s.CashBox != null ? s.CashBox.NameAr : null))
+            .ForMember(d => d.BankAccountName,    o => o.MapFrom(s => s.BankAccount != null ? s.BankAccount.NameAr : null))
+            .ForMember(d => d.JournalEntryNumber, o => o.MapFrom(s => s.JournalEntry != null ? s.JournalEntry.EntryNumber : null));
+        CreateMap<PaymentVoucher, PaymentVoucherMasterDto>()
+            .ForMember(d => d.BranchName,         o => o.MapFrom(s => s.Branch != null ? s.Branch.BranchName : null))
             .ForMember(d => d.CashBoxName,        o => o.MapFrom(s => s.CashBox != null ? s.CashBox.NameAr : null))
             .ForMember(d => d.BankAccountName,    o => o.MapFrom(s => s.BankAccount != null ? s.BankAccount.NameAr : null))
             .ForMember(d => d.JournalEntryNumber, o => o.MapFrom(s => s.JournalEntry != null ? s.JournalEntry.EntryNumber : null));

@@ -31,6 +31,20 @@ public class ReceiptVoucherController : BaseApiController
         }
     }
 
+    [HttpPost("master-query")]
+    public async Task<ActionResult<ApiResponse<PagedResult<ReceiptVoucherMasterDto>>>> MasterQuery([FromBody] QueryRequest request, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var result = await _mediator.Send(new GetReceiptVoucherMasterQuery(request), cancellationToken);
+            return SuccessResponse(result, "Receipt vouchers retrieved successfully");
+        }
+        catch (Exception ex)
+        {
+            return ErrorResponse<PagedResult<ReceiptVoucherMasterDto>>($"Error retrieving receipt vouchers: {ex.Message}", 500);
+        }
+    }
+
     [HttpGet("{id}")]
     public async Task<ActionResult<ApiResponse<ReceiptVoucherDto>>> GetById(Guid id, CancellationToken cancellationToken)
     {
