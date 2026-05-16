@@ -1,4 +1,5 @@
 using Pharmacy.Domain.Common;
+using Pharmacy.Domain.Entities.Accounting;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
@@ -123,6 +124,16 @@ public class SalesInvoice : BaseEntity
     public string? Notes { get; set; }
 
     // Navigation Properties
+    public Guid? FiscalYearId { get; set; }
+
+    [ForeignKey(nameof(FiscalYearId))]
+    public virtual FiscalYear? FiscalYear { get; set; }
+
+    public Guid? JournalEntryId { get; set; }
+
+    [ForeignKey(nameof(JournalEntryId))]
+    public virtual JournalEntry? JournalEntry { get; set; }
+
     public virtual ICollection<SalesInvoiceItem> Items { get; set; } = new List<SalesInvoiceItem>();
     public virtual ICollection<StockTransaction> StockTransactions { get; set; } = new List<StockTransaction>();
     public virtual ICollection<ReturnInvoice> ReturnInvoices { get; set; } = new List<ReturnInvoice>();

@@ -4,6 +4,7 @@ using Pharmacy.Application.DTOs.SalesInvoice;
 using Pharmacy.Application.Interfaces;
 using Pharmacy.Domain.Entities;
 using Pharmacy.Domain.Interfaces;
+using Pharmacy.Domain.Interfaces.Accounting;
 using MediatR;
 
 namespace Pharmacy.Application.Handlers.SalesInvoice;
@@ -24,6 +25,8 @@ public class CreateSalesInvoiceHandler : IRequestHandler<CreateSalesInvoiceComma
     private readonly ICustomerRepository _customerRepository;
     private readonly IInvoiceNumberService _invoiceNumberService;
     private readonly IOfferDetailRepository _offerDetailRepository;
+    private readonly IJournalPostingService _journalPostingService;
+    private readonly IFiscalYearRepository _fiscalYearRepository;
     private readonly IMapper _mapper;
 
     public CreateSalesInvoiceHandler(
@@ -37,19 +40,23 @@ public class CreateSalesInvoiceHandler : IRequestHandler<CreateSalesInvoiceComma
         ICustomerRepository customerRepository,
         IInvoiceNumberService invoiceNumberService,
         IOfferDetailRepository offerDetailRepository,
+        IJournalPostingService journalPostingService,
+        IFiscalYearRepository fiscalYearRepository,
         IMapper mapper)
     {
-        _invoiceRepository = invoiceRepository;
-        _itemRepository = itemRepository;
+        _invoiceRepository    = invoiceRepository;
+        _itemRepository       = itemRepository;
         _transactionRepository = transactionRepository;
-        _stockRepository = stockRepository;
-        _productRepository = productRepository;
-        _branchRepository = branchRepository;
-        _lookupRepository = lookupRepository;
-        _customerRepository = customerRepository;
+        _stockRepository      = stockRepository;
+        _productRepository    = productRepository;
+        _branchRepository     = branchRepository;
+        _lookupRepository     = lookupRepository;
+        _customerRepository   = customerRepository;
         _invoiceNumberService = invoiceNumberService;
         _offerDetailRepository = offerDetailRepository;
-        _mapper = mapper;
+        _journalPostingService = journalPostingService;
+        _fiscalYearRepository  = fiscalYearRepository;
+        _mapper               = mapper;
     }
 
     public async Task<SalesInvoiceDto> Handle(CreateSalesInvoiceCommand request, CancellationToken cancellationToken)
@@ -280,6 +287,10 @@ public class CreateSalesInvoiceHandler : IRequestHandler<CreateSalesInvoiceComma
             Notes             = request.Invoice.Notes
         };
 
+        // Resolve active fiscal year for journal posting
+        var fiscalYear = await _fiscalYearRepository.GetCurrentAsync(cancellationToken);
+        invoice.FiscalYearId = fiscalYear?.Oid;
+
         var createdInvoice = await _invoiceRepository.AddAsync(invoice, cancellationToken);
 
         // Create invoice items and stock transactions
@@ -344,6 +355,27 @@ public class CreateSalesInvoiceHandler : IRequestHandler<CreateSalesInvoiceComma
 
         // Fetch the complete invoice with items
         var completeInvoice = await _invoiceRepository.GetWithItemsAsync(createdInvoice.Oid, cancellationToken);
+
+        // ── Auto-post journal entry ──────────────────────────────────────────
+        // receivableAccountId / revenueAccountId are null until accounts are
+        // configured on the branch/setup screen — JE is still created and can
+        // be enriched later via the accounting module.
+        var journalEntry = await _journalPostingService.PostSalesInvoiceAsync(
+            branchId:             request.Invoice.BranchId,
+            fiscalYearId:         invoice.FiscalYearId,
+            invoiceNumber:        invoiceNumber,
+            invoiceDate:          invoice.InvoiceDate ?? DateTime.UtcNow,
+            totalAmount:          totalAmount,
+            receivableAccountId:  request.Invoice.ReceivableAccountId,
+            revenueAccountId:     request.Invoice.RevenueAccountId,
+            referenceId:          createdInvoice.Oid,
+            description:          $"Sales Invoice #{invoiceNumber}",
+            cancellationToken:    cancellationToken);
+
+        // Patch JournalEntryId back onto the invoice
+        createdInvoice.JournalEntryId = journalEntry.Oid;
+        await _invoiceRepository.UpdateAsync(createdInvoice, cancellationToken);
+
         return _mapper.Map<SalesInvoiceDto>(completeInvoice);
     }
 }

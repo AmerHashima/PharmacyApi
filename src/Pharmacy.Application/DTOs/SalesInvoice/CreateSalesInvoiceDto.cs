@@ -48,6 +48,16 @@ public class CreateSalesInvoiceDto
     [MaxLength(500)]
     public string? Notes { get; set; }
 
+    /// <summary>
+    /// Optional: Account to debit (AR / Cash). Resolved from branch setup if omitted.
+    /// </summary>
+    public Guid? ReceivableAccountId { get; set; }
+
+    /// <summary>
+    /// Optional: Account to credit (Sales Revenue). Resolved from branch setup if omitted.
+    /// </summary>
+    public Guid? RevenueAccountId { get; set; }
+
     [Required(ErrorMessage = "At least one item is required")]
     [MinLength(1, ErrorMessage = "At least one item is required")]
     public List<CreateSalesInvoiceItemDto> Items { get; set; } = new();
