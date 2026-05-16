@@ -13,6 +13,8 @@ public class ReceiptVoucherRepository : BaseRepository<ReceiptVoucher>, IReceipt
     public async Task<ReceiptVoucher?> GetWithDetailsAsync(Guid id, CancellationToken cancellationToken = default)
     {
         return await _dbSet
+            .Include(rv => rv.FiscalYear)
+            .Include(rv => rv.Branch)
             .Include(rv => rv.CashBox)
             .Include(rv => rv.BankAccount)
             .Include(rv => rv.JournalEntry)

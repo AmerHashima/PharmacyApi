@@ -25,6 +25,8 @@ public class GetReceiptVoucherDataHandler : IRequestHandler<GetReceiptVoucherDat
     public async Task<PagedResult<ReceiptVoucherDto>> Handle(GetReceiptVoucherDataQuery request, CancellationToken cancellationToken)
     {
         var query = _repository.GetQueryable()
+            .Include(rv => rv.FiscalYear)
+            .Include(rv => rv.Branch)
             .Include(rv => rv.CashBox)
             .Include(rv => rv.BankAccount)
             .Include(rv => rv.JournalEntry)

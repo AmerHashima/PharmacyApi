@@ -13,6 +13,8 @@ public class PaymentVoucherRepository : BaseRepository<PaymentVoucher>, IPayment
     public async Task<PaymentVoucher?> GetWithDetailsAsync(Guid id, CancellationToken cancellationToken = default)
     {
         return await _dbSet
+            .Include(pv => pv.FiscalYear)
+            .Include(pv => pv.Branch)
             .Include(pv => pv.CashBox)
             .Include(pv => pv.BankAccount)
             .Include(pv => pv.JournalEntry)

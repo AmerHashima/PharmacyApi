@@ -41,6 +41,10 @@ public class ReceiptVoucherDto
     public Guid Oid { get; set; }
     public string? VoucherNumber { get; set; }
     public DateTime VoucherDate { get; set; }
+    public Guid? FiscalYearId { get; set; }
+    public string? FiscalYearName { get; set; }
+    public Guid? BranchId { get; set; }
+    public string? BranchName { get; set; }
     public Guid? CashBoxId { get; set; }
     public string? CashBoxName { get; set; }
     public Guid? BankAccountId { get; set; }

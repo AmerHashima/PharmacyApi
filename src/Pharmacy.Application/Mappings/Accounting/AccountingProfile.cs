@@ -126,6 +126,8 @@ public class AccountingProfile : Profile
 
         // ReceiptVoucher
         CreateMap<ReceiptVoucher, ReceiptVoucherDto>()
+            .ForMember(d => d.FiscalYearName,     o => o.MapFrom(s => s.FiscalYear != null ? s.FiscalYear.NameEn : null))
+            .ForMember(d => d.BranchName,         o => o.MapFrom(s => s.Branch != null ? s.Branch.BranchName : null))
             .ForMember(d => d.CashBoxName,        o => o.MapFrom(s => s.CashBox != null ? s.CashBox.NameAr : null))
             .ForMember(d => d.BankAccountName,    o => o.MapFrom(s => s.BankAccount != null ? s.BankAccount.NameAr : null))
             .ForMember(d => d.JournalEntryNumber, o => o.MapFrom(s => s.JournalEntry != null ? s.JournalEntry.EntryNumber : null));
@@ -156,6 +158,8 @@ public class AccountingProfile : Profile
 
         // PaymentVoucher
         CreateMap<PaymentVoucher, PaymentVoucherDto>()
+            .ForMember(d => d.FiscalYearName,     o => o.MapFrom(s => s.FiscalYear != null ? s.FiscalYear.NameEn : null))
+            .ForMember(d => d.BranchName,         o => o.MapFrom(s => s.Branch != null ? s.Branch.BranchName : null))
             .ForMember(d => d.CashBoxName,        o => o.MapFrom(s => s.CashBox != null ? s.CashBox.NameAr : null))
             .ForMember(d => d.BankAccountName,    o => o.MapFrom(s => s.BankAccount != null ? s.BankAccount.NameAr : null))
             .ForMember(d => d.JournalEntryNumber, o => o.MapFrom(s => s.JournalEntry != null ? s.JournalEntry.EntryNumber : null));
