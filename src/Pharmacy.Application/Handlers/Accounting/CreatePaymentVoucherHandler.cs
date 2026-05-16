@@ -51,11 +51,11 @@ public class CreatePaymentVoucherHandler : IRequestHandler<CreatePaymentVoucherC
         var journalEntryNumber = await _voucherNumberService.GenerateJournalEntryNumberAsync(
             branchId, cancellationToken);
 
-        // Resolve ReferenceTypeId from AppLookup (LookupCode=VOUCHER_TYPE, ValueCode=PV)
+        // Resolve ReferenceTypeId from AppLookup (LookupCode=JOURNAL_REFERENCE_TYPE, ValueCode=PAYMENT_VOUCHER)
         var lookupDetails = await _lookupDetailRepository
-            .GetByLookupCodeAsync("VOUCHER_TYPE", cancellationToken);
+            .GetByLookupCodeAsync("JOURNAL_REFERENCE_TYPE", cancellationToken);
         var referenceTypeId = lookupDetails
-            .FirstOrDefault(d => d.ValueCode == IVoucherNumberService.TypePayment)?.Oid;
+            .FirstOrDefault(d => d.ValueCode == IVoucherNumberService.PAYMENT_VOUCHER)?.Oid;
 
         // ── 1. Build and persist journal entry ──────────────────────────────
         var journalEntry = new JournalEntry
