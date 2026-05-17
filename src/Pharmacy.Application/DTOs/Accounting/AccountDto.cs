@@ -39,24 +39,30 @@ public class CreateAccountDto
 }
 
 /// <summary>
-/// Payload for creating a child account under a parent and linking it to a customer or stakeholder.
-/// Exactly one of <see cref="CustomerId"/> or <see cref="StakeholderId"/> must be set.
+/// Payload for creating a child account under a parent and linking it to a customer, stakeholder, cash box, or bank account.
+/// Exactly one of the four ID fields must be set.
 /// </summary>
 public class CreateChildAccountDto
 {
     /// <summary>The parent account under which the child will be created.</summary>
     public Guid ParentAccountId { get; set; }
 
-    /// <summary>Link to a customer (mutually exclusive with StakeholderId).</summary>
+    /// <summary>Link to a customer (mutually exclusive with the other ID fields).</summary>
     public Guid? CustomerId { get; set; }
 
-    /// <summary>Link to a stakeholder/supplier (mutually exclusive with CustomerId).</summary>
+    /// <summary>Link to a stakeholder/supplier (mutually exclusive with the other ID fields).</summary>
     public Guid? StakeholderId { get; set; }
+
+    /// <summary>Link to a cash box (mutually exclusive with the other ID fields).</summary>
+    public Guid? CashBoxId { get; set; }
+
+    /// <summary>Link to a bank account (mutually exclusive with the other ID fields).</summary>
+    public Guid? BankAccountId { get; set; }
 
     /// <summary>Optional override for the child account code. Auto-generated when omitted.</summary>
     public string? AccountCode { get; set; }
 
-    /// <summary>Optional override for the child account name (Arabic). Defaults to the customer/stakeholder name.</summary>
+    /// <summary>Optional override for the child account name (Arabic). Defaults to the entity name.</summary>
     public string? AccountNameAr { get; set; }
 
     /// <summary>Optional override for the child account name (English).</summary>

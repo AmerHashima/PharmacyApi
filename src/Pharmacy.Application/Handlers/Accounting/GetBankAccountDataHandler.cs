@@ -26,7 +26,7 @@ public class GetBankAccountDataHandler : IRequestHandler<GetBankAccountDataQuery
     {
         var query = _repository.GetQueryable()
             .Include(ba => ba.Branch)
-            .Include(ba => ba.Account)
+            .Include(ba => ba.ChildAccount)
             .Include(ba => ba.CurrencyCode)
             .Where(ba => !ba.IsDeleted);
 

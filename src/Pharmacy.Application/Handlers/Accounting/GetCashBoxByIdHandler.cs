@@ -22,7 +22,7 @@ public class GetCashBoxByIdHandler : IRequestHandler<GetCashBoxByIdQuery, CashBo
     {
         var entity = await _repository.GetQueryable()
             .Include(cb => cb.Branch)
-            .Include(cb => cb.Account)
+            .Include(cb => cb.ChildAccount)
             .Where(cb => cb.Oid == request.Id && !cb.IsDeleted)
             .FirstOrDefaultAsync(cancellationToken);
 

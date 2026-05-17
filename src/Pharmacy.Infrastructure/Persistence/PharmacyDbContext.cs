@@ -350,9 +350,15 @@ public class PharmacyDbContext : DbContext
             .OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<CashBox>()
-            .HasOne(cb => cb.Account)
+            .HasOne(cb => cb.ParentAccount)
             .WithMany()
-            .HasForeignKey(cb => cb.AccountId)
+            .HasForeignKey(cb => cb.ParentAccountId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<CashBox>()
+            .HasOne(cb => cb.ChildAccount)
+            .WithMany()
+            .HasForeignKey(cb => cb.ChildAccountId)
             .OnDelete(DeleteBehavior.Restrict);
 
         // BankAccount FKs
@@ -363,9 +369,15 @@ public class PharmacyDbContext : DbContext
             .OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<BankAccount>()
-            .HasOne(ba => ba.Account)
+            .HasOne(ba => ba.ParentAccount)
             .WithMany()
-            .HasForeignKey(ba => ba.AccountId)
+            .HasForeignKey(ba => ba.ParentAccountId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<BankAccount>()
+            .HasOne(ba => ba.ChildAccount)
+            .WithMany()
+            .HasForeignKey(ba => ba.ChildAccountId)
             .OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<BankAccount>()

@@ -357,24 +357,30 @@ public class CreateSalesInvoiceHandler : IRequestHandler<CreateSalesInvoiceComma
         var completeInvoice = await _invoiceRepository.GetWithItemsAsync(createdInvoice.Oid, cancellationToken);
 
         // ── Auto-post journal entry ──────────────────────────────────────────
-        // receivableAccountId / revenueAccountId are null until accounts are
-        // configured on the branch/setup screen — JE is still created and can
-        // be enriched later via the accounting module.
-        var journalEntry = await _journalPostingService.PostSalesInvoiceAsync(
-            branchId:             request.Invoice.BranchId,
-            fiscalYearId:         invoice.FiscalYearId,
-            invoiceNumber:        invoiceNumber,
-            invoiceDate:          invoice.InvoiceDate ?? DateTime.UtcNow,
-            totalAmount:          totalAmount,
-            receivableAccountId:  request.Invoice.ReceivableAccountId,
-            revenueAccountId:     request.Invoice.RevenueAccountId,
-            referenceId:          createdInvoice.Oid,
-            description:          $"Sales Invoice #{invoiceNumber}",
-            cancellationToken:    cancellationToken);
+        var paymentMethodCode = request.Invoice.PaymentMethodId.HasValue
+            ? (await _lookupRepository.GetByIdAsync(request.Invoice.PaymentMethodId.Value, cancellationToken))?.ValueCode
+            : null;
 
-        // Patch JournalEntryId back onto the invoice
-        createdInvoice.JournalEntryId = journalEntry.Oid;
-        await _invoiceRepository.UpdateAsync(createdInvoice, cancellationToken);
+        var costItems = invoiceItems
+            .Select(i => (CostPrice: i.CostPrice ?? 0m, i.Quantity))
+            .ToList()
+            .AsReadOnly();
+
+        var postingRequest = new Application.Interfaces.SalesInvoicePostingRequest(
+            InvoiceOid:        createdInvoice.Oid,
+            BranchId:          request.Invoice.BranchId,
+            FiscalYearId:      invoice.FiscalYearId,
+            InvoiceNumber:     invoiceNumber,
+            InvoiceDate:       invoice.InvoiceDate ?? DateTime.UtcNow,
+            SubTotal:          subTotal,
+            DiscountAmount:    invoiceDiscountAmount,
+            TaxAmount:         0m,
+            TotalAmount:       totalAmount,
+            PaymentMethodCode: paymentMethodCode,
+            CustomerId:        customerId,
+            Items:             costItems);
+
+        await _journalPostingService.PostSalesInvoiceAsync(postingRequest, cancellationToken);
 
         return _mapper.Map<SalesInvoiceDto>(completeInvoice);
     }

@@ -134,12 +134,12 @@ public class CreateReceiptVoucherHandler : IRequestHandler<CreateReceiptVoucherC
         if (bankAccountId.HasValue)
         {
             var bank = await _bankAccountRepository.GetByIdAsync(bankAccountId.Value, ct);
-            if (bank?.AccountId != null) return bank.AccountId;
+            if (bank?.ChildAccountId != null) return bank.ChildAccountId;
         }
         if (cashBoxId.HasValue)
         {
             var cashBox = await _cashBoxRepository.GetByIdAsync(cashBoxId.Value, ct);
-            if (cashBox?.AccountId != null) return cashBox.AccountId;
+            if (cashBox?.ChildAccountId != null) return cashBox.ChildAccountId;
         }
         return null;
     }

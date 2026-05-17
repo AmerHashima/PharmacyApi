@@ -21,10 +21,20 @@ public class CashBox : BaseEntity
     [ForeignKey(nameof(BranchId))]
     public virtual Branch? Branch { get; set; }
 
-    public Guid? AccountId { get; set; }
 
-    [ForeignKey(nameof(AccountId))]
-    public virtual Account? Account { get; set; }
+    // ── Accounting ─────────────────────────────────────────────────────────
+
+    /// <summary>FK to Account — the parent account this customer is linked to.</summary>
+    public Guid? ParentAccountId { get; set; }
+
+    [ForeignKey(nameof(ParentAccountId))]
+    public virtual Account? ParentAccount { get; set; }
+
+    /// <summary>FK to Account — the child account created specifically for this customer.</summary>
+    public Guid? ChildAccountId { get; set; }
+
+    [ForeignKey(nameof(ChildAccountId))]
+    public virtual Account? ChildAccount { get; set; }
 
     public bool IsActive { get; set; } = true;
 }

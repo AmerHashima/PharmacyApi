@@ -26,7 +26,7 @@ public class GetCashBoxDataHandler : IRequestHandler<GetCashBoxDataQuery, PagedR
     {
         var query = _repository.GetQueryable()
             .Include(cb => cb.Branch)
-            .Include(cb => cb.Account)
+            .Include(cb => cb.ChildAccount)
             .Where(cb => !cb.IsDeleted);
 
         var paged = await _queryBuilder.ExecuteQueryAsync(query, request.QueryRequest.Request);

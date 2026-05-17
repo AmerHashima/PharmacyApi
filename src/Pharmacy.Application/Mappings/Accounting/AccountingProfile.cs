@@ -43,7 +43,7 @@ public class AccountingProfile : Profile
         // CashBox
         CreateMap<CashBox, CashBoxDto>()
             .ForMember(d => d.BranchName,    o => o.MapFrom(s => s.Branch != null ? s.Branch.BranchName : null))
-            .ForMember(d => d.AccountNameAr, o => o.MapFrom(s => s.Account != null ? s.Account.AccountNameAr : null));
+            .ForMember(d => d.AccountNameAr, o => o.MapFrom(s => s.ChildAccount != null ? s.ChildAccount.AccountNameAr : null));
         CreateMap<CreateCashBoxDto, CashBox>();
         CreateMap<UpdateCashBoxDto, CashBox>()
             .ForMember(d => d.Oid,       o => o.Ignore())
@@ -53,7 +53,7 @@ public class AccountingProfile : Profile
         // BankAccount
         CreateMap<BankAccount, BankAccountDto>()
             .ForMember(d => d.BranchName,       o => o.MapFrom(s => s.Branch != null ? s.Branch.BranchName : null))
-            .ForMember(d => d.AccountNameAr,    o => o.MapFrom(s => s.Account != null ? s.Account.AccountNameAr : null))
+            .ForMember(d => d.AccountNameAr,    o => o.MapFrom(s => s.ChildAccount != null ? s.ChildAccount.AccountNameAr : null))
             .ForMember(d => d.CurrencyCodeName, o => o.MapFrom(s => s.CurrencyCode != null ? s.CurrencyCode.ValueNameEn : null));
         CreateMap<CreateBankAccountDto, BankAccount>();
         CreateMap<UpdateBankAccountDto, BankAccount>()

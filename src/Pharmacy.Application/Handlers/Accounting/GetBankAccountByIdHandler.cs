@@ -22,7 +22,7 @@ public class GetBankAccountByIdHandler : IRequestHandler<GetBankAccountByIdQuery
     {
         var entity = await _repository.GetQueryable()
             .Include(ba => ba.Branch)
-            .Include(ba => ba.Account)
+            .Include(ba => ba.ChildAccount)
             .Include(ba => ba.CurrencyCode)
             .Where(ba => ba.Oid == request.Id && !ba.IsDeleted)
             .FirstOrDefaultAsync(cancellationToken);
