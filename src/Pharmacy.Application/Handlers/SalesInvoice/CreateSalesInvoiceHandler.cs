@@ -247,6 +247,12 @@ public class CreateSalesInvoiceHandler : IRequestHandler<CreateSalesInvoiceComma
                 totalPrice = (unitPrice * itemDto.Quantity) - itemDiscountAmount;
             }
 
+            var effectiveTaxPercent = itemDto.TaxPercent ?? request.Invoice.TaxPercent;
+            var computedItemTaxAmount = effectiveTaxPercent.HasValue
+                ? Math.Round(totalPrice * effectiveTaxPercent.Value / 100, 2)
+                : 0m;
+            var itemTaxAmount = itemDto.TaxAmount ?? computedItemTaxAmount;
+
             var invoiceItem = new SalesInvoiceItem
             {
                 ProductId         = itemDto.ProductId,
@@ -254,21 +260,14 @@ public class CreateSalesInvoiceHandler : IRequestHandler<CreateSalesInvoiceComma
                 RemainingQuantity = itemDto.Quantity,
                 ReturnedQuantity  = 0,
                 UnitPrice         = unitPrice,
-                CostPrice         = null,  // set from stock batch during dispensing
+                CostPrice         = itemDto.CostPrice,
                 DiscountPercent   = itemDto.DiscountPercent,
                 DiscountAmount    = itemDiscountAmount,
                 NetPrice          = totalPrice,
-                TaxPercent        = itemDto.TaxPercent ?? request.Invoice.TaxPercent,
-                TaxAmount         = itemDto.TaxPercent.HasValue
-                                        ? Math.Round(totalPrice * itemDto.TaxPercent.Value / 100, 2)
-                                        : request.Invoice.TaxPercent.HasValue
-                                            ? Math.Round(totalPrice * request.Invoice.TaxPercent.Value / 100, 2)
-                                            : 0m,
-                TotalPrice        = totalPrice + (itemDto.TaxPercent.HasValue
-                                        ? Math.Round(totalPrice * itemDto.TaxPercent.Value / 100, 2)
-                                        : request.Invoice.TaxPercent.HasValue
-                                            ? Math.Round(totalPrice * request.Invoice.TaxPercent.Value / 100, 2)
-                                            : 0m),
+                TaxPercent        = effectiveTaxPercent,
+                TaxAmount         = itemTaxAmount,
+                TotalPrice        = totalPrice + itemTaxAmount,
+                LineNumber        = itemDto.LineNumber ?? 0,
                 BatchNumber       = itemDto.BatchNumber,
                 SerialNumber      = itemDto.SerialNumber,
                 ExpiryDate        = itemDto.ExpiryDate,
@@ -288,7 +287,10 @@ public class CreateSalesInvoiceHandler : IRequestHandler<CreateSalesInvoiceComma
             ? (subTotal * request.Invoice.DiscountPercent.Value / 100) 
             : 0;
         var subTotalAfterDiscount = subTotal - invoiceDiscountAmount;
-        var invoiceTaxAmount = invoiceItems.Sum(i => i.TaxAmount ?? 0);
+        // Use explicit TaxAmount override when provided; otherwise sum line-level tax amounts
+        var invoiceTaxAmount = request.Invoice.TaxAmount.HasValue
+            ? request.Invoice.TaxAmount.Value
+            : invoiceItems.Sum(i => i.TaxAmount ?? 0);
         var totalAmount = subTotalAfterDiscount + invoiceTaxAmount;
 
         // Create invoice
@@ -303,10 +305,13 @@ public class CreateSalesInvoiceHandler : IRequestHandler<CreateSalesInvoiceComma
             TaxPercent         = request.Invoice.TaxPercent,
             TaxAmount          = invoiceTaxAmount,
             TotalAmount        = totalAmount,
+            PaidAmount         = request.Invoice.PaidAmount,
+            ChangeAmount       = request.Invoice.ChangeAmount,
             InvoiceDate        = request.Invoice.InvoiceDate ?? DateTime.UtcNow,
             PaymentMethodId    = request.Invoice.PaymentMethodId,
             InvoiceStatusId    = completedStatus?.Oid,
             CashierId          = request.Invoice.CashierId,
+            DoctorId           = request.Invoice.DoctorId,
             PrescriptionNumber = request.Invoice.PrescriptionNumber,
             DoctorName         = request.Invoice.DoctorName,
             Notes              = request.Invoice.Notes
@@ -319,10 +324,11 @@ public class CreateSalesInvoiceHandler : IRequestHandler<CreateSalesInvoiceComma
         var createdInvoice = await _invoiceRepository.AddAsync(invoice, cancellationToken);
 
         // Create invoice items and stock transactions
-        int lineNumber = 1;
+        int lineCounter = 1;
         foreach (var item in invoiceItems)
         {
-            item.InvoiceId = createdInvoice.Oid;
+            item.InvoiceId  = createdInvoice.Oid;
+            item.LineNumber = item.LineNumber > 0 ? item.LineNumber : lineCounter;
             await _itemRepository.AddAsync(item, cancellationToken);
 
             // Create stock OUT transaction with detail
@@ -347,7 +353,7 @@ public class CreateSalesInvoiceHandler : IRequestHandler<CreateSalesInvoiceComma
                 TotalCost = item.Quantity * (item.CostPrice ?? 0),
                 BatchNumber = item.BatchNumber,
                 ExpiryDate = item.ExpiryDate,
-                LineNumber = lineNumber++
+                LineNumber = lineCounter++
             };
 
             stockTransaction.Details.Add(transactionDetail);

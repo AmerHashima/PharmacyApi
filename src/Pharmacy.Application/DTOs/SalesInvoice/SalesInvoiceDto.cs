@@ -36,6 +36,8 @@ public class SalesInvoiceDto
     public string? Notes { get; set; }
     public int? Status { get; set; }
     public DateTime? CreatedAt { get; set; }
+    public Guid? FiscalYearId { get; set; }
+    public Guid? JournalEntryId { get; set; }
     public List<SalesInvoiceItemDto> Items { get; set; } = new();
     public int ItemCount => Items.Count;
 }

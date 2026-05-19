@@ -39,6 +39,20 @@ public class CreateSalesInvoiceDto
     [Range(0, 100, ErrorMessage = "Tax percent must be between 0 and 100")]
     public decimal? TaxPercent { get; set; }
 
+    /// <summary>
+    /// Explicit tax amount override. When provided, used directly instead of computing from TaxPercent.
+    /// </summary>
+    [Range(0, double.MaxValue, ErrorMessage = "Tax amount must be >= 0")]
+    public decimal? TaxAmount { get; set; }
+
+    /// <summary>Amount tendered by customer.</summary>
+    [Range(0, double.MaxValue, ErrorMessage = "Paid amount must be >= 0")]
+    public decimal? PaidAmount { get; set; }
+
+    /// <summary>Change returned to customer.</summary>
+    [Range(0, double.MaxValue, ErrorMessage = "Change amount must be >= 0")]
+    public decimal? ChangeAmount { get; set; }
+
     public DateTime? InvoiceDate { get; set; }
 
     public Guid? PaymentMethodId { get; set; }
@@ -89,6 +103,17 @@ public class CreateSalesInvoiceItemDto
     /// <summary>VAT / tax percentage for this line (e.g. 15 for 15%). Overrides the header TaxPercent.</summary>
     [Range(0, 100, ErrorMessage = "Tax percent must be between 0 and 100")]
     public decimal? TaxPercent { get; set; }
+
+    /// <summary>Explicit line-level tax amount override. Overrides computation from TaxPercent when provided.</summary>
+    [Range(0, double.MaxValue)]
+    public decimal? TaxAmount { get; set; }
+
+    /// <summary>Cost price per unit — provided by frontend when known (e.g. from stock batch lookup).</summary>
+    [Range(0, double.MaxValue)]
+    public decimal? CostPrice { get; set; }
+
+    /// <summary>Line sequence number. Auto-assigned if not provided.</summary>
+    public int? LineNumber { get; set; }
 
     [MaxLength(50)]
     public string? BatchNumber { get; set; }
