@@ -101,24 +101,35 @@ public class BaseRepository<T> : IBaseRepository<T> where T : BaseEntity
     CancellationToken cancellationToken = default)
     where TDetail : BaseEntity
     {
-        var strategy = _context.Database.CreateExecutionStrategy();
+        // If the caller already opened a transaction (e.g. JournalPostingService),
+        // participate in it instead of starting a nested one.
+        bool hasAmbientTransaction = _context.Database.CurrentTransaction != null;
 
+        async Task ExecuteCoreAsync()
+        {
+            _dbSet.Add(master);
+            await _context.SaveChangesAsync(cancellationToken);
+
+            if (details != null && details.Any())
+                await _context.Set<TDetail>().AddRangeAsync(details, cancellationToken);
+
+            await _context.SaveChangesAsync(cancellationToken);
+        }
+
+        if (hasAmbientTransaction)
+        {
+            await ExecuteCoreAsync();
+            return master;
+        }
+
+        var strategy = _context.Database.CreateExecutionStrategy();
         return await strategy.ExecuteAsync(async () =>
         {
-            using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
+            await using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
             try
             {
-                _dbSet.Add(master);
-                await _context.SaveChangesAsync(cancellationToken);
-
-                if (details != null && details.Any())
-                {
-                    await _context.Set<TDetail>().AddRangeAsync(details, cancellationToken);
-                }
-
-                await _context.SaveChangesAsync(cancellationToken);
+                await ExecuteCoreAsync();
                 await transaction.CommitAsync(cancellationToken);
-
                 return master;
             }
             catch
@@ -135,30 +146,40 @@ public class BaseRepository<T> : IBaseRepository<T> where T : BaseEntity
     CancellationToken cancellationToken = default)
     where TDetail : BaseEntity
     {
-        var strategy = _context.Database.CreateExecutionStrategy();
+        bool hasAmbientTransaction = _context.Database.CurrentTransaction != null;
 
+        async Task ExecuteCoreAsync()
+        {
+            _dbSet.Update(master);
+
+            var detailSet = _context.Set<TDetail>();
+            var masterId = master.Oid;
+
+            var oldDetails = await detailSet
+                .Where(x => EF.Property<Guid>(x, foreignKey.GetPropertyAccess().Name) == masterId)
+                .ToListAsync(cancellationToken);
+
+            detailSet.RemoveRange(oldDetails);
+
+            if (details != null && details.Any())
+                await detailSet.AddRangeAsync(details, cancellationToken);
+
+            await _context.SaveChangesAsync(cancellationToken);
+        }
+
+        if (hasAmbientTransaction)
+        {
+            await ExecuteCoreAsync();
+            return;
+        }
+
+        var strategy = _context.Database.CreateExecutionStrategy();
         await strategy.ExecuteAsync(async () =>
         {
-            using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
+            await using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
             try
             {
-                _dbSet.Update(master);
-
-                var detailSet = _context.Set<TDetail>();
-                var masterId = master.Oid;
-
-                var oldDetails = await detailSet
-                    .Where(x => EF.Property<Guid>(x, foreignKey.GetPropertyAccess().Name) == masterId)
-                    .ToListAsync(cancellationToken);
-
-                detailSet.RemoveRange(oldDetails);
-
-                if (details != null && details.Any())
-                {
-                    await detailSet.AddRangeAsync(details, cancellationToken);
-                }
-
-                await _context.SaveChangesAsync(cancellationToken);
+                await ExecuteCoreAsync();
                 await transaction.CommitAsync(cancellationToken);
             }
             catch

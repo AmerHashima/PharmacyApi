@@ -43,6 +43,7 @@ public sealed class JournalPostingService : IJournalPostingService
     public const string RefTypeSalesInvoice  = "SALES_INV";
     public const string RefTypeReturnInvoice = "RETURN_INV";
     public const string TypeSalesEntry       = "SI";
+    public const string TypePaymentEntry     = "SP";
     public const string TypeCogsEntry        = "COGS";
     public const string TypeReturnEntry      = "RI";
 
@@ -91,16 +92,29 @@ public sealed class JournalPostingService : IJournalPostingService
             ?? throw new InvalidOperationException(
                 $"AccountingSettings not configured for branch '{req.BranchId}'.");
 
-        // ── 4. Resolve debit account (payment method routing) ────────────
-        Guid? debitAccountId = req.PaymentMethodCode?.ToUpperInvariant() switch
+        // ── 4. Resolve accounts ───────────────────────────────────────────
+        // Customer (receivable) account — always the intermediary debit on the sale entry.
+        Guid? customerAccountId = await ResolveCustomerAccountAsync(req.CustomerId, ct)
+                                  ?? settings.ReceivableAccountId;
+
+        // Cash or bank account — used only in the payment entry (CASH / BANK methods).
+        string? methodCode = req.PaymentMethodCode?.ToUpperInvariant();
+        Guid? cashBankAccountId = methodCode switch
         {
-            "CASH"   => settings.CashAccountId,
-            "BANK"   => settings.BankAccountId,
-            "CREDIT" => await ResolveCustomerAccountAsync(req.CustomerId, ct),
-            _        => settings.ReceivableAccountId
+            "CASH" => settings.CashAccountId,
+            "BANK" => settings.BankAccountId,
+            _      => null   // CREDIT or unknown — no payment entry
         };
 
-        // ── 5. Build Entry 1 — Sales ──────────────────────────────────────
+        bool isPaid = cashBankAccountId.HasValue;
+
+        // ── 5. Build Entry 1 — Sale (DR Customer / CR Sales) ─────────────
+        //
+        //   DR  Customer Account   =  TotalAmount
+        //   DR  Discount Allowed   =  DiscountAmount  (if > 0)
+        //   CR  Sales Revenue      =  SubTotal
+        //   CR  VAT Payable        =  TaxAmount       (if > 0)
+        //
         var salesEntryNumber = await _numberService.GenerateJournalEntryNumberAsync(req.BranchId, ct);
         var salesEntry = new JournalEntry
         {
@@ -115,9 +129,9 @@ public sealed class JournalPostingService : IJournalPostingService
 
         var salesDetails = new List<JournalEntryDetail>();
 
-        // DR  Cash / Bank / Customer
-        if (debitAccountId.HasValue)
-            salesDetails.Add(Detail(salesEntry.Oid, debitAccountId.Value,
+        // DR  Customer / Receivable
+        if (customerAccountId.HasValue)
+            salesDetails.Add(Detail(salesEntry.Oid, customerAccountId.Value,
                 debit: req.TotalAmount, credit: 0, req.InvoiceNumber));
 
         // DR  Discount Allowed
@@ -138,7 +152,45 @@ public sealed class JournalPostingService : IJournalPostingService
         salesEntry.TotalDebit  = salesDetails.Sum(d => d.Debit);
         salesEntry.TotalCredit = salesDetails.Sum(d => d.Credit);
 
-        // ── 6. Build Entry 2 — COGS ───────────────────────────────────────
+        // ── 6. Build Entry 2 — Payment (DR Cash/Bank / CR Customer) ──────
+        //   Only generated when the invoice is paid immediately (CASH or BANK).
+        //
+        //   DR  Cash / Bank Account  =  TotalAmount
+        //   CR  Customer Account     =  TotalAmount
+        //
+        JournalEntry? paymentEntry = null;
+        List<JournalEntryDetail>? paymentDetails = null;
+
+        if (isPaid)
+        {
+            var paymentEntryNumber = await _numberService.GenerateJournalEntryNumberAsync(req.BranchId, ct);
+            paymentEntry = new JournalEntry
+            {
+                EntryNumber  = paymentEntryNumber,
+                EntryDate    = req.InvoiceDate,
+                FiscalYearId = req.FiscalYearId,
+                BranchId     = req.BranchId,
+                Description  = $"{TypePaymentEntry} - {req.InvoiceNumber}",
+                ReferenceId  = req.InvoiceOid,
+                CreatedAt    = DateTime.UtcNow,
+            };
+
+            paymentDetails = new List<JournalEntryDetail>();
+
+            // DR  Cash / Bank
+            paymentDetails.Add(Detail(paymentEntry.Oid, cashBankAccountId!.Value,
+                debit: req.TotalAmount, credit: 0, req.InvoiceNumber));
+
+            // CR  Customer / Receivable
+            if (customerAccountId.HasValue)
+                paymentDetails.Add(Detail(paymentEntry.Oid, customerAccountId.Value,
+                    debit: 0, credit: req.TotalAmount, req.InvoiceNumber));
+
+            paymentEntry.TotalDebit  = paymentDetails.Sum(d => d.Debit);
+            paymentEntry.TotalCredit = paymentDetails.Sum(d => d.Credit);
+        }
+
+        // ── 7. Build Entry 3 — COGS (DR COGS / CR Inventory) ─────────────
         var cogsTotal = req.Items.Sum(i => i.CostPrice * i.Quantity);
 
         var cogsEntryNumber = await _numberService.GenerateJournalEntryNumberAsync(req.BranchId, ct);
@@ -157,12 +209,10 @@ public sealed class JournalPostingService : IJournalPostingService
 
         if (cogsTotal > 0)
         {
-            // DR  COGS
             if (settings.CogsAccountId.HasValue)
                 cogsDetails.Add(Detail(cogsEntry.Oid, settings.CogsAccountId.Value,
                     debit: cogsTotal, credit: 0, req.InvoiceNumber));
 
-            // CR  Inventory
             if (settings.InventoryAccountId.HasValue)
                 cogsDetails.Add(Detail(cogsEntry.Oid, settings.InventoryAccountId.Value,
                     debit: 0, credit: cogsTotal, req.InvoiceNumber));
@@ -171,23 +221,31 @@ public sealed class JournalPostingService : IJournalPostingService
         cogsEntry.TotalDebit  = cogsDetails.Sum(d => d.Debit);
         cogsEntry.TotalCredit = cogsDetails.Sum(d => d.Credit);
 
-        // ── 7. Persist both entries + patch invoice — all in one transaction
-        await using var tx = await _context.Database.BeginTransactionAsync(ct);
-        try
+        // ── 8. Persist all entries in one transaction ─────────────────────
+        var strategy = _context.Database.CreateExecutionStrategy();
+        await strategy.ExecuteAsync(async () =>
         {
-            await _journalRepo.InsertMasterDetailAsync(salesEntry, salesDetails, ct);
-            await _journalRepo.InsertMasterDetailAsync(cogsEntry, cogsDetails, ct);
+            await using var tx = await _context.Database.BeginTransactionAsync(ct);
+            try
+            {
+                await _journalRepo.InsertMasterDetailAsync(salesEntry, salesDetails, ct);
 
-            invoice.JournalEntryId = salesEntry.Oid;
-            await _invoiceRepo.UpdateAsync(invoice, ct);
+                if (paymentEntry != null && paymentDetails != null)
+                    await _journalRepo.InsertMasterDetailAsync(paymentEntry, paymentDetails, ct);
 
-            await tx.CommitAsync(ct);
-        }
-        catch
-        {
-            await tx.RollbackAsync(ct);
-            throw;
-        }
+                await _journalRepo.InsertMasterDetailAsync(cogsEntry, cogsDetails, ct);
+
+                invoice.JournalEntryId = salesEntry.Oid;
+                await _invoiceRepo.UpdateAsync(invoice, ct);
+
+                await tx.CommitAsync(ct);
+            }
+            catch
+            {
+                await tx.RollbackAsync(ct);
+                throw;
+            }
+        });
 
         return new SalesInvoicePostingResult(salesEntry, cogsEntry);
     }
@@ -251,17 +309,21 @@ public sealed class JournalPostingService : IJournalPostingService
         entry.TotalDebit  = details.Sum(d => d.Debit);
         entry.TotalCredit = details.Sum(d => d.Credit);
 
-        await using var tx = await _context.Database.BeginTransactionAsync(ct);
-        try
+        var strategy = _context.Database.CreateExecutionStrategy();
+        await strategy.ExecuteAsync(async () =>
         {
-            await _journalRepo.InsertMasterDetailAsync(entry, details, ct);
-            await tx.CommitAsync(ct);
-        }
-        catch
-        {
-            await tx.RollbackAsync(ct);
-            throw;
-        }
+            await using var tx = await _context.Database.BeginTransactionAsync(ct);
+            try
+            {
+                await _journalRepo.InsertMasterDetailAsync(entry, details, ct);
+                await tx.CommitAsync(ct);
+            }
+            catch
+            {
+                await tx.RollbackAsync(ct);
+                throw;
+            }
+        });
 
         return entry;
     }
