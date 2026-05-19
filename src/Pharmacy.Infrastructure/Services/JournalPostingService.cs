@@ -93,32 +93,23 @@ public sealed class JournalPostingService : IJournalPostingService
                 $"AccountingSettings not configured for branch '{req.BranchId}'.");
 
         // ── 4. Resolve accounts ───────────────────────────────────────────
-        // Customer (receivable) account — always the intermediary debit on the sale entry.
         Guid? customerAccountId = await ResolveCustomerAccountAsync(req.CustomerId, ct)
                                   ?? settings.ReceivableAccountId;
 
-        // Cash or bank account — used only in the payment entry (CASH / BANK methods).
         string? methodCode = req.PaymentMethodCode?.ToUpperInvariant();
         Guid? cashBankAccountId = methodCode switch
         {
             "CASH" => settings.CashAccountId,
             "BANK" => settings.BankAccountId,
-            _      => null   // CREDIT or unknown — no payment entry
+            _      => null
         };
-
         bool isPaid = cashBankAccountId.HasValue;
 
-        // ── 5. Build Entry 1 — Sale (DR Customer / CR Sales) ─────────────
-        //
-        //   DR  Customer Account   =  TotalAmount
-        //   DR  Discount Allowed   =  DiscountAmount  (if > 0)
-        //   CR  Sales Revenue      =  SubTotal
-        //   CR  VAT Payable        =  TaxAmount       (if > 0)
-        //
-        var salesEntryNumber = await _numberService.GenerateJournalEntryNumberAsync(req.BranchId, ct);
-        var salesEntry = new JournalEntry
+        // ── 5. Create single JournalEntry master ──────────────────────────
+        var entryNumber = await _numberService.GenerateJournalEntryNumberAsync(req.BranchId, ct);
+        var entry = new JournalEntry
         {
-            EntryNumber  = salesEntryNumber,
+            EntryNumber  = entryNumber,
             EntryDate    = req.InvoiceDate,
             FiscalYearId = req.FiscalYearId,
             BranchId     = req.BranchId,
@@ -127,115 +118,81 @@ public sealed class JournalPostingService : IJournalPostingService
             CreatedAt    = DateTime.UtcNow,
         };
 
-        var salesDetails = new List<JournalEntryDetail>();
+        var details = new List<JournalEntryDetail>();
 
-        // DR  Customer / Receivable
+        // ── Section A — Sale ──────────────────────────────────────────────
+        //   DR  Customer / Receivable  =  TotalAmount
+        //   DR  Discount Allowed       =  DiscountAmount  (if > 0)
+        //   CR  Sales Revenue          =  SubTotal
+        //   CR  VAT Payable            =  TaxAmount       (if > 0)
+
         if (customerAccountId.HasValue)
-            salesDetails.Add(Detail(salesEntry.Oid, customerAccountId.Value,
-                debit: req.TotalAmount, credit: 0, req.InvoiceNumber));
+            details.Add(Detail(entry.Oid, customerAccountId.Value,
+                debit: req.TotalAmount, credit: 0,
+                $"Sale - {req.InvoiceNumber}"));
 
-        // DR  Discount Allowed
         if (req.DiscountAmount > 0 && settings.DiscountAccountId.HasValue)
-            salesDetails.Add(Detail(salesEntry.Oid, settings.DiscountAccountId.Value,
-                debit: req.DiscountAmount, credit: 0, req.InvoiceNumber));
+            details.Add(Detail(entry.Oid, settings.DiscountAccountId.Value,
+                debit: req.DiscountAmount, credit: 0,
+                $"Discount - {req.InvoiceNumber}"));
 
-        // CR  Sales Revenue
         if (settings.SalesAccountId.HasValue)
-            salesDetails.Add(Detail(salesEntry.Oid, settings.SalesAccountId.Value,
-                debit: 0, credit: req.SubTotal, req.InvoiceNumber));
+            details.Add(Detail(entry.Oid, settings.SalesAccountId.Value,
+                debit: 0, credit: req.SubTotal,
+                $"Sales Revenue - {req.InvoiceNumber}"));
 
-        // CR  VAT Payable
         if (req.TaxAmount > 0 && settings.VatAccountId.HasValue)
-            salesDetails.Add(Detail(salesEntry.Oid, settings.VatAccountId.Value,
-                debit: 0, credit: req.TaxAmount, req.InvoiceNumber));
+            details.Add(Detail(entry.Oid, settings.VatAccountId.Value,
+                debit: 0, credit: req.TaxAmount,
+                $"VAT - {req.InvoiceNumber}"));
 
-        salesEntry.TotalDebit  = salesDetails.Sum(d => d.Debit);
-        salesEntry.TotalCredit = salesDetails.Sum(d => d.Credit);
-
-        // ── 6. Build Entry 2 — Payment (DR Cash/Bank / CR Customer) ──────
-        //   Only generated when the invoice is paid immediately (CASH or BANK).
-        //
-        //   DR  Cash / Bank Account  =  TotalAmount
-        //   CR  Customer Account     =  TotalAmount
-        //
-        JournalEntry? paymentEntry = null;
-        List<JournalEntryDetail>? paymentDetails = null;
+        // ── Section B — Payment (CASH / BANK only) ────────────────────────
+        //   DR  Cash / Bank Account  =  TotalAmount   (money received)
+        //   CR  Customer / Receivable=  TotalAmount   (clears the receivable)
 
         if (isPaid)
         {
-            var paymentEntryNumber = await _numberService.GenerateJournalEntryNumberAsync(req.BranchId, ct);
-            paymentEntry = new JournalEntry
-            {
-                EntryNumber  = paymentEntryNumber,
-                EntryDate    = req.InvoiceDate,
-                FiscalYearId = req.FiscalYearId,
-                BranchId     = req.BranchId,
-                Description  = $"{TypePaymentEntry} - {req.InvoiceNumber}",
-                ReferenceId  = req.InvoiceOid,
-                CreatedAt    = DateTime.UtcNow,
-            };
+            details.Add(Detail(entry.Oid, cashBankAccountId!.Value,
+                debit: req.TotalAmount, credit: 0,
+                $"Payment - {req.InvoiceNumber}"));
 
-            paymentDetails = new List<JournalEntryDetail>();
-
-            // DR  Cash / Bank
-            paymentDetails.Add(Detail(paymentEntry.Oid, cashBankAccountId!.Value,
-                debit: req.TotalAmount, credit: 0, req.InvoiceNumber));
-
-            // CR  Customer / Receivable
             if (customerAccountId.HasValue)
-                paymentDetails.Add(Detail(paymentEntry.Oid, customerAccountId.Value,
-                    debit: 0, credit: req.TotalAmount, req.InvoiceNumber));
-
-            paymentEntry.TotalDebit  = paymentDetails.Sum(d => d.Debit);
-            paymentEntry.TotalCredit = paymentDetails.Sum(d => d.Credit);
+                details.Add(Detail(entry.Oid, customerAccountId.Value,
+                    debit: 0, credit: req.TotalAmount,
+                    $"Payment - {req.InvoiceNumber}"));
         }
 
-        // ── 7. Build Entry 3 — COGS (DR COGS / CR Inventory) ─────────────
+        // ── Section C — COGS ──────────────────────────────────────────────
+        //   DR  Cost of Goods Sold  =  Σ(CostPrice × Qty)
+        //   CR  Inventory           =  Σ(CostPrice × Qty)
+
         var cogsTotal = req.Items.Sum(i => i.CostPrice * i.Quantity);
-
-        var cogsEntryNumber = await _numberService.GenerateJournalEntryNumberAsync(req.BranchId, ct);
-        var cogsEntry = new JournalEntry
-        {
-            EntryNumber  = cogsEntryNumber,
-            EntryDate    = req.InvoiceDate,
-            FiscalYearId = req.FiscalYearId,
-            BranchId     = req.BranchId,
-            Description  = $"{TypeCogsEntry} - {req.InvoiceNumber}",
-            ReferenceId  = req.InvoiceOid,
-            CreatedAt    = DateTime.UtcNow,
-        };
-
-        var cogsDetails = new List<JournalEntryDetail>();
-
         if (cogsTotal > 0)
         {
             if (settings.CogsAccountId.HasValue)
-                cogsDetails.Add(Detail(cogsEntry.Oid, settings.CogsAccountId.Value,
-                    debit: cogsTotal, credit: 0, req.InvoiceNumber));
+                details.Add(Detail(entry.Oid, settings.CogsAccountId.Value,
+                    debit: cogsTotal, credit: 0,
+                    $"COGS - {req.InvoiceNumber}"));
 
             if (settings.InventoryAccountId.HasValue)
-                cogsDetails.Add(Detail(cogsEntry.Oid, settings.InventoryAccountId.Value,
-                    debit: 0, credit: cogsTotal, req.InvoiceNumber));
+                details.Add(Detail(entry.Oid, settings.InventoryAccountId.Value,
+                    debit: 0, credit: cogsTotal,
+                    $"COGS - {req.InvoiceNumber}"));
         }
 
-        cogsEntry.TotalDebit  = cogsDetails.Sum(d => d.Debit);
-        cogsEntry.TotalCredit = cogsDetails.Sum(d => d.Credit);
+        entry.TotalDebit  = details.Sum(d => d.Debit);
+        entry.TotalCredit = details.Sum(d => d.Credit);
 
-        // ── 8. Persist all entries in one transaction ─────────────────────
+        // ── 6. Persist in one transaction ────────────────────────────────
         var strategy = _context.Database.CreateExecutionStrategy();
         await strategy.ExecuteAsync(async () =>
         {
             await using var tx = await _context.Database.BeginTransactionAsync(ct);
             try
             {
-                await _journalRepo.InsertMasterDetailAsync(salesEntry, salesDetails, ct);
+                await _journalRepo.InsertMasterDetailAsync(entry, details, ct);
 
-                if (paymentEntry != null && paymentDetails != null)
-                    await _journalRepo.InsertMasterDetailAsync(paymentEntry, paymentDetails, ct);
-
-                await _journalRepo.InsertMasterDetailAsync(cogsEntry, cogsDetails, ct);
-
-                invoice.JournalEntryId = salesEntry.Oid;
+                invoice.JournalEntryId = entry.Oid;
                 await _invoiceRepo.UpdateAsync(invoice, ct);
 
                 await tx.CommitAsync(ct);
@@ -247,7 +204,7 @@ public sealed class JournalPostingService : IJournalPostingService
             }
         });
 
-        return new SalesInvoicePostingResult(salesEntry, cogsEntry);
+        return new SalesInvoicePostingResult(entry);
     }
 
     // ─────────────────────────────────────────────────────────────────────

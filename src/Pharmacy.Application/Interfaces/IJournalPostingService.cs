@@ -53,7 +53,7 @@ public record SalesInvoicePostingRequest(
     IReadOnlyList<(decimal CostPrice, decimal Quantity)> Items);
 
 /// <summary>Result of a successful sales invoice posting.</summary>
-public record SalesInvoicePostingResult(JournalEntry SalesEntry, JournalEntry CogsEntry);
+public record SalesInvoicePostingResult(JournalEntry Entry);
 
 /// <summary>All data needed to post a return invoice reversal.</summary>
 public record ReturnInvoicePostingRequest(
