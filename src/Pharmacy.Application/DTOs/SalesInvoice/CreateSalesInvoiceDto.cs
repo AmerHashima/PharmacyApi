@@ -33,6 +33,12 @@ public class CreateSalesInvoiceDto
     [Range(0, 100, ErrorMessage = "Discount percent must be between 0 and 100")]
     public decimal? DiscountPercent { get; set; }
 
+    /// <summary>
+    /// Header-level tax percentage applied to all lines that don't have their own TaxPercent.
+    /// </summary>
+    [Range(0, 100, ErrorMessage = "Tax percent must be between 0 and 100")]
+    public decimal? TaxPercent { get; set; }
+
     public DateTime? InvoiceDate { get; set; }
 
     public Guid? PaymentMethodId { get; set; }
@@ -79,6 +85,10 @@ public class CreateSalesInvoiceItemDto
 
     [Range(0, 100, ErrorMessage = "Discount percent must be between 0 and 100")]
     public decimal? DiscountPercent { get; set; }
+
+    /// <summary>VAT / tax percentage for this line (e.g. 15 for 15%). Overrides the header TaxPercent.</summary>
+    [Range(0, 100, ErrorMessage = "Tax percent must be between 0 and 100")]
+    public decimal? TaxPercent { get; set; }
 
     [MaxLength(50)]
     public string? BatchNumber { get; set; }

@@ -37,9 +37,14 @@ public class SalesInvoiceProfile : Profile
                 opt => opt.MapFrom(src => src.Product != null ? src.Product.DrugName : string.Empty))
             .ForMember(dest => dest.ProductGTIN,
                 opt => opt.MapFrom(src => src.Product != null ? src.Product.GTIN : null))
-            .ForMember(dest => dest.OfferDetailId,
-                opt => opt.MapFrom(src => src.OfferDetailId))
-            .ForMember(dest => dest.OfferNameSnapshot,
-                opt => opt.MapFrom(src => src.OfferNameSnapshot));
+            .ForMember(dest => dest.LineNumber,       opt => opt.MapFrom(src => src.LineNumber))
+            .ForMember(dest => dest.ReturnedQuantity, opt => opt.MapFrom(src => src.ReturnedQuantity))
+            .ForMember(dest => dest.CostPrice,        opt => opt.MapFrom(src => src.CostPrice))
+            .ForMember(dest => dest.TaxPercent,       opt => opt.MapFrom(src => src.TaxPercent))
+            .ForMember(dest => dest.TaxAmount,        opt => opt.MapFrom(src => src.TaxAmount))
+            .ForMember(dest => dest.NetPrice,         opt => opt.MapFrom(src => src.NetPrice))
+            .ForMember(dest => dest.IsFreeItem,       opt => opt.MapFrom(src => src.IsFreeItem))
+            .ForMember(dest => dest.OfferDetailId,    opt => opt.MapFrom(src => src.OfferDetailId))
+            .ForMember(dest => dest.OfferNameSnapshot,opt => opt.MapFrom(src => src.OfferNameSnapshot));
     }
 }

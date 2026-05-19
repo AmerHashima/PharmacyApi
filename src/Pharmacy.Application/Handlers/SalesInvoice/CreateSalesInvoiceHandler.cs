@@ -200,17 +200,23 @@ public class CreateSalesInvoiceHandler : IRequestHandler<CreateSalesInvoiceComma
                                 // Add a zero-price free-item line
                                 freeItemLines.Add(new SalesInvoiceItem
                                 {
-                                    ProductId = freeProductId,
-                                    Quantity = (decimal)freeQty,
+                                    ProductId         = freeProductId,
+                                    Quantity          = (decimal)freeQty,
                                     RemainingQuantity = (decimal)freeQty,
-                                    UnitPrice = 0,
-                                    DiscountPercent = 100,
-                                    DiscountAmount = 0,
-                                    TotalPrice = 0,
-                                    OfferDetailId = offerDetailId,
+                                    ReturnedQuantity  = 0,
+                                    UnitPrice         = 0,
+                                    CostPrice         = 0,
+                                    DiscountPercent   = 100,
+                                    DiscountAmount    = 0,
+                                    TaxPercent        = 0,
+                                    TaxAmount         = 0,
+                                    NetPrice          = 0,
+                                    TotalPrice        = 0,
+                                    IsFreeItem        = true,
+                                    OfferDetailId     = offerDetailId,
                                     OfferNameSnapshot = $"{offerNameSnapshot} (Free)",
-                                    Notes = $"Free item from offer: {offerNameSnapshot}",
-                                    CreatedAt = DateTime.UtcNow
+                                    Notes             = $"Free item from offer: {offerNameSnapshot}",
+                                    CreatedAt         = DateTime.UtcNow
                                 });
                             }
                             break;
@@ -246,12 +252,27 @@ public class CreateSalesInvoiceHandler : IRequestHandler<CreateSalesInvoiceComma
                 ProductId         = itemDto.ProductId,
                 Quantity          = itemDto.Quantity,
                 RemainingQuantity = itemDto.Quantity,
+                ReturnedQuantity  = 0,
                 UnitPrice         = unitPrice,
+                CostPrice         = null,  // set from stock batch during dispensing
                 DiscountPercent   = itemDto.DiscountPercent,
                 DiscountAmount    = itemDiscountAmount,
-                TotalPrice        = totalPrice,
+                NetPrice          = totalPrice,
+                TaxPercent        = itemDto.TaxPercent ?? request.Invoice.TaxPercent,
+                TaxAmount         = itemDto.TaxPercent.HasValue
+                                        ? Math.Round(totalPrice * itemDto.TaxPercent.Value / 100, 2)
+                                        : request.Invoice.TaxPercent.HasValue
+                                            ? Math.Round(totalPrice * request.Invoice.TaxPercent.Value / 100, 2)
+                                            : 0m,
+                TotalPrice        = totalPrice + (itemDto.TaxPercent.HasValue
+                                        ? Math.Round(totalPrice * itemDto.TaxPercent.Value / 100, 2)
+                                        : request.Invoice.TaxPercent.HasValue
+                                            ? Math.Round(totalPrice * request.Invoice.TaxPercent.Value / 100, 2)
+                                            : 0m),
                 BatchNumber       = itemDto.BatchNumber,
+                SerialNumber      = itemDto.SerialNumber,
                 ExpiryDate        = itemDto.ExpiryDate,
+                IsFreeItem        = false,
                 Notes             = itemDto.Notes,
                 OfferDetailId     = offerDetailId,
                 OfferNameSnapshot = offerNameSnapshot,
@@ -259,32 +280,36 @@ public class CreateSalesInvoiceHandler : IRequestHandler<CreateSalesInvoiceComma
             };
 
             invoiceItems.Add(invoiceItem);
-            subTotal += totalPrice;
+            subTotal += invoiceItem.NetPrice ?? 0;
         }
 
         // Calculate invoice totals
         var invoiceDiscountAmount = request.Invoice.DiscountPercent.HasValue 
             ? (subTotal * request.Invoice.DiscountPercent.Value / 100) 
             : 0;
-        var totalAmount = subTotal - invoiceDiscountAmount;
+        var subTotalAfterDiscount = subTotal - invoiceDiscountAmount;
+        var invoiceTaxAmount = invoiceItems.Sum(i => i.TaxAmount ?? 0);
+        var totalAmount = subTotalAfterDiscount + invoiceTaxAmount;
 
         // Create invoice
         var invoice = new Domain.Entities.SalesInvoice
         {
-            InvoiceNumber     = invoiceNumber,
-            BranchId          = request.Invoice.BranchId,
-            CustomerId        = customerId,
-            SubTotal          = subTotal,
-            DiscountPercent   = request.Invoice.DiscountPercent,
-            DiscountAmount    = invoiceDiscountAmount,
-            TotalAmount       = totalAmount,
-            InvoiceDate       = request.Invoice.InvoiceDate ?? DateTime.UtcNow,
-            PaymentMethodId   = request.Invoice.PaymentMethodId,
-            InvoiceStatusId   = completedStatus?.Oid,
-            CashierId         = request.Invoice.CashierId,
+            InvoiceNumber      = invoiceNumber,
+            BranchId           = request.Invoice.BranchId,
+            CustomerId         = customerId,
+            SubTotal           = subTotal,
+            DiscountPercent    = request.Invoice.DiscountPercent,
+            DiscountAmount     = invoiceDiscountAmount,
+            TaxPercent         = request.Invoice.TaxPercent,
+            TaxAmount          = invoiceTaxAmount,
+            TotalAmount        = totalAmount,
+            InvoiceDate        = request.Invoice.InvoiceDate ?? DateTime.UtcNow,
+            PaymentMethodId    = request.Invoice.PaymentMethodId,
+            InvoiceStatusId    = completedStatus?.Oid,
+            CashierId          = request.Invoice.CashierId,
             PrescriptionNumber = request.Invoice.PrescriptionNumber,
-            DoctorName        = request.Invoice.DoctorName,
-            Notes             = request.Invoice.Notes
+            DoctorName         = request.Invoice.DoctorName,
+            Notes              = request.Invoice.Notes
         };
 
         // Resolve active fiscal year for journal posting
@@ -372,9 +397,9 @@ public class CreateSalesInvoiceHandler : IRequestHandler<CreateSalesInvoiceComma
             FiscalYearId:      invoice.FiscalYearId,
             InvoiceNumber:     invoiceNumber,
             InvoiceDate:       invoice.InvoiceDate ?? DateTime.UtcNow,
-            SubTotal:          subTotal,
+            SubTotal:          subTotalAfterDiscount,
             DiscountAmount:    invoiceDiscountAmount,
-            TaxAmount:         0m,
+            TaxAmount:         invoiceTaxAmount,
             TotalAmount:       totalAmount,
             PaymentMethodCode: paymentMethodCode,
             CustomerId:        customerId,

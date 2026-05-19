@@ -5,8 +5,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace Pharmacy.Domain.Entities;
 
 /// <summary>
-/// Represents line items in a sales invoice.
-/// Contains product details, quantity, and pricing for each item sold.
+/// Represents a single line item in a sales invoice.
 /// </summary>
 [Table("SalesInvoiceItems")]
 public class SalesInvoiceItem : BaseEntity
@@ -23,65 +22,83 @@ public class SalesInvoiceItem : BaseEntity
     [ForeignKey(nameof(ProductId))]
     public virtual Product Product { get; set; } = null!;
 
-    /// <summary>
-    /// Quantity sold
-    /// </summary>
+    // ── Position ──────────────────────────────────────────────────────────
+
+    /// <summary>Line sequence number (1-based) within the invoice.</summary>
+    public int LineNumber { get; set; }
+
+    // ── Quantity ──────────────────────────────────────────────────────────
+
+    /// <summary>Quantity sold on this line.</summary>
     [Required]
-    [Column(TypeName = "decimal(18,2)")]
+    [Column(TypeName = "decimal(18,4)")]
     public decimal Quantity { get; set; }
 
-    /// <summary>
-    /// Unit price at time of sale
-    /// </summary>
-    [Column(TypeName = "decimal(18,2)")]
-    public decimal? UnitPrice { get; set; }
-
-    [Column(TypeName = "decimal(18,2)")]
+    /// <summary>Quantity still available for return (decremented on each return).</summary>
+    [Column(TypeName = "decimal(18,4)")]
     public decimal RemainingQuantity { get; set; }
 
-    /// <summary>
-    /// Discount percentage on this item
-    /// </summary>
+    /// <summary>Quantity already returned against this line.</summary>
+    [Column(TypeName = "decimal(18,4)")]
+    public decimal ReturnedQuantity { get; set; }
+
+    // ── Pricing ───────────────────────────────────────────────────────────
+
+    /// <summary>Selling price per unit at time of sale.</summary>
+    [Column(TypeName = "decimal(18,4)")]
+    public decimal? UnitPrice { get; set; }
+
+    /// <summary>Cost price per unit at time of sale (used for COGS and profit).</summary>
+    [Column(TypeName = "decimal(18,4)")]
+    public decimal? CostPrice { get; set; }
+
+    // ── Discount ──────────────────────────────────────────────────────────
+
+    /// <summary>Discount percentage on this line.</summary>
     [Column(TypeName = "decimal(5,2)")]
     public decimal? DiscountPercent { get; set; }
 
-    /// <summary>
-    /// Discount amount on this item
-    /// </summary>
+    /// <summary>Calculated discount amount on this line.</summary>
     [Column(TypeName = "decimal(18,2)")]
     public decimal? DiscountAmount { get; set; }
 
-    /// <summary>
-    /// Total price for this line item (Quantity * UnitPrice - Discount)
-    /// </summary>
+    // ── Tax (VAT) ─────────────────────────────────────────────────────────
+
+    /// <summary>VAT / tax percentage applied to this line (e.g. 15.00 for 15%).</summary>
+    [Column(TypeName = "decimal(5,2)")]
+    public decimal? TaxPercent { get; set; }
+
+    /// <summary>Calculated tax amount for this line (NetPrice * TaxPercent / 100).</summary>
+    [Column(TypeName = "decimal(18,2)")]
+    public decimal? TaxAmount { get; set; }
+
+    // ── Totals ────────────────────────────────────────────────────────────
+
+    /// <summary>Net price before tax: (Quantity * UnitPrice) - DiscountAmount.</summary>
+    [Column(TypeName = "decimal(18,2)")]
+    public decimal? NetPrice { get; set; }
+
+    /// <summary>Gross total including tax: NetPrice + TaxAmount.</summary>
     [Column(TypeName = "decimal(18,2)")]
     public decimal? TotalPrice { get; set; }
 
-    /// <summary>
-    /// Cost price at time of sale (for profit calculation)
-    /// </summary>
-    [Column(TypeName = "decimal(18,2)")]
-    public decimal? CostPrice { get; set; }
-    public string? SerialNumber { get; set; }
+    // ── Batch / Serial ────────────────────────────────────────────────────
 
-    /// <summary>
-    /// Batch number from which the item was dispensed
-    /// </summary>
     [MaxLength(50)]
     public string? BatchNumber { get; set; }
 
-    /// <summary>
-    /// Expiry date of the dispensed batch
-    /// </summary>
+    [MaxLength(100)]
+    public string? SerialNumber { get; set; }
+
     public DateTime? ExpiryDate { get; set; }
 
-    /// <summary>
-    /// Notes specific to this item
-    /// </summary>
-    [MaxLength(500)]
-    public string? Notes { get; set; }
+    // ── Return flag ───────────────────────────────────────────────────────
 
-    // ── Offer applied on this line ────────────────────────────────────────
+    /// <summary>True when this line was generated as a free-item line from an offer.</summary>
+    public bool IsFreeItem { get; set; }
+
+    // ── Offer ─────────────────────────────────────────────────────────────
+
     /// <summary>FK to OfferDetail — the specific offer line applied when this item was sold.</summary>
     public Guid? OfferDetailId { get; set; }
 
@@ -91,4 +108,9 @@ public class SalesInvoiceItem : BaseEntity
     /// <summary>Human-readable offer name snapshot (preserved if offer is later deleted).</summary>
     [MaxLength(300)]
     public string? OfferNameSnapshot { get; set; }
+
+    // ── Misc ──────────────────────────────────────────────────────────────
+
+    [MaxLength(500)]
+    public string? Notes { get; set; }
 }

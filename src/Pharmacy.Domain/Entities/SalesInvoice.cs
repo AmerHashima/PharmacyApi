@@ -53,7 +53,13 @@ public class SalesInvoice : BaseEntity
     public decimal? DiscountAmount { get; set; }
 
     /// <summary>
-    /// Tax amount
+    /// Tax percentage applied at header level (overridden by line-level TaxPercent when set per item).
+    /// </summary>
+    [Column(TypeName = "decimal(5,2)")]
+    public decimal? TaxPercent { get; set; }
+
+    /// <summary>
+    /// Tax amount (sum of all line TaxAmount values)
     /// </summary>
     [Column(TypeName = "decimal(18,2)")]
     public decimal? TaxAmount { get; set; }
