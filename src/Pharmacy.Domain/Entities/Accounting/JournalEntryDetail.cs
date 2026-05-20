@@ -30,4 +30,6 @@ public class JournalEntryDetail : BaseEntity
 
     [Column(TypeName = "decimal(18,2)")]
     public decimal Credit { get; set; } = 0;
+
+    public int LineNumber { get; set; } = 0;
 }

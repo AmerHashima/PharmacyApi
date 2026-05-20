@@ -26,10 +26,14 @@ public class CreateJournalEntryHandler : IRequestHandler<CreateJournalEntryComma
         master.TotalCredit = request.JournalEntry.Details.Sum(d => d.Credit);
 
         var details = _mapper.Map<List<JournalEntryDetail>>(request.JournalEntry.Details);
+        int lineNum = 1;
         foreach (var detail in details)
         {
             detail.JournalEntryId = master.Oid;
             detail.CreatedAt = DateTime.UtcNow;
+            if (detail.LineNumber == 0)
+                detail.LineNumber = lineNum;
+            lineNum++;
         }
 
         await _repository.InsertMasterDetailAsync(master, details, cancellationToken);
