@@ -190,10 +190,11 @@ public sealed class JournalPostingService : IJournalPostingService
         // SECTION A — SALES REVENUE (Mixed VAT Support)
         // ══════════════════════════════════════════════════════════════════
 
-        // A1. DR Customer/Receivable = TotalAmount (if not fully paid)
-        if (remainingReceivable > 0 && customerAccountId.HasValue)
+        // A1. DR Customer/Receivable = TotalAmount (always create to establish debt)
+        // This receivable will be cleared in Section B by payments
+        if (customerAccountId.HasValue)
             details.Add(Detail(entry.Oid, customerAccountId.Value,
-                debit: remainingReceivable, credit: 0,
+                debit: req.TotalAmount, credit: 0,
                 $"Sale - {req.InvoiceNumber}",
                 $"مبيعات - فاتورة {req.InvoiceNumber}", seq++));
 
