@@ -216,7 +216,10 @@ public class CreateReturnInvoiceHandler : IRequestHandler<CreateReturnInvoiceCom
         // Return the created return invoice with items
         var result = await _returnInvoiceRepository.GetWithItemsAsync(createdReturnInvoice.Oid, cancellationToken);
 
-        // ── Auto-post journal entry ──────────────────────────────────────────
+        // ═══════════════════════════════════════════════════════════════════════
+        // AUTO-POST JOURNAL ENTRY — Enhanced with VAT Classification
+        // ═══════════════════════════════════════════════════════════════════════
+        
         var paymentMethodCode = request.ReturnInvoice.PaymentMethodId.HasValue
             ? (await _lookupRepository.GetByIdAsync(request.ReturnInvoice.PaymentMethodId.Value, cancellationToken))?.ValueCode
             : null;
@@ -225,16 +228,65 @@ public class CreateReturnInvoiceHandler : IRequestHandler<CreateReturnInvoiceCom
         createdReturnInvoice.FiscalYearId = fiscalYear?.Oid;
         await _returnInvoiceRepository.UpdateAsync(createdReturnInvoice, cancellationToken);
 
+        // Build enhanced line items with VAT category from original invoice
+        var enhancedItems = new List<Application.Interfaces.SalesInvoiceLineItem>();
+        decimal totalTaxAmount = 0m;
+
+        foreach (var item in returnItems)
+        {
+            // Find original item to get tax info
+            var originalItem = item.OriginalInvoiceItemId.HasValue
+                ? originalInvoice.Items.FirstOrDefault(i => i.Oid == item.OriginalInvoiceItemId.Value)
+                : null;
+
+            var taxPercent = originalItem?.TaxPercent ?? 0m;
+            var taxAmount = originalItem?.TaxAmount ?? 0m;
+            totalTaxAmount += taxAmount;
+
+            var vatCategory = taxPercent switch
+            {
+                > 0 => VatCategory.Taxable,
+                0 when originalItem?.TaxPercent.HasValue == true => VatCategory.ZeroRated,
+                _ => VatCategory.Exempt
+            };
+
+            var product = await _productRepository.GetByIdAsync(item.ProductId, cancellationToken);
+
+            enhancedItems.Add(new Application.Interfaces.SalesInvoiceLineItem(
+                ProductId:          item.ProductId,
+                ProductName:        product?.DrugName ?? "Unknown",
+                VatCategory:        vatCategory,
+                Quantity:           item.Quantity,
+                UnitPrice:          item.UnitPrice ?? 0m,
+                LineDiscountAmount: item.DiscountAmount ?? 0m,
+                NetPrice:           item.TotalPrice ?? 0m,
+                TaxPercent:         taxPercent,
+                TaxAmount:          taxAmount,
+                TotalPrice:         (item.TotalPrice ?? 0m) + taxAmount,
+                CostPrice:          originalItem?.CostPrice ?? 0m,
+                LineNumber:         item.LineNumber,
+                IsFreeItem:         false));
+        }
+
+        // Build refund method collection
+        var refundMethods = new List<Application.Interfaces.PaymentMethodDetail>();
+        if (!string.IsNullOrEmpty(paymentMethodCode))
+        {
+            refundMethods.Add(new Application.Interfaces.PaymentMethodDetail(
+                MethodCode:     paymentMethodCode,
+                Amount:         totalAmount,
+                BankAccountId:  null));
+        }
+
         var postingRequest = new ReturnInvoicePostingRequest(
             ReturnInvoiceOid:  createdReturnInvoice.Oid,
             BranchId:          request.ReturnInvoice.BranchId,
             FiscalYearId:      fiscalYear?.Oid,
             ReturnNumber:      returnNumber,
             ReturnDate:        returnInvoice.ReturnDate ?? DateTime.UtcNow,
-            SubTotal:          subTotal,
-            TaxAmount:         0m,
-            TotalAmount:       totalAmount,
-            PaymentMethodCode: paymentMethodCode,
+            Items:             enhancedItems.AsReadOnly(),
+            TotalAmount:       totalAmount + totalTaxAmount,
+            RefundMethods:     refundMethods.AsReadOnly(),
             CustomerId:        originalInvoice.CustomerId);
 
         await _journalPostingService.PostReturnInvoiceAsync(postingRequest, cancellationToken);

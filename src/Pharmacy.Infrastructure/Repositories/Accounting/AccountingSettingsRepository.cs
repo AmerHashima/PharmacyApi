@@ -16,7 +16,7 @@ public class AccountingSettingsRepository : BaseRepository<AccountingSettings>, 
             .Include(s => s.Branch)
             .Include(s => s.SalesAccount)
             .Include(s => s.VatAccount)
-            .Include(s => s.DiscountAccount)
+            .Include(s => s.SalesDiscountAccount)
             .Include(s => s.CogsAccount)
             .Include(s => s.InventoryAccount)
             .Include(s => s.CashAccount)

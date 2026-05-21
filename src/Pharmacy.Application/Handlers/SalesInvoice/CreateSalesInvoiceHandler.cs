@@ -388,29 +388,63 @@ public class CreateSalesInvoiceHandler : IRequestHandler<CreateSalesInvoiceComma
         // Fetch the complete invoice with items
         var completeInvoice = await _invoiceRepository.GetWithItemsAsync(createdInvoice.Oid, cancellationToken);
 
-        // ── Auto-post journal entry ──────────────────────────────────────────
+        // ═══════════════════════════════════════════════════════════════════════
+        // AUTO-POST JOURNAL ENTRY — Enhanced with VAT Classification
+        // ═══════════════════════════════════════════════════════════════════════
+        
         var paymentMethodCode = request.Invoice.PaymentMethodId.HasValue
             ? (await _lookupRepository.GetByIdAsync(request.Invoice.PaymentMethodId.Value, cancellationToken))?.ValueCode
             : null;
 
-        var costItems = invoiceItems
-            .Select(i => (CostPrice: i.CostPrice ?? 0m, i.Quantity))
-            .ToList()
-            .AsReadOnly();
+        // Build enhanced line items with VAT category classification
+        var enhancedItems = invoiceItems.Select(i =>
+        {
+            // Determine VAT category based on TaxPercent
+            var vatCategory = (i.TaxPercent ?? 0) switch
+            {
+                > 0 => VatCategory.Taxable,      // Standard VAT (e.g., 15%)
+                0 when i.TaxPercent.HasValue => VatCategory.ZeroRated,  // Explicitly 0% VAT
+                _ => VatCategory.Exempt          // No VAT at all (null)
+            };
+
+            return new Application.Interfaces.SalesInvoiceLineItem(
+                ProductId:          i.ProductId,
+                ProductName:        i.Product?.DrugName ?? "Unknown",
+                VatCategory:        vatCategory,
+                Quantity:           i.Quantity,
+                UnitPrice:          i.UnitPrice ?? 0m,
+                LineDiscountAmount: i.DiscountAmount ?? 0m,
+                NetPrice:           i.NetPrice ?? 0m,
+                TaxPercent:         i.TaxPercent ?? 0m,
+                TaxAmount:          i.TaxAmount ?? 0m,
+                TotalPrice:         i.TotalPrice ?? 0m,
+                CostPrice:          i.CostPrice ?? 0m,
+                LineNumber:         i.LineNumber,
+                IsFreeItem:         i.IsFreeItem);
+        }).ToList().AsReadOnly();
+
+        // Build payment collection (currently single payment method)
+        var payments = new List<Application.Interfaces.PaymentMethodDetail>();
+        if (!string.IsNullOrEmpty(paymentMethodCode))
+        {
+            var paidAmount = request.Invoice.PaidAmount ?? totalAmount;
+            payments.Add(new Application.Interfaces.PaymentMethodDetail(
+                MethodCode:     paymentMethodCode,
+                Amount:         paidAmount,
+                BankAccountId:  null));  // TODO: Support specific bank account selection
+        }
 
         var postingRequest = new Application.Interfaces.SalesInvoicePostingRequest(
-            InvoiceOid:        createdInvoice.Oid,
-            BranchId:          request.Invoice.BranchId,
-            FiscalYearId:      invoice.FiscalYearId,
-            InvoiceNumber:     invoiceNumber,
-            InvoiceDate:       invoice.InvoiceDate ?? DateTime.UtcNow,
-            SubTotal:          subTotalAfterDiscount,
-            DiscountAmount:    invoiceDiscountAmount,
-            TaxAmount:         invoiceTaxAmount,
-            TotalAmount:       totalAmount,
-            PaymentMethodCode: paymentMethodCode,
-            CustomerId:        customerId,
-            Items:             costItems);
+            InvoiceOid:             createdInvoice.Oid,
+            BranchId:               request.Invoice.BranchId,
+            FiscalYearId:           invoice.FiscalYearId,
+            InvoiceNumber:          invoiceNumber,
+            InvoiceDate:            invoice.InvoiceDate ?? DateTime.UtcNow,
+            Items:                  enhancedItems,
+            InvoiceDiscountAmount:  invoiceDiscountAmount,
+            TotalAmount:            totalAmount,
+            Payments:               payments.AsReadOnly(),
+            CustomerId:             customerId);
 
         await _journalPostingService.PostSalesInvoiceAsync(postingRequest, cancellationToken);
 
