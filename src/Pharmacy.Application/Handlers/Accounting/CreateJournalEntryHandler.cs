@@ -31,7 +31,7 @@ public class CreateJournalEntryHandler : IRequestHandler<CreateJournalEntryComma
         {
             detail.JournalEntryId = master.Oid;
             detail.CreatedAt = DateTime.UtcNow;
-            if (detail.LineNumber == 0)
+            //if (detail.LineNumber == 0)
                 detail.LineNumber = lineNum;
             lineNum++;
         }
