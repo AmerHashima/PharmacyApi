@@ -10,6 +10,7 @@ public class JournalEntryDetailDto
     public Guid? CostCenterId { get; set; }
     public string? CostCenterNameAr { get; set; }
     public string? Description { get; set; }
+    public string? DescriptionAr { get; set; }
     public decimal Debit { get; set; }
     public decimal Credit { get; set; }
     public int LineNumber { get; set; }

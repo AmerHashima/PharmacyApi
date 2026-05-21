@@ -25,6 +25,10 @@ public class JournalEntryDetail : BaseEntity
     [MaxLength(500)]
     public string? Description { get; set; }
 
+    /// <summary>وصف السطر بالعربية</summary>
+    [MaxLength(500)]
+    public string? DescriptionAr { get; set; }
+
     [Column(TypeName = "decimal(18,2)")]
     public decimal Debit { get; set; } = 0;
 
