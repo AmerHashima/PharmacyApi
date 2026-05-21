@@ -4,6 +4,7 @@ using Pharmacy.Application.DTOs.ReturnInvoice;
 using Pharmacy.Application.Interfaces;
 using Pharmacy.Domain.Entities;
 using Pharmacy.Domain.Interfaces;
+using Pharmacy.Domain.Interfaces.Accounting;
 using MediatR;
 
 namespace Pharmacy.Application.Handlers.ReturnInvoice;
@@ -24,6 +25,8 @@ public class CreateReturnInvoiceHandler : IRequestHandler<CreateReturnInvoiceCom
     private readonly IBranchRepository _branchRepository;
     private readonly IAppLookupDetailRepository _lookupRepository;
     private readonly IInvoiceNumberService _invoiceNumberService;
+    private readonly IJournalPostingService _journalPostingService;
+    private readonly IFiscalYearRepository _fiscalYearRepository;
     private readonly IMapper _mapper;
 
     public CreateReturnInvoiceHandler(
@@ -37,6 +40,8 @@ public class CreateReturnInvoiceHandler : IRequestHandler<CreateReturnInvoiceCom
         IBranchRepository branchRepository,
         IAppLookupDetailRepository lookupRepository,
         IInvoiceNumberService invoiceNumberService,
+        IJournalPostingService journalPostingService,
+        IFiscalYearRepository fiscalYearRepository,
         IMapper mapper)
     {
         _returnInvoiceRepository = returnInvoiceRepository;
@@ -49,7 +54,9 @@ public class CreateReturnInvoiceHandler : IRequestHandler<CreateReturnInvoiceCom
         _branchRepository = branchRepository;
         _lookupRepository = lookupRepository;
         _invoiceNumberService = invoiceNumberService;
-        _mapper = mapper;
+        _journalPostingService = journalPostingService;
+        _fiscalYearRepository  = fiscalYearRepository;
+        _mapper               = mapper;
     }
 
     public async Task<ReturnInvoiceDto> Handle(CreateReturnInvoiceCommand request, CancellationToken cancellationToken)
@@ -170,9 +177,11 @@ public class CreateReturnInvoiceHandler : IRequestHandler<CreateReturnInvoiceCom
         var createdReturnInvoice = await _returnInvoiceRepository.AddAsync(returnInvoice, cancellationToken);
 
         // Create return invoice items, update RemainingQuantity, and stock IN transactions
+        int lineCounter = 1;
         foreach (var item in returnItems)
         {
             item.ReturnInvoiceId = createdReturnInvoice.Oid;
+            item.LineNumber = lineCounter++;
             await _returnItemRepository.AddAsync(item, cancellationToken);
 
             // Reduce RemainingQuantity on the original sales invoice item
@@ -206,6 +215,30 @@ public class CreateReturnInvoiceHandler : IRequestHandler<CreateReturnInvoiceCom
 
         // Return the created return invoice with items
         var result = await _returnInvoiceRepository.GetWithItemsAsync(createdReturnInvoice.Oid, cancellationToken);
+
+        // ── Auto-post journal entry ──────────────────────────────────────────
+        var paymentMethodCode = request.ReturnInvoice.PaymentMethodId.HasValue
+            ? (await _lookupRepository.GetByIdAsync(request.ReturnInvoice.PaymentMethodId.Value, cancellationToken))?.ValueCode
+            : null;
+
+        var fiscalYear = await _fiscalYearRepository.GetCurrentAsync(cancellationToken);
+        createdReturnInvoice.FiscalYearId = fiscalYear?.Oid;
+        await _returnInvoiceRepository.UpdateAsync(createdReturnInvoice, cancellationToken);
+
+        var postingRequest = new ReturnInvoicePostingRequest(
+            ReturnInvoiceOid:  createdReturnInvoice.Oid,
+            BranchId:          request.ReturnInvoice.BranchId,
+            FiscalYearId:      fiscalYear?.Oid,
+            ReturnNumber:      returnNumber,
+            ReturnDate:        returnInvoice.ReturnDate ?? DateTime.UtcNow,
+            SubTotal:          subTotal,
+            TaxAmount:         0m,
+            TotalAmount:       totalAmount,
+            PaymentMethodCode: paymentMethodCode,
+            CustomerId:        originalInvoice.CustomerId);
+
+        await _journalPostingService.PostReturnInvoiceAsync(postingRequest, cancellationToken);
+
         return _mapper.Map<ReturnInvoiceDto>(result);
     }
 }

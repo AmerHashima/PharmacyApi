@@ -10,8 +10,10 @@ public class JournalEntryDetailReportDto
     public Guid Oid { get; set; }
     public Guid JournalEntryId { get; set; }
     public string? Description { get; set; }
+    public string? DescriptionAr { get; set; }
     public decimal Debit { get; set; }
     public decimal Credit { get; set; }
+    public int LineNumber { get; set; }
     public DateTime? CreatedAt { get; set; }
 
     // ── Account ───────────────────────────────────────────────

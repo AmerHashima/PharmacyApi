@@ -37,6 +37,7 @@ public sealed class JournalPostingService : IJournalPostingService
     private readonly IFiscalYearRepository _fiscalYearRepo;
     private readonly ICustomerRepository _customerRepo;
     private readonly ISalesInvoiceRepository _invoiceRepo;
+    private readonly IReturnInvoiceRepository _returnInvoiceRepo;
     private readonly PharmacyDbContext _context;
 
     // ValueCode constants — must match AppLookupDetail rows seeded under LookupCode="JOURNAL_REF_TYPE"
@@ -54,15 +55,17 @@ public sealed class JournalPostingService : IJournalPostingService
         IFiscalYearRepository fiscalYearRepo,
         ICustomerRepository customerRepo,
         ISalesInvoiceRepository invoiceRepo,
+        IReturnInvoiceRepository returnInvoiceRepo,
         PharmacyDbContext context)
     {
-        _journalRepo  = journalRepo;
-        _numberService = numberService;
-        _settingsRepo  = settingsRepo;
-        _fiscalYearRepo = fiscalYearRepo;
-        _customerRepo  = customerRepo;
-        _invoiceRepo   = invoiceRepo;
-        _context       = context;
+        _journalRepo       = journalRepo;
+        _numberService     = numberService;
+        _settingsRepo      = settingsRepo;
+        _fiscalYearRepo    = fiscalYearRepo;
+        _customerRepo      = customerRepo;
+        _invoiceRepo       = invoiceRepo;
+        _returnInvoiceRepo = returnInvoiceRepo;
+        _context           = context;
     }
 
     // ─────────────────────────────────────────────────────────────────────
@@ -289,6 +292,14 @@ public sealed class JournalPostingService : IJournalPostingService
             try
             {
                 await _journalRepo.InsertMasterDetailAsync(entry, details, ct);
+
+                var returnInvoice = await _returnInvoiceRepo.GetByIdAsync(req.ReturnInvoiceOid, ct);
+                if (returnInvoice != null)
+                {
+                    returnInvoice.JournalEntryId = entry.Oid;
+                    await _returnInvoiceRepo.UpdateAsync(returnInvoice, ct);
+                }
+
                 await tx.CommitAsync(ct);
             }
             catch

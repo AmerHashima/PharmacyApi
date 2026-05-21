@@ -34,7 +34,9 @@ public class GetJournalEntryDetailReportHandler : IRequestHandler<GetJournalEntr
                 .ThenInclude(j => j.Branch)
             .Include(d => d.JournalEntry)
                 .ThenInclude(j => j.ReferenceType)
-            .Where(d => !d.IsDeleted);
+            .Where(d => !d.IsDeleted)
+            .OrderBy(d => d.JournalEntryId)
+            .ThenBy(d => d.LineNumber);
 
         var paged = await _queryService.ExecuteQueryAsync<JournalEntryDetail>(query, request.QueryRequest.Request);
         return new PagedResult<JournalEntryDetailReportDto>

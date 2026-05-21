@@ -30,6 +30,9 @@ public class ReturnInvoiceItem : BaseEntity
 
     [ForeignKey(nameof(ProductId))]
     public virtual Product Product { get; set; } = null!;
+
+    public int LineNumber { get; set; }
+
     public string? SerialNumber { get; set; }
 
     /// <summary>

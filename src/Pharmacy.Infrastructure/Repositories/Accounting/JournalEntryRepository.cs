@@ -15,9 +15,9 @@ public class JournalEntryRepository : BaseRepository<JournalEntry>, IJournalEntr
         return await _dbSet
             .Include(j => j.FiscalYear)
             .Include(j => j.Branch)
-            .Include(j => j.Details)
+            .Include(j => j.Details.OrderBy(d => d.LineNumber))
                 .ThenInclude(d => d.Account)
-            .Include(j => j.Details)
+            .Include(j => j.Details.OrderBy(d => d.LineNumber))
                 .ThenInclude(d => d.CostCenter)
             .Where(j => j.Oid == id && !j.IsDeleted)
             .FirstOrDefaultAsync(cancellationToken);
