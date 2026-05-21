@@ -7,7 +7,7 @@ public class JournalEntryDetailDto
     public Guid AccountId { get; set; }
     public string? AccountCode { get; set; }
     public string? AccountNameAr { get; set; }
-    public Guid? CostCenterId { get; set; }
+    public Guid? CostCenterId { get; set; }//test
     public string? CostCenterNameAr { get; set; }
     public string? Description { get; set; }
     public string? DescriptionAr { get; set; }
