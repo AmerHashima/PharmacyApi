@@ -119,7 +119,6 @@ public sealed class JournalPostingService : IJournalPostingService
         };
 
         var details = new List<JournalEntryDetail>();
-        int seq = 1;
 
         // ── Section A — Sale ──────────────────────────────────────────────
         //   DR  Customer / Receivable  =  TotalAmount
@@ -130,22 +129,22 @@ public sealed class JournalPostingService : IJournalPostingService
         if (customerAccountId.HasValue)
             details.Add(Detail(entry.Oid, customerAccountId.Value,
                 debit: req.TotalAmount, credit: 0,
-                $"Sale - {req.InvoiceNumber}", seq++));
+                $"Sale - {req.InvoiceNumber}"));
 
         if (req.DiscountAmount > 0 && settings.DiscountAccountId.HasValue)
             details.Add(Detail(entry.Oid, settings.DiscountAccountId.Value,
                 debit: req.DiscountAmount, credit: 0,
-                $"Discount - {req.InvoiceNumber}", seq++));
+                $"Discount - {req.InvoiceNumber}"));
 
         if (settings.SalesAccountId.HasValue)
             details.Add(Detail(entry.Oid, settings.SalesAccountId.Value,
                 debit: 0, credit: req.SubTotal,
-                $"Sales Revenue - {req.InvoiceNumber}", seq++));
+                $"Sales Revenue - {req.InvoiceNumber}"));
 
         if (req.TaxAmount > 0 && settings.VatAccountId.HasValue)
             details.Add(Detail(entry.Oid, settings.VatAccountId.Value,
                 debit: 0, credit: req.TaxAmount,
-                $"VAT - {req.InvoiceNumber}", seq++));
+                $"VAT - {req.InvoiceNumber}"));
 
         // ── Section B — Payment (CASH / BANK only) ────────────────────────
         //   DR  Cash / Bank Account  =  TotalAmount   (money received)
@@ -155,12 +154,12 @@ public sealed class JournalPostingService : IJournalPostingService
         {
             details.Add(Detail(entry.Oid, cashBankAccountId!.Value,
                 debit: req.TotalAmount, credit: 0,
-                $"Payment - {req.InvoiceNumber}", seq++));
+                $"Payment - {req.InvoiceNumber}"));
 
             if (customerAccountId.HasValue)
                 details.Add(Detail(entry.Oid, customerAccountId.Value,
                     debit: 0, credit: req.TotalAmount,
-                    $"Payment - {req.InvoiceNumber}", seq++));
+                    $"Payment - {req.InvoiceNumber}"));
         }
 
         // ── Section C — COGS ──────────────────────────────────────────────
@@ -173,12 +172,12 @@ public sealed class JournalPostingService : IJournalPostingService
             if (settings.CogsAccountId.HasValue)
                 details.Add(Detail(entry.Oid, settings.CogsAccountId.Value,
                     debit: cogsTotal, credit: 0,
-                    $"COGS - {req.InvoiceNumber}", seq++));
+                    $"COGS - {req.InvoiceNumber}"));
 
             if (settings.InventoryAccountId.HasValue)
                 details.Add(Detail(entry.Oid, settings.InventoryAccountId.Value,
                     debit: 0, credit: cogsTotal,
-                    $"COGS - {req.InvoiceNumber}", seq++));
+                    $"COGS - {req.InvoiceNumber}"));
         }
 
         entry.TotalDebit  = details.Sum(d => d.Debit);
@@ -248,22 +247,21 @@ public sealed class JournalPostingService : IJournalPostingService
         };
 
         var details = new List<JournalEntryDetail>();
-        int retSeq = 1;
 
         // DR  Sales Revenue (reversal)
         if (settings.SalesAccountId.HasValue)
             details.Add(Detail(entry.Oid, settings.SalesAccountId.Value,
-                debit: req.SubTotal, credit: 0, req.ReturnNumber, retSeq++));
+                debit: req.SubTotal, credit: 0, req.ReturnNumber));
 
         // DR  VAT Payable (reversal)
         if (req.TaxAmount > 0 && settings.VatAccountId.HasValue)
             details.Add(Detail(entry.Oid, settings.VatAccountId.Value,
-                debit: req.TaxAmount, credit: 0, req.ReturnNumber, retSeq++));
+                debit: req.TaxAmount, credit: 0, req.ReturnNumber));
 
         // CR  Cash / Bank / Customer (refund)
         if (creditAccountId.HasValue)
             details.Add(Detail(entry.Oid, creditAccountId.Value,
-                debit: 0, credit: req.TotalAmount, req.ReturnNumber, retSeq++));
+                debit: 0, credit: req.TotalAmount, req.ReturnNumber));
 
         entry.TotalDebit  = details.Sum(d => d.Debit);
         entry.TotalCredit = details.Sum(d => d.Credit);
@@ -296,7 +294,7 @@ public sealed class JournalPostingService : IJournalPostingService
     }
 
     private static JournalEntryDetail Detail(
-        Guid entryId, Guid accountId, decimal debit, decimal credit, string refNumber, int lineNumber = 0)
+        Guid entryId, Guid accountId, decimal debit, decimal credit, string refNumber)
         => new()
         {
             JournalEntryId = entryId,
@@ -304,7 +302,6 @@ public sealed class JournalPostingService : IJournalPostingService
             Description    = refNumber,
             Debit          = debit,
             Credit         = credit,
-            LineNumber     = lineNumber,
             CreatedAt      = DateTime.UtcNow,
         };
 }

@@ -12,6 +12,8 @@ public class JournalEntryDetailDto
     public string? Description { get; set; }
     public decimal Debit { get; set; }
     public decimal Credit { get; set; }
+    public int LineNumber { get; set; }
+
 }
 
 public class JournalEntryMasterDto
