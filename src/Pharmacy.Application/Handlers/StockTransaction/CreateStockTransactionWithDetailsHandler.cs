@@ -103,17 +103,21 @@ public class CreateStockTransactionWithDetailsHandler
         var transaction = new Domain.Entities.StockTransaction
         {
             TransactionTypeId = request.Transaction.TransactionTypeId,
-            FromBranchId = request.Transaction.FromBranchId,
-            ToBranchId = request.Transaction.ToBranchId,
-            ReferenceNumber = request.Transaction.ReferenceNumber,
-            NotificationId = request.Transaction.NotificationId,
-            TransactionDate = request.Transaction.TransactionDate,
-            SupplierId = request.Transaction.SupplierId,
-            Notes = request.Transaction.Notes,
-            Status = request.Transaction.Status,
-            PayedAmount = request.Transaction.PayedAmount ?? 0,
-            CreatedAt = DateTime.UtcNow,
-            CreatedBy = null
+            FromBranchId      = request.Transaction.FromBranchId,
+            ToBranchId        = request.Transaction.ToBranchId,
+            ReferenceNumber   = request.Transaction.ReferenceNumber,
+            NotificationId    = request.Transaction.NotificationId,
+            TransactionDate   = request.Transaction.TransactionDate,
+            SupplierId        = request.Transaction.SupplierId,
+            Notes             = request.Transaction.Notes,
+            Status            = request.Transaction.Status,
+            StoreId           = request.Transaction.StoreId,
+            SalesInvoiceId    = request.Transaction.SalesInvoiceId,
+            ApprovedBy        = request.Transaction.ApprovedBy,
+            ApprovedDate      = request.Transaction.ApprovedDate,
+            PayedAmount       = request.Transaction.PayedAmount ?? 0,
+            CreatedAt         = DateTime.UtcNow,
+            CreatedBy         = null
         };
 
         var createdTransaction = await _transactionRepository.AddAsync(transaction, cancellationToken);
@@ -139,15 +143,18 @@ public class CreateStockTransactionWithDetailsHandler
                 BatchNumber = detailDto.BatchNumber,
                 ExpiryDate = detailDto.ExpiryDate,
                 SerialNumber = detailDto.SerialNumber,
-                UnitCost = detailDto.UnitCost,
-                TotalCost = grossCost,
-                TaxPercent = detailDto.TaxPercent,
-                TaxAmount = taxAmount,
-                NetCost = netCost,
-                LineNumber = lineNumber++,
-                Notes = detailDto.Notes,
-                CreatedAt = DateTime.UtcNow,
-                CreatedBy = null
+                UnitCost          = detailDto.UnitCost,
+                TotalCost         = grossCost,
+                DiscountPercentOne = detailDto.DiscountPercentOne,
+                DiscountPercentTwo = detailDto.DiscountPercentTwo,
+                ProductPrice      = detailDto.ProductPrice,
+                TaxPercent        = detailDto.TaxPercent,
+                TaxAmount         = taxAmount,
+                NetCost           = netCost,
+                LineNumber        = lineNumber++,
+                Notes             = detailDto.Notes,
+                CreatedAt         = DateTime.UtcNow,
+                CreatedBy         = null
             };
 
             createdTransaction.Details.Add(detail);
@@ -189,7 +196,8 @@ public class CreateStockTransactionWithDetailsHandler
             Items:            postingItems,
             SupplierId:       request.Transaction.SupplierId,
             TotalNetCost:     totalNetCost,
-            TotalTaxAmount:   totalTaxAmount);
+            TotalTaxAmount:   totalTaxAmount,
+            PayedAmount:      request.Transaction.PayedAmount ?? 0);
 
         await _journalPostingService.PostStockTransactionAsync(postingRequest, cancellationToken);
 

@@ -558,8 +558,10 @@ public sealed class JournalPostingService : IJournalPostingService
         {
             // ─────────────────────────────────────────────────────────────
             // IN — Stock received from supplier
-            //   DR Inventory        = totalValue
-            //   CR Supplier Payable = totalValue
+            //   DR Inventory        = netCost (excl. tax)
+            //   DR VAT Input        = TaxAmount (if any)
+            //   CR Cash             = PayedAmount (if paid on spot)
+            //   CR Supplier Payable = totalValue - PayedAmount (remaining)
             // ─────────────────────────────────────────────────────────────
             case "IN":
                 // DR Inventory (net cost excl. tax)
@@ -579,10 +581,18 @@ public sealed class JournalPostingService : IJournalPostingService
                         $"VAT Input - {req.ReferenceNumber}",
                         $"ضريبة مدخلات - {req.ReferenceNumber}", seq++));
 
-                // CR Supplier Payable (gross total incl. tax)
-                if (supplierAccountId.HasValue)
+                // CR Cash — amount paid immediately
+                if (req.PayedAmount > 0 && settings.CashAccountId.HasValue)
+                    details.Add(Detail(entry.Oid, settings.CashAccountId.Value,
+                        debit: 0, credit: req.PayedAmount,
+                        $"Cash Payment - {req.ReferenceNumber}",
+                        $"دفع نقدي - {req.ReferenceNumber}", seq++));
+
+                // CR Supplier Payable — unpaid remainder only
+                var inRemainingPayable = totalValue - req.PayedAmount;
+                if (inRemainingPayable > 0 && supplierAccountId.HasValue)
                     details.Add(Detail(entry.Oid, supplierAccountId.Value,
-                        debit: 0, credit: totalValue,
+                        debit: 0, credit: inRemainingPayable,
                         $"Supplier Payable - {req.ReferenceNumber}",
                         $"دائن مورد - {req.ReferenceNumber}", seq++));
                 break;
@@ -629,16 +639,26 @@ public sealed class JournalPostingService : IJournalPostingService
 
             // ─────────────────────────────────────────────────────────────
             // RETURN — Purchase return to supplier
-            //   DR Supplier Payable = totalValue
-            //   CR Inventory        = totalValue
+            //   DR Supplier Payable = totalValue - PayedAmount (reduce payable)
+            //   DR Cash             = PayedAmount (refund if was paid)
+            //   CR VAT Input        = TaxAmount (if any)
+            //   CR Inventory        = netCost (excl. tax)
             // ─────────────────────────────────────────────────────────────
             case "RETURN":
-                // DR Supplier Payable (gross total incl. tax)
-                if (supplierAccountId.HasValue)
+                // DR Supplier Payable — reduce only the unpaid portion
+                var retRemainingPayable = totalValue - req.PayedAmount;
+                if (retRemainingPayable > 0 && supplierAccountId.HasValue)
                     details.Add(Detail(entry.Oid, supplierAccountId.Value,
-                        debit: totalValue, credit: 0,
+                        debit: retRemainingPayable, credit: 0,
                         $"Purchase Return - {req.ReferenceNumber}",
                         $"مدين مورد - {req.ReferenceNumber}", seq++));
+
+                // DR Cash — refund of amount that was already paid
+                if (req.PayedAmount > 0 && settings.CashAccountId.HasValue)
+                    details.Add(Detail(entry.Oid, settings.CashAccountId.Value,
+                        debit: req.PayedAmount, credit: 0,
+                        $"Cash Refund - {req.ReferenceNumber}",
+                        $"استرداد نقدي - {req.ReferenceNumber}", seq++));
 
                 // CR VAT Input (reverse the recoverable tax)
                 if (req.TotalTaxAmount > 0 && settings.VatInputAccountId.HasValue)

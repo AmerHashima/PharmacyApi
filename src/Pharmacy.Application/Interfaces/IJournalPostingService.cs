@@ -115,9 +115,10 @@ public record StockTransactionPostingRequest(
     DateTime TransactionDate,
     string TypeCode,                           // "IN" | "OUT" | "TRANSFER" | "RETURN" | "ADJUSTMENT" | "EXPIRED" | "DAMAGED"
     IReadOnlyList<StockTransactionLineItem> Items,
-    Guid?  SupplierId    = null,               // Used for IN / RETURN (payable account resolution)
+    Guid?  SupplierId     = null,              // Used for IN / RETURN (payable account resolution)
     decimal TotalNetCost  = 0,                 // Σ NetCost (excl. tax) — used for split journal entries
-    decimal TotalTaxAmount = 0);               // Σ TaxAmount — posted to VAT Input account
+    decimal TotalTaxAmount = 0,                // Σ TaxAmount — posted to VAT Input account
+    decimal PayedAmount   = 0);                // Amount already paid — DR Cash, remainder stays in Supplier Payable
 
 /// <summary>All data needed to post a return invoice reversal.</summary>
 public record ReturnInvoicePostingRequest(

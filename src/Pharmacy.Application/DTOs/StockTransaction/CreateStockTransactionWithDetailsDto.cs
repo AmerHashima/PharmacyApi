@@ -36,6 +36,21 @@ public class CreateStockTransactionWithDetailsDto
     /// </summary>
     public Guid? StoreId { get; set; }
 
+    /// <summary>
+    /// FK to SalesInvoice - links OUT transactions to a sale
+    /// </summary>
+    public Guid? SalesInvoiceId { get; set; }
+
+    /// <summary>
+    /// User who approved the transaction
+    /// </summary>
+    public Guid? ApprovedBy { get; set; }
+
+    /// <summary>
+    /// Date when transaction was approved
+    /// </summary>
+    public DateTime? ApprovedDate { get; set; }
+
     [Range(0, double.MaxValue)]
     public decimal? PayedAmount { get; set; }
 
