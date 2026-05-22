@@ -26,6 +26,8 @@ public class StockTransactionWithDetailsDto
     public string? StoreName { get; set; }
     public DateTime CreatedAt { get; set; }
     public Guid? CreatedBy { get; set; }
+    public decimal? PayedAmount { get; set; }
+    public decimal? RemainingAmount { get; set; }
 
     /// <summary>
     /// Detail lines

@@ -106,4 +106,16 @@ public class StockTransaction : BaseEntity
     /// Collection of detail lines for this transaction
     /// </summary>
     public virtual ICollection<StockTransactionDetail> Details { get; set; } = new List<StockTransactionDetail>();
+
+    /// <summary>
+    /// Total amount paid for this transaction
+    /// </summary>
+    [Column(TypeName = "decimal(18,2)")]
+    public decimal? PayedAmount { get; set; }
+
+    /// <summary>
+    /// Remaining unpaid amount (TotalValue - PayedAmount)
+    /// </summary>
+    [Column(TypeName = "decimal(18,2)")]
+    public decimal? RemainingAmount { get; set; }
 }

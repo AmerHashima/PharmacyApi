@@ -529,6 +529,10 @@ public sealed class JournalPostingService : IJournalPostingService
         var totalValue = req.Items.Sum(i => i.TotalCost);
         var typeCode   = req.TypeCode.ToUpperInvariant();
 
+        // Net amount (excl. tax) — inventory is always booked at cost excl. VAT.
+        // Falls back to totalValue when no tax was supplied (zero-VAT or exempt).
+        var netAmount  = req.TotalNetCost > 0 ? req.TotalNetCost : totalValue;
+
         // ── 3a. Resolve supplier's ledger account (for IN / RETURN) ───────
         Guid? supplierAccountId = await ResolveSupplierAccountAsync(req.SupplierId, ct)
             ?? settings.SupplierPayableAccountId
@@ -591,13 +595,13 @@ public sealed class JournalPostingService : IJournalPostingService
             case "OUT":
                 if (settings.CogsAccountId.HasValue)
                     details.Add(Detail(entry.Oid, settings.CogsAccountId.Value,
-                        debit: totalValue, credit: 0,
+                        debit: netAmount, credit: 0,
                         $"Stock OUT - {req.ReferenceNumber}",
                         $"بضاعة صادرة - {req.ReferenceNumber}", seq++));
 
                 if (settings.InventoryAccountId.HasValue)
                     details.Add(Detail(entry.Oid, settings.InventoryAccountId.Value,
-                        debit: 0, credit: totalValue,
+                        debit: 0, credit: netAmount,
                         $"Inventory OUT - {req.ReferenceNumber}",
                         $"مخزون صادر - {req.ReferenceNumber}", seq++));
                 break;
@@ -612,13 +616,13 @@ public sealed class JournalPostingService : IJournalPostingService
 
                 if (transitAccountId.HasValue)
                     details.Add(Detail(entry.Oid, transitAccountId.Value,
-                        debit: totalValue, credit: 0,
+                        debit: netAmount, credit: 0,
                         $"Transfer OUT - {req.ReferenceNumber}",
                         $"تحويل مخزون - {req.ReferenceNumber}", seq++));
 
                 if (settings.InventoryAccountId.HasValue)
                     details.Add(Detail(entry.Oid, settings.InventoryAccountId.Value,
-                        debit: 0, credit: totalValue,
+                        debit: 0, credit: netAmount,
                         $"Transfer Source - {req.ReferenceNumber}",
                         $"مصدر التحويل - {req.ReferenceNumber}", seq++));
                 break;
@@ -663,18 +667,18 @@ public sealed class JournalPostingService : IJournalPostingService
                 var adjAccountId = settings.InventoryAdjustmentAccountId ?? settings.InventoryLossAccountId;
                 if (adjAccountId.HasValue && settings.InventoryAccountId.HasValue)
                 {
-                    var absTotal  = Math.Abs(totalValue);
-                    bool isSurplus = totalValue >= 0;
+                    var absNet    = Math.Abs(netAmount);
+                    bool isSurplus = netAmount >= 0;
 
                     details.Add(Detail(entry.Oid,
                         isSurplus ? settings.InventoryAccountId.Value : adjAccountId.Value,
-                        debit: absTotal, credit: 0,
+                        debit: absNet, credit: 0,
                         $"Inventory Adjustment - {req.ReferenceNumber}",
                         $"تسوية مخزون - {req.ReferenceNumber}", seq++));
 
                     details.Add(Detail(entry.Oid,
                         isSurplus ? adjAccountId.Value : settings.InventoryAccountId.Value,
-                        debit: 0, credit: absTotal,
+                        debit: 0, credit: absNet,
                         $"Inventory Adjustment - {req.ReferenceNumber}",
                         $"تسوية مخزون - {req.ReferenceNumber}", seq++));
                 }
@@ -690,13 +694,13 @@ public sealed class JournalPostingService : IJournalPostingService
 
                 if (expiredAccountId.HasValue)
                     details.Add(Detail(entry.Oid, expiredAccountId.Value,
-                        debit: totalValue, credit: 0,
+                        debit: netAmount, credit: 0,
                         $"Expired Write-off - {req.ReferenceNumber}",
                         $"شطب منتهي الصلاحية - {req.ReferenceNumber}", seq++));
 
                 if (settings.InventoryAccountId.HasValue)
                     details.Add(Detail(entry.Oid, settings.InventoryAccountId.Value,
-                        debit: 0, credit: totalValue,
+                        debit: 0, credit: netAmount,
                         $"Expired Inventory - {req.ReferenceNumber}",
                         $"مخزون منتهي الصلاحية - {req.ReferenceNumber}", seq++));
                 break;
@@ -711,13 +715,13 @@ public sealed class JournalPostingService : IJournalPostingService
 
                 if (damagedAccountId.HasValue)
                     details.Add(Detail(entry.Oid, damagedAccountId.Value,
-                        debit: totalValue, credit: 0,
+                        debit: netAmount, credit: 0,
                         $"Damaged Write-off - {req.ReferenceNumber}",
                         $"شطب بضاعة تالفة - {req.ReferenceNumber}", seq++));
 
                 if (settings.InventoryAccountId.HasValue)
                     details.Add(Detail(entry.Oid, settings.InventoryAccountId.Value,
-                        debit: 0, credit: totalValue,
+                        debit: 0, credit: netAmount,
                         $"Damaged Inventory - {req.ReferenceNumber}",
                         $"مخزون تالف - {req.ReferenceNumber}", seq++));
                 break;

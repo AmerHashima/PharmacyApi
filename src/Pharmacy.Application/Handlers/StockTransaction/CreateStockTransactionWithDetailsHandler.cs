@@ -111,6 +111,7 @@ public class CreateStockTransactionWithDetailsHandler
             SupplierId = request.Transaction.SupplierId,
             Notes = request.Transaction.Notes,
             Status = request.Transaction.Status,
+            PayedAmount = request.Transaction.PayedAmount ?? 0,
             CreatedAt = DateTime.UtcNow,
             CreatedBy = null
         };
@@ -125,9 +126,9 @@ public class CreateStockTransactionWithDetailsHandler
 
         foreach (var detailDto in request.Transaction.Details)
         {
-            var grossCost   = detailDto.TotalCost ?? (detailDto.Quantity * (detailDto.UnitCost ?? 0));
-            var taxAmount   = detailDto.TaxAmount ?? (grossCost * (detailDto.TaxPercent ?? 0) / 100);
-            var netCost     = detailDto.NetCost ?? (grossCost - taxAmount);
+            var grossCost      = detailDto.TotalCost ?? (detailDto.Quantity * (detailDto.UnitCost ?? 0));
+            var taxAmount      = detailDto.TaxAmount ?? (grossCost * (detailDto.TaxPercent ?? 0) / 100);
+            var netCost        = detailDto.NetCost ?? (grossCost - taxAmount);
 
             var detail = new StockTransactionDetail
             {
@@ -163,7 +164,8 @@ public class CreateStockTransactionWithDetailsHandler
         }
 
         // Update total value on master
-        createdTransaction.TotalValue = totalValue;
+        createdTransaction.TotalValue      = totalValue;
+        createdTransaction.RemainingAmount = totalValue - (createdTransaction.PayedAmount ?? 0);
 
         // Post journal entry for the stock transaction
         var fiscalYear = await _fiscalYearRepository.GetCurrentAsync(cancellationToken);

@@ -36,6 +36,12 @@ public class CreateStockTransactionWithDetailsDto
     /// </summary>
     public Guid? StoreId { get; set; }
 
+    [Range(0, double.MaxValue)]
+    public decimal? PayedAmount { get; set; }
+
+    [Range(0, double.MaxValue)]
+    public decimal? RemainingAmount { get; set; }
+
     /// <summary>
     /// Detail lines for this transaction
     /// </summary>
