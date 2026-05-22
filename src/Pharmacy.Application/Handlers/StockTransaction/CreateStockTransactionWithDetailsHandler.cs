@@ -2,8 +2,10 @@ using AutoMapper;
 using MediatR;
 using Pharmacy.Application.Commands.StockTransaction;
 using Pharmacy.Application.DTOs.StockTransaction;
+using Pharmacy.Application.Interfaces;
 using Pharmacy.Domain.Entities;
 using Pharmacy.Domain.Interfaces;
+using Pharmacy.Domain.Interfaces.Accounting;
 
 namespace Pharmacy.Application.Handlers.StockTransaction;
 
@@ -20,6 +22,8 @@ public class CreateStockTransactionWithDetailsHandler
     private readonly IProductRepository _productRepository;
     private readonly IStockRepository _stockRepository;
     private readonly IAppLookupDetailRepository _lookupDetailRepository;
+    private readonly IJournalPostingService _journalPostingService;
+    private readonly IFiscalYearRepository _fiscalYearRepository;
     private readonly IMapper _mapper;
 
     public CreateStockTransactionWithDetailsHandler(
@@ -29,6 +33,8 @@ public class CreateStockTransactionWithDetailsHandler
         IProductRepository productRepository,
         IStockRepository stockRepository,
         IAppLookupDetailRepository lookupDetailRepository,
+        IJournalPostingService journalPostingService,
+        IFiscalYearRepository fiscalYearRepository,
         IMapper mapper)
     {
         _transactionRepository = transactionRepository;
@@ -37,6 +43,8 @@ public class CreateStockTransactionWithDetailsHandler
         _productRepository = productRepository;
         _stockRepository = stockRepository;
         _lookupDetailRepository = lookupDetailRepository;
+        _journalPostingService = journalPostingService;
+        _fiscalYearRepository = fiscalYearRepository;
         _mapper = mapper;
     }
 
@@ -68,12 +76,14 @@ public class CreateStockTransactionWithDetailsHandler
         // Validate required branches per transaction type
         ValidateBranches(typeCode, request.Transaction.FromBranchId, request.Transaction.ToBranchId);
 
-        // Validate all products exist
+        // Validate all products exist and cache names for journal posting
+        var productNameCache = new Dictionary<Guid, string>();
         foreach (var detailDto in request.Transaction.Details)
         {
             var product = await _productRepository.GetByIdAsync(detailDto.ProductId, cancellationToken);
             if (product == null)
                 throw new KeyNotFoundException($"Product with ID '{detailDto.ProductId}' not found");
+            productNameCache[detailDto.ProductId] = product.DrugName ?? detailDto.ProductId.ToString();
         }
 
         // For OUT/TRANSFER/EXPIRED/DAMAGED — check sufficient stock
@@ -143,6 +153,30 @@ public class CreateStockTransactionWithDetailsHandler
 
         // Update total value on master
         createdTransaction.TotalValue = totalValue;
+
+        // Post journal entry for the stock transaction
+        var fiscalYear = await _fiscalYearRepository.GetCurrentAsync(cancellationToken);
+        var branchId = request.Transaction.FromBranchId ?? request.Transaction.ToBranchId!.Value;
+        var postingItems = request.Transaction.Details.Select((d, i) => new StockTransactionLineItem(
+            ProductId:   d.ProductId,
+            ProductName: productNameCache.GetValueOrDefault(d.ProductId, d.ProductId.ToString()),
+            Quantity:    d.Quantity,
+            UnitCost:    d.UnitCost ?? 0,
+            TotalCost:   d.TotalCost ?? (d.Quantity * (d.UnitCost ?? 0)),
+            LineNumber:  i + 1
+        )).ToList();
+
+        var postingRequest = new StockTransactionPostingRequest(
+            TransactionOid:   createdTransaction.Oid,
+            BranchId:         branchId,
+            FiscalYearId:     fiscalYear?.Oid,
+            ReferenceNumber:  request.Transaction.ReferenceNumber ?? createdTransaction.Oid.ToString(),
+            TransactionDate:  request.Transaction.TransactionDate,
+            TypeCode:         typeCode!,
+            Items:            postingItems,
+            SupplierId:       request.Transaction.SupplierId);
+
+        await _journalPostingService.PostStockTransactionAsync(postingRequest, cancellationToken);
 
         // Fetch complete transaction with all includes
         var completeTransaction = await _transactionRepository.GetByIdAsync(createdTransaction.Oid, cancellationToken);

@@ -93,6 +93,7 @@ public sealed class JournalPostingService : IJournalPostingService
     private readonly IAccountingSettingsRepository _settingsRepo;
     private readonly IFiscalYearRepository _fiscalYearRepo;
     private readonly ICustomerRepository _customerRepo;
+    private readonly IStakeholderRepository _stakeholderRepo;
     private readonly ISalesInvoiceRepository _invoiceRepo;
     private readonly IReturnInvoiceRepository _returnInvoiceRepo;
     private readonly PharmacyDbContext _context;
@@ -110,6 +111,7 @@ public sealed class JournalPostingService : IJournalPostingService
         IAccountingSettingsRepository settingsRepo,
         IFiscalYearRepository fiscalYearRepo,
         ICustomerRepository customerRepo,
+        IStakeholderRepository stakeholderRepo,
         ISalesInvoiceRepository invoiceRepo,
         IReturnInvoiceRepository returnInvoiceRepo,
         PharmacyDbContext context)
@@ -119,6 +121,7 @@ public sealed class JournalPostingService : IJournalPostingService
         _settingsRepo      = settingsRepo;
         _fiscalYearRepo    = fiscalYearRepo;
         _customerRepo      = customerRepo;
+        _stakeholderRepo   = stakeholderRepo;
         _invoiceRepo       = invoiceRepo;
         _returnInvoiceRepo = returnInvoiceRepo;
         _context           = context;
@@ -492,14 +495,282 @@ public sealed class JournalPostingService : IJournalPostingService
     }
 
     // ═════════════════════════════════════════════════════════════════════════
-    // HELPER METHODS
+    // STOCK TRANSACTION POSTING
     // ═════════════════════════════════════════════════════════════════════════
+    //
+    // Journal rules:
+    //   IN         → DR Inventory              CR Purchase (Accounts Payable)
+    //   OUT        → DR COGS / InventoryLoss   CR Inventory
+    //   TRANSFER   → DR Inventory (To-branch)  CR Inventory (From-branch)  [StockTransfer clearing]
+    //   RETURN     → DR Accounts Payable       CR Inventory                 [purchase return to supplier]
+    //   ADJUSTMENT → DR/CR Inventory           CR/DR InventoryAdjustment
+    //   EXPIRED    → DR ExpiredItems           CR Inventory
+    //   DAMAGED    → DR DamagedInventory       CR Inventory
+    // ═════════════════════════════════════════════════════════════════════════
+    public async Task<JournalEntry> PostStockTransactionAsync(
+        StockTransactionPostingRequest req,
+        CancellationToken ct = default)
+    {
+        // ── 1. FiscalYear closed guard ────────────────────────────────────
+        if (req.FiscalYearId.HasValue)
+        {
+            var fy = await _fiscalYearRepo.GetByIdAsync(req.FiscalYearId.Value, ct);
+            if (fy?.IsClosed == true)
+                throw new InvalidOperationException(
+                    $"Cannot post to closed fiscal year (ID={req.FiscalYearId}).");
+        }
+
+        // ── 2. Resolve AccountingSettings ─────────────────────────────────
+        var settings = await _settingsRepo.GetByBranchAsync(req.BranchId, ct)
+            ?? throw new InvalidOperationException(
+                $"AccountingSettings not configured for branch '{req.BranchId}'.");
+
+        // ── 3. Compute total value ────────────────────────────────────────
+        var totalValue = req.Items.Sum(i => i.TotalCost);
+        var typeCode   = req.TypeCode.ToUpperInvariant();
+
+        // ── 3a. Resolve supplier's ledger account (for IN / RETURN) ───────
+        Guid? supplierAccountId = await ResolveSupplierAccountAsync(req.SupplierId, ct)
+            ?? settings.SupplierPayableAccountId
+            ?? settings.PurchaseAccountId;
+
+        // ── 4. Create JournalEntry master ─────────────────────────────────
+        var entryNumber = await _numberService.GenerateJournalEntryNumberAsync(req.BranchId, ct);
+        var entry = new JournalEntry
+        {
+            EntryNumber  = entryNumber,
+            EntryDate    = req.TransactionDate,
+            FiscalYearId = req.FiscalYearId,
+            BranchId     = req.BranchId,
+            Description  = $"{typeCode} - {req.ReferenceNumber}",
+            ReferenceId  = req.TransactionOid,
+            CreatedAt    = DateTime.UtcNow,
+        };
+
+        var details = new List<JournalEntryDetail>();
+        int seq = 1;
+
+        switch (typeCode)
+        {
+            // ─────────────────────────────────────────────────────────────
+            // IN — Stock received from supplier
+            //   DR Inventory          = Σ TotalCost  (asset increases)
+            //   CR Purchase Account   = Σ TotalCost  (liability to supplier)
+            // ─────────────────────────────────────────────────────────────
+            case "IN":
+                foreach (var item in req.Items)
+                {
+                    // DR Inventory — asset increases
+                    if (settings.InventoryAccountId.HasValue)
+                        details.Add(Detail(entry.Oid, settings.InventoryAccountId.Value,
+                            debit: item.TotalCost, credit: 0,
+                            $"Stock IN - {item.ProductName} (Line {item.LineNumber})",
+                            $"بضاعة واردة - {item.ProductName} (سطر {item.LineNumber})", seq++));
+
+                    // CR Supplier Payable — liability to supplier
+                    // Uses supplier's ChildAccountId → SupplierPayableAccountId → PurchaseAccountId
+                    if (supplierAccountId.HasValue)
+                        details.Add(Detail(entry.Oid, supplierAccountId.Value,
+                            debit: 0, credit: item.TotalCost,
+                            $"Supplier Payable - {item.ProductName} (Line {item.LineNumber})",
+                            $"دائن مورد - {item.ProductName} (سطر {item.LineNumber})", seq++));
+                }
+                break;
+
+            // ─────────────────────────────────────────────────────────────
+            // OUT — Stock issued (manual write-off, not POS sale)
+            //   DR COGS               = Σ TotalCost  (expense)
+            //   CR Inventory          = Σ TotalCost  (asset decreases)
+            // ─────────────────────────────────────────────────────────────
+            case "OUT":
+                foreach (var item in req.Items)
+                {
+                    if (settings.CogsAccountId.HasValue)
+                        details.Add(Detail(entry.Oid, settings.CogsAccountId.Value,
+                            debit: item.TotalCost, credit: 0,
+                            $"Stock OUT - {item.ProductName} (Line {item.LineNumber})",
+                            $"بضاعة صادرة - {item.ProductName} (سطر {item.LineNumber})", seq++));
+
+                    if (settings.InventoryAccountId.HasValue)
+                        details.Add(Detail(entry.Oid, settings.InventoryAccountId.Value,
+                            debit: 0, credit: item.TotalCost,
+                            $"Inventory OUT - {item.ProductName} (Line {item.LineNumber})",
+                            $"مخزون صادر - {item.ProductName} (سطر {item.LineNumber})", seq++));
+                }
+                break;
+
+            // ─────────────────────────────────────────────────────────────
+            // TRANSFER — Move stock between branches
+            //   DR StockTransfer (To-branch clearing)   = Σ TotalCost
+            //   CR Inventory (From-branch)               = Σ TotalCost
+            // Note: When goods arrive at destination a second IN entry clears the transit account.
+            // ─────────────────────────────────────────────────────────────
+            case "TRANSFER":
+                foreach (var item in req.Items)
+                {
+                    var transitAccountId = settings.StockTransferAccountId ?? settings.InventoryAccountId;
+
+                    if (transitAccountId.HasValue)
+                        details.Add(Detail(entry.Oid, transitAccountId.Value,
+                            debit: item.TotalCost, credit: 0,
+                            $"Transfer OUT - {item.ProductName} (Line {item.LineNumber})",
+                            $"تحويل مخزون - {item.ProductName} (سطر {item.LineNumber})", seq++));
+
+                    if (settings.InventoryAccountId.HasValue)
+                        details.Add(Detail(entry.Oid, settings.InventoryAccountId.Value,
+                            debit: 0, credit: item.TotalCost,
+                            $"Transfer Source - {item.ProductName} (Line {item.LineNumber})",
+                            $"مصدر التحويل - {item.ProductName} (سطر {item.LineNumber})", seq++));
+                }
+                break;
+
+            // ─────────────────────────────────────────────────────────────
+            // RETURN — Purchase return to supplier
+            //   DR Accounts Payable   = Σ TotalCost  (reduces liability)
+            //   CR Inventory          = Σ TotalCost  (asset decreases)
+            // ─────────────────────────────────────────────────────────────
+            case "RETURN":
+                foreach (var item in req.Items)
+                {
+                    // DR Supplier Payable — reduces liability (purchase return)
+                    // Uses supplier's ChildAccountId → SupplierPayableAccountId → PurchaseAccountId
+                    if (supplierAccountId.HasValue)
+                        details.Add(Detail(entry.Oid, supplierAccountId.Value,
+                            debit: item.TotalCost, credit: 0,
+                            $"Purchase Return - {item.ProductName} (Line {item.LineNumber})",
+                            $"مرتجع مشتريات - {item.ProductName} (سطر {item.LineNumber})", seq++));
+
+                    // CR Inventory — asset decreases
+                    if (settings.InventoryAccountId.HasValue)
+                        details.Add(Detail(entry.Oid, settings.InventoryAccountId.Value,
+                            debit: 0, credit: item.TotalCost,
+                            $"Return to Supplier - {item.ProductName} (Line {item.LineNumber})",
+                            $"إرجاع للمورد - {item.ProductName} (سطر {item.LineNumber})", seq++));
+                }
+                break;
+
+            // ─────────────────────────────────────────────────────────────
+            // ADJUSTMENT — Inventory count correction
+            //   If totalValue > 0 (stock surplus):
+            //     DR Inventory                = totalValue
+            //     CR InventoryAdjustment      = totalValue
+            //   If totalValue < 0 (stock shortage):
+            //     DR InventoryAdjustment      = |totalValue|
+            //     CR Inventory                = |totalValue|
+            // ─────────────────────────────────────────────────────────────
+            case "ADJUSTMENT":
+                var adjAccountId = settings.InventoryAdjustmentAccountId ?? settings.InventoryLossAccountId;
+                if (adjAccountId.HasValue && settings.InventoryAccountId.HasValue)
+                {
+                    var absTotal = Math.Abs(totalValue);
+                    bool isSurplus = totalValue >= 0;
+
+                    details.Add(Detail(entry.Oid,
+                        isSurplus ? settings.InventoryAccountId.Value : adjAccountId.Value,
+                        debit: absTotal, credit: 0,
+                        $"Inventory Adjustment - {req.ReferenceNumber}",
+                        $"تسوية مخزون - {req.ReferenceNumber}", seq++));
+
+                    details.Add(Detail(entry.Oid,
+                        isSurplus ? adjAccountId.Value : settings.InventoryAccountId.Value,
+                        debit: 0, credit: absTotal,
+                        $"Inventory Adjustment - {req.ReferenceNumber}",
+                        $"تسوية مخزون - {req.ReferenceNumber}", seq++));
+                }
+                break;
+
+            // ─────────────────────────────────────────────────────────────
+            // EXPIRED — Write off expired pharmaceuticals
+            //   DR ExpiredItems       = Σ TotalCost
+            //   CR Inventory          = Σ TotalCost
+            // ─────────────────────────────────────────────────────────────
+            case "EXPIRED":
+                foreach (var item in req.Items)
+                {
+                    var expiredAccountId = settings.ExpiredItemsAccountId ?? settings.InventoryLossAccountId;
+
+                    if (expiredAccountId.HasValue)
+                        details.Add(Detail(entry.Oid, expiredAccountId.Value,
+                            debit: item.TotalCost, credit: 0,
+                            $"Expired - {item.ProductName} (Line {item.LineNumber})",
+                            $"بضاعة منتهية الصلاحية - {item.ProductName} (سطر {item.LineNumber})", seq++));
+
+                    if (settings.InventoryAccountId.HasValue)
+                        details.Add(Detail(entry.Oid, settings.InventoryAccountId.Value,
+                            debit: 0, credit: item.TotalCost,
+                            $"Expired Write-off - {item.ProductName} (Line {item.LineNumber})",
+                            $"شطب منتهي الصلاحية - {item.ProductName} (سطر {item.LineNumber})", seq++));
+                }
+                break;
+
+            // ─────────────────────────────────────────────────────────────
+            // DAMAGED — Write off damaged stock
+            //   DR DamagedInventory   = Σ TotalCost
+            //   CR Inventory          = Σ TotalCost
+            // ─────────────────────────────────────────────────────────────
+            case "DAMAGED":
+                foreach (var item in req.Items)
+                {
+                    var damagedAccountId = settings.DamagedInventoryAccountId ?? settings.InventoryLossAccountId;
+
+                    if (damagedAccountId.HasValue)
+                        details.Add(Detail(entry.Oid, damagedAccountId.Value,
+                            debit: item.TotalCost, credit: 0,
+                            $"Damaged - {item.ProductName} (Line {item.LineNumber})",
+                            $"بضاعة تالفة - {item.ProductName} (سطر {item.LineNumber})", seq++));
+
+                    if (settings.InventoryAccountId.HasValue)
+                        details.Add(Detail(entry.Oid, settings.InventoryAccountId.Value,
+                            debit: 0, credit: item.TotalCost,
+                            $"Damaged Write-off - {item.ProductName} (Line {item.LineNumber})",
+                            $"شطب بضاعة تالفة - {item.ProductName} (سطر {item.LineNumber})", seq++));
+                }
+                break;
+
+            default:
+                throw new InvalidOperationException($"Unknown transaction type '{req.TypeCode}' for journal posting.");
+        }
+
+        // ── 5. Validate balance ───────────────────────────────────────────
+        entry.TotalDebit  = details.Sum(d => d.Debit);
+        entry.TotalCredit = details.Sum(d => d.Credit);
+
+        if (Math.Abs(entry.TotalDebit - entry.TotalCredit) > 0.01m)
+            throw new InvalidOperationException(
+                $"Unbalanced stock transaction entry: DR={entry.TotalDebit:F2}, CR={entry.TotalCredit:F2}");
+
+        // ── 6. Persist in atomic transaction ──────────────────────────────
+        var strategy = _context.Database.CreateExecutionStrategy();
+        await strategy.ExecuteAsync(async () =>
+        {
+            await using var tx = await _context.Database.BeginTransactionAsync(ct);
+            try
+            {
+                await _journalRepo.InsertMasterDetailAsync(entry, details, ct);
+                await tx.CommitAsync(ct);
+            }
+            catch
+            {
+                await tx.RollbackAsync(ct);
+                throw;
+            }
+        });
+
+        return entry;
+    }
 
     private async Task<Guid?> ResolveCustomerAccountAsync(Guid? customerId, CancellationToken ct)
     {
         if (!customerId.HasValue) return null;
         var customer = await _customerRepo.GetByIdAsync(customerId.Value, ct);
         return customer?.ChildAccountId;
+    }
+
+    private async Task<Guid?> ResolveSupplierAccountAsync(Guid? supplierId, CancellationToken ct)
+    {
+        if (!supplierId.HasValue) return null;
+        var supplier = await _stakeholderRepo.GetByIdAsync(supplierId.Value, ct);
+        return supplier?.ChildAccountId;
     }
 
     private static JournalEntryDetail Detail(

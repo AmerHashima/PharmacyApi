@@ -269,12 +269,14 @@ public class CreateReturnInvoiceHandler : IRequestHandler<CreateReturnInvoiceCom
         }
 
         // Build refund method collection
+        // Refund amount must include VAT (totalAmount is net, totalTaxAmount is VAT portion)
+        var refundTotal = totalAmount + totalTaxAmount;
         var refundMethods = new List<Application.Interfaces.PaymentMethodDetail>();
         if (!string.IsNullOrEmpty(paymentMethodCode))
         {
             refundMethods.Add(new Application.Interfaces.PaymentMethodDetail(
                 MethodCode:     paymentMethodCode,
-                Amount:         totalAmount,
+                Amount:         refundTotal,
                 BankAccountId:  null));
         }
 
@@ -285,7 +287,7 @@ public class CreateReturnInvoiceHandler : IRequestHandler<CreateReturnInvoiceCom
             ReturnNumber:      returnNumber,
             ReturnDate:        returnInvoice.ReturnDate ?? DateTime.UtcNow,
             Items:             enhancedItems.AsReadOnly(),
-            TotalAmount:       totalAmount + totalTaxAmount,
+            TotalAmount:       refundTotal,
             RefundMethods:     refundMethods.AsReadOnly(),
             CustomerId:        originalInvoice.CustomerId);
 

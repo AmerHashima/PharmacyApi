@@ -80,6 +80,43 @@ public record SalesInvoicePostingRequest(
 /// <summary>Result of a successful sales invoice posting.</summary>
 public record SalesInvoicePostingResult(JournalEntry Entry);
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Stock Transaction Posting
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// <summary>
+/// Single line item inside a stock transaction.
+/// </summary>
+public record StockTransactionLineItem(
+    Guid   ProductId,
+    string ProductName,
+    decimal Quantity,
+    decimal UnitCost,
+    decimal TotalCost,
+    int    LineNumber);
+
+/// <summary>
+/// All data the journal posting service needs to post a stock transaction.
+///
+/// Journal rules per type:
+///   IN         → DR Inventory            CR Accounts Payable / Purchase
+///   OUT        → DR COGS / InventoryLoss  CR Inventory
+///   TRANSFER   → DR StockTransfer (To)   CR Inventory (From)
+///   RETURN     → DR Accounts Payable     CR Inventory   (purchase return)
+///   ADJUSTMENT → DR/CR Inventory         CR/DR InventoryAdjustment
+///   EXPIRED    → DR ExpiredItems          CR Inventory
+///   DAMAGED    → DR DamagedInventory      CR Inventory
+/// </summary>
+public record StockTransactionPostingRequest(
+    Guid   TransactionOid,
+    Guid   BranchId,
+    Guid?  FiscalYearId,
+    string ReferenceNumber,
+    DateTime TransactionDate,
+    string TypeCode,                           // "IN" | "OUT" | "TRANSFER" | "RETURN" | "ADJUSTMENT" | "EXPIRED" | "DAMAGED"
+    IReadOnlyList<StockTransactionLineItem> Items,
+    Guid?  SupplierId = null);                 // Used for IN / RETURN (payable account resolution)
+
 /// <summary>All data needed to post a return invoice reversal.</summary>
 public record ReturnInvoicePostingRequest(
     Guid ReturnInvoiceOid,
@@ -118,5 +155,13 @@ public interface IJournalPostingService
     /// </summary>
     Task<JournalEntry> PostReturnInvoiceAsync(
         ReturnInvoicePostingRequest req,
+        CancellationToken ct = default);
+
+    /// <summary>
+    /// Posts a stock transaction (IN / OUT / TRANSFER / RETURN / ADJUSTMENT / EXPIRED / DAMAGED).
+    /// Creates the correct double-entry journal based on the transaction type.
+    /// </summary>
+    Task<JournalEntry> PostStockTransactionAsync(
+        StockTransactionPostingRequest req,
         CancellationToken ct = default);
 }
