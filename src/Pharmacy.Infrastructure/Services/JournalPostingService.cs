@@ -558,12 +558,24 @@ public sealed class JournalPostingService : IJournalPostingService
             //   CR Supplier Payable = totalValue
             // ─────────────────────────────────────────────────────────────
             case "IN":
+                // DR Inventory (net cost excl. tax)
                 if (settings.InventoryAccountId.HasValue)
+                {
+                    var invAmount = req.TotalNetCost > 0 ? req.TotalNetCost : totalValue;
                     details.Add(Detail(entry.Oid, settings.InventoryAccountId.Value,
-                        debit: totalValue, credit: 0,
+                        debit: invAmount, credit: 0,
                         $"Stock IN - {req.ReferenceNumber}",
                         $"بضاعة واردة - {req.ReferenceNumber}", seq++));
+                }
 
+                // DR VAT Input (recoverable purchase tax)
+                if (req.TotalTaxAmount > 0 && settings.VatInputAccountId.HasValue)
+                    details.Add(Detail(entry.Oid, settings.VatInputAccountId.Value,
+                        debit: req.TotalTaxAmount, credit: 0,
+                        $"VAT Input - {req.ReferenceNumber}",
+                        $"ضريبة مدخلات - {req.ReferenceNumber}", seq++));
+
+                // CR Supplier Payable (gross total incl. tax)
                 if (supplierAccountId.HasValue)
                     details.Add(Detail(entry.Oid, supplierAccountId.Value,
                         debit: 0, credit: totalValue,
@@ -617,17 +629,29 @@ public sealed class JournalPostingService : IJournalPostingService
             //   CR Inventory        = totalValue
             // ─────────────────────────────────────────────────────────────
             case "RETURN":
+                // DR Supplier Payable (gross total incl. tax)
                 if (supplierAccountId.HasValue)
                     details.Add(Detail(entry.Oid, supplierAccountId.Value,
                         debit: totalValue, credit: 0,
                         $"Purchase Return - {req.ReferenceNumber}",
                         $"مدين مورد - {req.ReferenceNumber}", seq++));
 
+                // CR VAT Input (reverse the recoverable tax)
+                if (req.TotalTaxAmount > 0 && settings.VatInputAccountId.HasValue)
+                    details.Add(Detail(entry.Oid, settings.VatInputAccountId.Value,
+                        debit: 0, credit: req.TotalTaxAmount,
+                        $"VAT Input Reversal - {req.ReferenceNumber}",
+                        $"عكس ضريبة مدخلات - {req.ReferenceNumber}", seq++));
+
+                // CR Inventory (net cost excl. tax)
                 if (settings.InventoryAccountId.HasValue)
+                {
+                    var invAmount = req.TotalNetCost > 0 ? req.TotalNetCost : totalValue;
                     details.Add(Detail(entry.Oid, settings.InventoryAccountId.Value,
-                        debit: 0, credit: totalValue,
+                        debit: 0, credit: invAmount,
                         $"Return to Supplier - {req.ReferenceNumber}",
                         $"إرجاع للمورد - {req.ReferenceNumber}", seq++));
+                }
                 break;
 
             // ─────────────────────────────────────────────────────────────

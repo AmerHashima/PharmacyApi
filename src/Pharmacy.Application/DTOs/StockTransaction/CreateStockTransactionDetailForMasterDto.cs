@@ -38,4 +38,13 @@ public class CreateStockTransactionDetailForMasterDto
 
     [StringLength(500, ErrorMessage = "Notes cannot exceed 500 characters")]
     public string? Notes { get; set; }
+
+    [Range(0, 100, ErrorMessage = "Tax percent must be between 0 and 100")]
+    public decimal? TaxPercent { get; set; }
+
+    [Range(0, double.MaxValue, ErrorMessage = "Tax amount must be a positive value")]
+    public decimal? TaxAmount { get; set; }
+
+    [Range(0, double.MaxValue, ErrorMessage = "Net cost must be a positive value")]
+    public decimal? NetCost { get; set; }
 }

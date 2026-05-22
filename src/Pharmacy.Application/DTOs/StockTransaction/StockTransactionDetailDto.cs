@@ -22,5 +22,8 @@ public class StockTransactionDetailDto
     public decimal? DiscountPercentOne { get; set; }
     public decimal? DiscountPercentTwo { get; set; }
     public decimal? ProductPrice { get; set; }
+    public decimal? TaxPercent { get; set; }
+    public decimal? TaxAmount { get; set; }
+    public decimal? NetCost { get; set; }
     public DateTime CreatedAt { get; set; }
 }

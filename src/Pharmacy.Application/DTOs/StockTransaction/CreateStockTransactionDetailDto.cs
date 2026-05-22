@@ -48,4 +48,13 @@ public class CreateStockTransactionDetailDto
 
     [Range(0, double.MaxValue, ErrorMessage = "Product price must be a positive value")]
     public decimal? ProductPrice { get; set; }
+
+    [Range(0, 100, ErrorMessage = "Tax percent must be between 0 and 100")]
+    public decimal? TaxPercent { get; set; }
+
+    [Range(0, double.MaxValue, ErrorMessage = "Tax amount must be a positive value")]
+    public decimal? TaxAmount { get; set; }
+
+    [Range(0, double.MaxValue, ErrorMessage = "Net cost must be a positive value")]
+    public decimal? NetCost { get; set; }
 }

@@ -120,9 +120,15 @@ public class CreateStockTransactionWithDetailsHandler
         // Create detail lines and update stock
         int lineNumber = 1;
         decimal totalValue = 0;
+        decimal totalNetCost = 0;
+        decimal totalTaxAmount = 0;
 
         foreach (var detailDto in request.Transaction.Details)
         {
+            var grossCost   = detailDto.TotalCost ?? (detailDto.Quantity * (detailDto.UnitCost ?? 0));
+            var taxAmount   = detailDto.TaxAmount ?? (grossCost * (detailDto.TaxPercent ?? 0) / 100);
+            var netCost     = detailDto.NetCost ?? (grossCost - taxAmount);
+
             var detail = new StockTransactionDetail
             {
                 StockTransactionId = createdTransaction.Oid,
@@ -133,7 +139,10 @@ public class CreateStockTransactionWithDetailsHandler
                 ExpiryDate = detailDto.ExpiryDate,
                 SerialNumber = detailDto.SerialNumber,
                 UnitCost = detailDto.UnitCost,
-                TotalCost = detailDto.TotalCost ?? (detailDto.Quantity * (detailDto.UnitCost ?? 0)),
+                TotalCost = grossCost,
+                TaxPercent = detailDto.TaxPercent,
+                TaxAmount = taxAmount,
+                NetCost = netCost,
                 LineNumber = lineNumber++,
                 Notes = detailDto.Notes,
                 CreatedAt = DateTime.UtcNow,
@@ -143,7 +152,9 @@ public class CreateStockTransactionWithDetailsHandler
             createdTransaction.Details.Add(detail);
             await _StockTransactionDetail.AddAsync(detail, cancellationToken);
 
-            totalValue += detail.TotalCost ?? 0;
+            totalValue    += grossCost;
+            totalNetCost  += netCost;
+            totalTaxAmount += taxAmount;
 
             // Update stock based on transaction type
             await UpdateStockAsync(typeCode, detailDto.ProductId, detailDto.Quantity,
@@ -174,7 +185,9 @@ public class CreateStockTransactionWithDetailsHandler
             TransactionDate:  request.Transaction.TransactionDate,
             TypeCode:         typeCode!,
             Items:            postingItems,
-            SupplierId:       request.Transaction.SupplierId);
+            SupplierId:       request.Transaction.SupplierId,
+            TotalNetCost:     totalNetCost,
+            TotalTaxAmount:   totalTaxAmount);
 
         await _journalPostingService.PostStockTransactionAsync(postingRequest, cancellationToken);
 

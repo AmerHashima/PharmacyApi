@@ -99,4 +99,22 @@ public class StockTransactionDetail : BaseEntity
     /// </summary>
     [Column(TypeName = "decimal(18,2)")]
     public decimal? ProductPrice { get; set; }
+
+    /// <summary>
+    /// Tax percentage applied to this line (e.g. 15 for 15% VAT)
+    /// </summary>
+    [Column(TypeName = "decimal(5,2)")]
+    public decimal? TaxPercent { get; set; }
+
+    /// <summary>
+    /// Tax amount for this line (UnitCost × Quantity × TaxPercent / 100)
+    /// </summary>
+    [Column(TypeName = "decimal(18,2)")]
+    public decimal? TaxAmount { get; set; }
+
+    /// <summary>
+    /// Net cost before tax (TotalCost excluding tax)
+    /// </summary>
+    [Column(TypeName = "decimal(18,2)")]
+    public decimal? NetCost { get; set; }
 }
