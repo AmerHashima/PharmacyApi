@@ -554,115 +554,92 @@ public sealed class JournalPostingService : IJournalPostingService
         {
             // ─────────────────────────────────────────────────────────────
             // IN — Stock received from supplier
-            //   DR Inventory          = Σ TotalCost  (asset increases)
-            //   CR Purchase Account   = Σ TotalCost  (liability to supplier)
+            //   DR Inventory        = totalValue
+            //   CR Supplier Payable = totalValue
             // ─────────────────────────────────────────────────────────────
             case "IN":
-                foreach (var item in req.Items)
-                {
-                    // DR Inventory — asset increases
-                    if (settings.InventoryAccountId.HasValue)
-                        details.Add(Detail(entry.Oid, settings.InventoryAccountId.Value,
-                            debit: item.TotalCost, credit: 0,
-                            $"Stock IN - {item.ProductName} (Line {item.LineNumber})",
-                            $"بضاعة واردة - {item.ProductName} (سطر {item.LineNumber})", seq++));
+                if (settings.InventoryAccountId.HasValue)
+                    details.Add(Detail(entry.Oid, settings.InventoryAccountId.Value,
+                        debit: totalValue, credit: 0,
+                        $"Stock IN - {req.ReferenceNumber}",
+                        $"بضاعة واردة - {req.ReferenceNumber}", seq++));
 
-                    // CR Supplier Payable — liability to supplier
-                    // Uses supplier's ChildAccountId → SupplierPayableAccountId → PurchaseAccountId
-                    if (supplierAccountId.HasValue)
-                        details.Add(Detail(entry.Oid, supplierAccountId.Value,
-                            debit: 0, credit: item.TotalCost,
-                            $"Supplier Payable - {item.ProductName} (Line {item.LineNumber})",
-                            $"دائن مورد - {item.ProductName} (سطر {item.LineNumber})", seq++));
-                }
+                if (supplierAccountId.HasValue)
+                    details.Add(Detail(entry.Oid, supplierAccountId.Value,
+                        debit: 0, credit: totalValue,
+                        $"Supplier Payable - {req.ReferenceNumber}",
+                        $"دائن مورد - {req.ReferenceNumber}", seq++));
                 break;
 
             // ─────────────────────────────────────────────────────────────
-            // OUT — Stock issued (manual write-off, not POS sale)
-            //   DR COGS               = Σ TotalCost  (expense)
-            //   CR Inventory          = Σ TotalCost  (asset decreases)
+            // OUT — Stock issued (manual write-off)
+            //   DR COGS      = totalValue
+            //   CR Inventory = totalValue
             // ─────────────────────────────────────────────────────────────
             case "OUT":
-                foreach (var item in req.Items)
-                {
-                    if (settings.CogsAccountId.HasValue)
-                        details.Add(Detail(entry.Oid, settings.CogsAccountId.Value,
-                            debit: item.TotalCost, credit: 0,
-                            $"Stock OUT - {item.ProductName} (Line {item.LineNumber})",
-                            $"بضاعة صادرة - {item.ProductName} (سطر {item.LineNumber})", seq++));
+                if (settings.CogsAccountId.HasValue)
+                    details.Add(Detail(entry.Oid, settings.CogsAccountId.Value,
+                        debit: totalValue, credit: 0,
+                        $"Stock OUT - {req.ReferenceNumber}",
+                        $"بضاعة صادرة - {req.ReferenceNumber}", seq++));
 
-                    if (settings.InventoryAccountId.HasValue)
-                        details.Add(Detail(entry.Oid, settings.InventoryAccountId.Value,
-                            debit: 0, credit: item.TotalCost,
-                            $"Inventory OUT - {item.ProductName} (Line {item.LineNumber})",
-                            $"مخزون صادر - {item.ProductName} (سطر {item.LineNumber})", seq++));
-                }
+                if (settings.InventoryAccountId.HasValue)
+                    details.Add(Detail(entry.Oid, settings.InventoryAccountId.Value,
+                        debit: 0, credit: totalValue,
+                        $"Inventory OUT - {req.ReferenceNumber}",
+                        $"مخزون صادر - {req.ReferenceNumber}", seq++));
                 break;
 
             // ─────────────────────────────────────────────────────────────
             // TRANSFER — Move stock between branches
-            //   DR StockTransfer (To-branch clearing)   = Σ TotalCost
-            //   CR Inventory (From-branch)               = Σ TotalCost
-            // Note: When goods arrive at destination a second IN entry clears the transit account.
+            //   DR StockTransfer (transit clearing) = totalValue
+            //   CR Inventory (from-branch)           = totalValue
             // ─────────────────────────────────────────────────────────────
             case "TRANSFER":
-                foreach (var item in req.Items)
-                {
-                    var transitAccountId = settings.StockTransferAccountId ?? settings.InventoryAccountId;
+                var transitAccountId = settings.StockTransferAccountId ?? settings.InventoryAccountId;
 
-                    if (transitAccountId.HasValue)
-                        details.Add(Detail(entry.Oid, transitAccountId.Value,
-                            debit: item.TotalCost, credit: 0,
-                            $"Transfer OUT - {item.ProductName} (Line {item.LineNumber})",
-                            $"تحويل مخزون - {item.ProductName} (سطر {item.LineNumber})", seq++));
+                if (transitAccountId.HasValue)
+                    details.Add(Detail(entry.Oid, transitAccountId.Value,
+                        debit: totalValue, credit: 0,
+                        $"Transfer OUT - {req.ReferenceNumber}",
+                        $"تحويل مخزون - {req.ReferenceNumber}", seq++));
 
-                    if (settings.InventoryAccountId.HasValue)
-                        details.Add(Detail(entry.Oid, settings.InventoryAccountId.Value,
-                            debit: 0, credit: item.TotalCost,
-                            $"Transfer Source - {item.ProductName} (Line {item.LineNumber})",
-                            $"مصدر التحويل - {item.ProductName} (سطر {item.LineNumber})", seq++));
-                }
+                if (settings.InventoryAccountId.HasValue)
+                    details.Add(Detail(entry.Oid, settings.InventoryAccountId.Value,
+                        debit: 0, credit: totalValue,
+                        $"Transfer Source - {req.ReferenceNumber}",
+                        $"مصدر التحويل - {req.ReferenceNumber}", seq++));
                 break;
 
             // ─────────────────────────────────────────────────────────────
             // RETURN — Purchase return to supplier
-            //   DR Accounts Payable   = Σ TotalCost  (reduces liability)
-            //   CR Inventory          = Σ TotalCost  (asset decreases)
+            //   DR Supplier Payable = totalValue
+            //   CR Inventory        = totalValue
             // ─────────────────────────────────────────────────────────────
             case "RETURN":
-                foreach (var item in req.Items)
-                {
-                    // DR Supplier Payable — reduces liability (purchase return)
-                    // Uses supplier's ChildAccountId → SupplierPayableAccountId → PurchaseAccountId
-                    if (supplierAccountId.HasValue)
-                        details.Add(Detail(entry.Oid, supplierAccountId.Value,
-                            debit: item.TotalCost, credit: 0,
-                            $"Purchase Return - {item.ProductName} (Line {item.LineNumber})",
-                            $"مرتجع مشتريات - {item.ProductName} (سطر {item.LineNumber})", seq++));
+                if (supplierAccountId.HasValue)
+                    details.Add(Detail(entry.Oid, supplierAccountId.Value,
+                        debit: totalValue, credit: 0,
+                        $"Purchase Return - {req.ReferenceNumber}",
+                        $"مدين مورد - {req.ReferenceNumber}", seq++));
 
-                    // CR Inventory — asset decreases
-                    if (settings.InventoryAccountId.HasValue)
-                        details.Add(Detail(entry.Oid, settings.InventoryAccountId.Value,
-                            debit: 0, credit: item.TotalCost,
-                            $"Return to Supplier - {item.ProductName} (Line {item.LineNumber})",
-                            $"إرجاع للمورد - {item.ProductName} (سطر {item.LineNumber})", seq++));
-                }
+                if (settings.InventoryAccountId.HasValue)
+                    details.Add(Detail(entry.Oid, settings.InventoryAccountId.Value,
+                        debit: 0, credit: totalValue,
+                        $"Return to Supplier - {req.ReferenceNumber}",
+                        $"إرجاع للمورد - {req.ReferenceNumber}", seq++));
                 break;
 
             // ─────────────────────────────────────────────────────────────
             // ADJUSTMENT — Inventory count correction
-            //   If totalValue > 0 (stock surplus):
-            //     DR Inventory                = totalValue
-            //     CR InventoryAdjustment      = totalValue
-            //   If totalValue < 0 (stock shortage):
-            //     DR InventoryAdjustment      = |totalValue|
-            //     CR Inventory                = |totalValue|
+            //   Surplus (totalValue > 0): DR Inventory  CR AdjustmentAccount
+            //   Shortage (totalValue < 0): DR AdjustmentAccount  CR Inventory
             // ─────────────────────────────────────────────────────────────
             case "ADJUSTMENT":
                 var adjAccountId = settings.InventoryAdjustmentAccountId ?? settings.InventoryLossAccountId;
                 if (adjAccountId.HasValue && settings.InventoryAccountId.HasValue)
                 {
-                    var absTotal = Math.Abs(totalValue);
+                    var absTotal  = Math.Abs(totalValue);
                     bool isSurplus = totalValue >= 0;
 
                     details.Add(Detail(entry.Oid,
@@ -681,50 +658,44 @@ public sealed class JournalPostingService : IJournalPostingService
 
             // ─────────────────────────────────────────────────────────────
             // EXPIRED — Write off expired pharmaceuticals
-            //   DR ExpiredItems       = Σ TotalCost
-            //   CR Inventory          = Σ TotalCost
+            //   DR ExpiredItems = totalValue
+            //   CR Inventory    = totalValue
             // ─────────────────────────────────────────────────────────────
             case "EXPIRED":
-                foreach (var item in req.Items)
-                {
-                    var expiredAccountId = settings.ExpiredItemsAccountId ?? settings.InventoryLossAccountId;
+                var expiredAccountId = settings.ExpiredItemsAccountId ?? settings.InventoryLossAccountId;
 
-                    if (expiredAccountId.HasValue)
-                        details.Add(Detail(entry.Oid, expiredAccountId.Value,
-                            debit: item.TotalCost, credit: 0,
-                            $"Expired - {item.ProductName} (Line {item.LineNumber})",
-                            $"بضاعة منتهية الصلاحية - {item.ProductName} (سطر {item.LineNumber})", seq++));
+                if (expiredAccountId.HasValue)
+                    details.Add(Detail(entry.Oid, expiredAccountId.Value,
+                        debit: totalValue, credit: 0,
+                        $"Expired Write-off - {req.ReferenceNumber}",
+                        $"شطب منتهي الصلاحية - {req.ReferenceNumber}", seq++));
 
-                    if (settings.InventoryAccountId.HasValue)
-                        details.Add(Detail(entry.Oid, settings.InventoryAccountId.Value,
-                            debit: 0, credit: item.TotalCost,
-                            $"Expired Write-off - {item.ProductName} (Line {item.LineNumber})",
-                            $"شطب منتهي الصلاحية - {item.ProductName} (سطر {item.LineNumber})", seq++));
-                }
+                if (settings.InventoryAccountId.HasValue)
+                    details.Add(Detail(entry.Oid, settings.InventoryAccountId.Value,
+                        debit: 0, credit: totalValue,
+                        $"Expired Inventory - {req.ReferenceNumber}",
+                        $"مخزون منتهي الصلاحية - {req.ReferenceNumber}", seq++));
                 break;
 
             // ─────────────────────────────────────────────────────────────
             // DAMAGED — Write off damaged stock
-            //   DR DamagedInventory   = Σ TotalCost
-            //   CR Inventory          = Σ TotalCost
+            //   DR DamagedInventory = totalValue
+            //   CR Inventory        = totalValue
             // ─────────────────────────────────────────────────────────────
             case "DAMAGED":
-                foreach (var item in req.Items)
-                {
-                    var damagedAccountId = settings.DamagedInventoryAccountId ?? settings.InventoryLossAccountId;
+                var damagedAccountId = settings.DamagedInventoryAccountId ?? settings.InventoryLossAccountId;
 
-                    if (damagedAccountId.HasValue)
-                        details.Add(Detail(entry.Oid, damagedAccountId.Value,
-                            debit: item.TotalCost, credit: 0,
-                            $"Damaged - {item.ProductName} (Line {item.LineNumber})",
-                            $"بضاعة تالفة - {item.ProductName} (سطر {item.LineNumber})", seq++));
+                if (damagedAccountId.HasValue)
+                    details.Add(Detail(entry.Oid, damagedAccountId.Value,
+                        debit: totalValue, credit: 0,
+                        $"Damaged Write-off - {req.ReferenceNumber}",
+                        $"شطب بضاعة تالفة - {req.ReferenceNumber}", seq++));
 
-                    if (settings.InventoryAccountId.HasValue)
-                        details.Add(Detail(entry.Oid, settings.InventoryAccountId.Value,
-                            debit: 0, credit: item.TotalCost,
-                            $"Damaged Write-off - {item.ProductName} (Line {item.LineNumber})",
-                            $"شطب بضاعة تالفة - {item.ProductName} (سطر {item.LineNumber})", seq++));
-                }
+                if (settings.InventoryAccountId.HasValue)
+                    details.Add(Detail(entry.Oid, settings.InventoryAccountId.Value,
+                        debit: 0, credit: totalValue,
+                        $"Damaged Inventory - {req.ReferenceNumber}",
+                        $"مخزون تالف - {req.ReferenceNumber}", seq++));
                 break;
 
             default:
