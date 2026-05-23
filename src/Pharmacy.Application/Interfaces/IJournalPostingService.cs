@@ -115,10 +115,17 @@ public record StockTransactionPostingRequest(
     DateTime TransactionDate,
     string TypeCode,                           // "IN" | "OUT" | "TRANSFER" | "RETURN" | "ADJUSTMENT" | "EXPIRED" | "DAMAGED"
     IReadOnlyList<StockTransactionLineItem> Items,
-    Guid?  SupplierId     = null,              // Used for IN / RETURN (payable account resolution)
-    decimal TotalNetCost  = 0,                 // Σ NetCost (excl. tax) — used for split journal entries
-    decimal TotalTaxAmount = 0,                // Σ TaxAmount — posted to VAT Input account
-    decimal PayedAmount   = 0);                // Amount already paid — DR Cash, remainder stays in Supplier Payable
+    Guid?   SupplierId       = null,           // Used for IN / RETURN (payable account resolution)
+
+    // ── Purchase invoice cost breakdown (used for IN / RETURN journal grouping) ──
+    // DR Inventory = TaxableNetCost + ZeroVatNetCost + ExemptNetCost
+    // DR VAT Input = TaxableVatAmount  (ONLY for taxable items; zero-vat and exempt produce no VAT line)
+    // GrossTotal   = (TaxableNetCost + ZeroVatNetCost + ExemptNetCost) + TaxableVatAmount
+    decimal TaxableNetCost   = 0,              // Σ NetCost of items with TaxPercent > 0
+    decimal ZeroVatNetCost   = 0,              // Σ NetCost of items with TaxPercent == 0 (zero-rated)
+    decimal ExemptNetCost    = 0,              // Σ NetCost of items fully exempt from VAT
+    decimal TaxableVatAmount = 0,              // Σ TaxAmount of taxable items ONLY — posted to VAT Input
+    decimal PayedAmount      = 0);             // Amount already paid — CR Cash, remainder → CR Supplier Payable
 
 /// <summary>All data needed to post a return invoice reversal.</summary>
 public record ReturnInvoicePostingRequest(
@@ -162,7 +169,9 @@ public interface IJournalPostingService
 
     /// <summary>
     /// Posts a stock transaction (IN / OUT / TRANSFER / RETURN / ADJUSTMENT / EXPIRED / DAMAGED).
-    /// Creates the correct double-entry journal based on the transaction type.
+    /// Single balanced journal entry per transaction.
+    /// For IN/RETURN with PayedAmount &gt; 0, cash split is included inline:
+    ///   CR Cash = PayedAmount, CR Supplier Payable = GrossTotal - PayedAmount.
     /// </summary>
     Task<JournalEntry> PostStockTransactionAsync(
         StockTransactionPostingRequest req,

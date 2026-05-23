@@ -124,9 +124,11 @@ public class CreateStockTransactionWithDetailsHandler
 
         // Create detail lines and update stock
         int lineNumber = 1;
-        decimal totalValue = 0;
-        decimal totalNetCost = 0;
-        decimal totalTaxAmount = 0;
+        decimal totalValue       = 0;
+        decimal taxableNetCost   = 0;
+        decimal zeroVatNetCost   = 0;
+        decimal exemptNetCost    = 0;
+        decimal taxableVatAmount = 0;
 
         foreach (var detailDto in request.Transaction.Details)
         {
@@ -161,8 +163,25 @@ public class CreateStockTransactionWithDetailsHandler
             await _StockTransactionDetail.AddAsync(detail, cancellationToken);
 
             totalValue    += grossCost;
-            totalNetCost  += netCost;
-            totalTaxAmount += taxAmount;
+
+            // Group by VAT category for purchase journal breakdown:
+            //   taxable    → TaxPercent > 0  : contributes to VAT Input line
+            //   zero-rated → TaxPercent == 0 but present (no tax amount): no VAT Input line
+            //   exempt     → no TaxPercent at all                       : no VAT Input line
+            // Heuristic: if a TaxPercent value was explicitly supplied and > 0 → taxable.
+            if (detailDto.TaxPercent.HasValue && detailDto.TaxPercent.Value > 0)
+            {
+                taxableNetCost   += netCost;
+                taxableVatAmount += taxAmount;
+            }
+            else if (detailDto.TaxPercent.HasValue)
+            {
+                zeroVatNetCost += netCost;   // TaxPercent == 0: zero-rated
+            }
+            else
+            {
+                exemptNetCost += netCost;    // TaxPercent not provided: exempt
+            }
 
             // Update stock based on transaction type
             await UpdateStockAsync(typeCode, detailDto.ProductId, detailDto.Quantity,
@@ -195,8 +214,10 @@ public class CreateStockTransactionWithDetailsHandler
             TypeCode:         typeCode!,
             Items:            postingItems,
             SupplierId:       request.Transaction.SupplierId,
-            TotalNetCost:     totalNetCost,
-            TotalTaxAmount:   totalTaxAmount,
+            TaxableNetCost:   taxableNetCost,
+            ZeroVatNetCost:   zeroVatNetCost,
+            ExemptNetCost:    exemptNetCost,
+            TaxableVatAmount: taxableVatAmount,
             PayedAmount:      request.Transaction.PayedAmount ?? 0);
 
         await _journalPostingService.PostStockTransactionAsync(postingRequest, cancellationToken);

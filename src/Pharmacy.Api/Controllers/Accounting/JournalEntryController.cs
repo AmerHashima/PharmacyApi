@@ -104,4 +104,25 @@ public class JournalEntryController : BaseApiController
         }
         catch (Exception ex) { return ErrorResponse<bool>($"Error deleting journal entry: {ex.Message}", 500); }
     }
+
+    /// <summary>
+    /// ميزان المراجعة — Trial Balance report.
+    /// Returns opening balance, period movement, and closing balance per account
+    /// for the given date range and branch, with full account tree hierarchy.
+    /// </summary>
+    [HttpPost("trial-balance")]
+    public async Task<ActionResult<ApiResponse<TrialBalanceReportDto>>> TrialBalance(
+        [FromBody] TrialBalanceRequest request,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var result = await _mediator.Send(new GetTrialBalanceQuery(request), cancellationToken);
+            return SuccessResponse(result, "Trial balance retrieved successfully");
+        }
+        catch (Exception ex)
+        {
+            return ErrorResponse<TrialBalanceReportDto>($"Error retrieving trial balance: {ex.Message}", 500);
+        }
+    }
 }

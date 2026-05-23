@@ -525,13 +525,19 @@ public sealed class JournalPostingService : IJournalPostingService
             ?? throw new InvalidOperationException(
                 $"AccountingSettings not configured for branch '{req.BranchId}'.");
 
-        // ── 3. Compute total value ────────────────────────────────────────
-        var totalValue = req.Items.Sum(i => i.TotalCost);
+        // ── 3. Compute amounts ────────────────────────────────────────────
         var typeCode   = req.TypeCode.ToUpperInvariant();
 
-        // Net amount (excl. tax) — inventory is always booked at cost excl. VAT.
-        // Falls back to totalValue when no tax was supplied (zero-VAT or exempt).
-        var netAmount  = req.TotalNetCost > 0 ? req.TotalNetCost : totalValue;
+        // inventoryAmount = Σ all net costs regardless of VAT category
+        // (taxable + zero-rated + exempt — all go into the Inventory debit)
+        var inventoryAmount = req.TaxableNetCost + req.ZeroVatNetCost + req.ExemptNetCost;
+
+        // grossTotal = inventory at cost + recoverable VAT on taxable items only
+        var grossTotal = inventoryAmount + req.TaxableVatAmount;
+
+        // For non-purchase types (OUT/TRANSFER/etc.) fall back to Items sum
+        var totalValue = grossTotal > 0 ? grossTotal : req.Items.Sum(i => i.TotalCost);
+        var netAmount  = inventoryAmount > 0 ? inventoryAmount : totalValue;
 
         // ── 3a. Resolve supplier's ledger account (for IN / RETURN) ───────
         Guid? supplierAccountId = await ResolveSupplierAccountAsync(req.SupplierId, ct)
@@ -557,44 +563,83 @@ public sealed class JournalPostingService : IJournalPostingService
         switch (typeCode)
         {
             // ─────────────────────────────────────────────────────────────
-            // IN — Stock received from supplier
-            //   DR Inventory        = netCost (excl. tax)
-            //   DR VAT Input        = TaxAmount (if any)
-            //   CR Cash             = PayedAmount (if paid on spot)
-            //   CR Supplier Payable = totalValue - PayedAmount (remaining)
+            // IN — Purchase invoice received from supplier
+            //
+            // Debit:
+            //   DR Inventory  = TaxableNet + ZeroVatNet + ExemptNet  (ALL items at net cost)
+            //   DR VAT Input  = TaxableVatAmount                     (taxable items ONLY)
+            //
+            // Credit:
+            //   CR Cash/Bank        = PayedAmount            (if any immediate payment)
+            //   CR Supplier Payable = GrossTotal - PayedAmount (unpaid remainder)
+            //
+            // Rules:
+            //   • Zero-VAT and Exempt items are included in Inventory debit — no separate VAT line.
+            //   • VAT Input line is posted ONLY when TaxableVatAmount > 0.
+            //   • GrossTotal = (TaxableNet + ZeroVatNet + ExemptNet) + TaxableVatAmount.
+            //   • Journal balances: DR(Inventory + VatInput) = CR(Cash + SupplierPayable).
+            // ─────────────────────────────────────────────────────────────
+            // ─────────────────────────────────────────────────────────────
+            // IN — Purchase invoice received from supplier
+            //
+            // Entry 1 (this entry):
+            //   DR Inventory (taxable net)     = TaxableNetCost
+            //   DR Inventory (zero-VAT net)    = ZeroVatNetCost   → PurchaseWithoutVatAccount
+            //   DR Inventory (exempt net)      = ExemptNetCost
+            //   DR VAT Input                   = TaxableVatAmount  (taxable items ONLY)
+            //   CR Supplier Payable            = GrossTotal        (always full amount)
+            //
+            // Entry 2 (payment settlement — posted separately if PayedAmount > 0):
+            //   DR Supplier Payable = PayedAmount
+            //   CR Cash             = PayedAmount
             // ─────────────────────────────────────────────────────────────
             case "IN":
-                // DR Inventory (net cost excl. tax)
-                if (settings.InventoryAccountId.HasValue)
-                {
-                    var invAmount = req.TotalNetCost > 0 ? req.TotalNetCost : totalValue;
+                // DR Inventory (taxable items — net cost excl. VAT)
+                if (req.TaxableNetCost > 0 && settings.InventoryAccountId.HasValue)
                     details.Add(Detail(entry.Oid, settings.InventoryAccountId.Value,
-                        debit: invAmount, credit: 0,
-                        $"Stock IN - {req.ReferenceNumber}",
-                        $"بضاعة واردة - {req.ReferenceNumber}", seq++));
+                        debit: req.TaxableNetCost, credit: 0,
+                        $"Stock IN Taxable - {req.ReferenceNumber}",
+                        $"بضاعة واردة خاضعة - {req.ReferenceNumber}", seq++));
+
+                // DR Purchase Without VAT (zero-rated items — no VAT line will follow)
+                if (req.ZeroVatNetCost > 0)
+                {
+                    var zeroVatAccountId = settings.PurchaseWithoutVatAccountId ?? settings.InventoryAccountId;
+                    if (zeroVatAccountId.HasValue)
+                        details.Add(Detail(entry.Oid, zeroVatAccountId.Value,
+                            debit: req.ZeroVatNetCost, credit: 0,
+                            $"Stock IN Zero-VAT - {req.ReferenceNumber}",
+                            $"بضاعة واردة صفرية الضريبة - {req.ReferenceNumber}", seq++));
                 }
 
-                // DR VAT Input (recoverable purchase tax)
-                if (req.TotalTaxAmount > 0 && settings.VatInputAccountId.HasValue)
+                // DR Inventory (exempt items — no VAT line)
+                if (req.ExemptNetCost > 0 && settings.InventoryAccountId.HasValue)
+                    details.Add(Detail(entry.Oid, settings.InventoryAccountId.Value,
+                        debit: req.ExemptNetCost, credit: 0,
+                        $"Stock IN Exempt - {req.ReferenceNumber}",
+                        $"بضاعة واردة معفاة - {req.ReferenceNumber}", seq++));
+
+                // DR VAT Input — taxable items ONLY; zero-rated and exempt produce NO VAT line
+                if (req.TaxableVatAmount > 0 && settings.VatInputAccountId.HasValue)
                     details.Add(Detail(entry.Oid, settings.VatInputAccountId.Value,
-                        debit: req.TotalTaxAmount, credit: 0,
+                        debit: req.TaxableVatAmount, credit: 0,
                         $"VAT Input - {req.ReferenceNumber}",
                         $"ضريبة مدخلات - {req.ReferenceNumber}", seq++));
 
-                // CR Cash — amount paid immediately
+                // CR Cash — amount paid immediately at time of receipt
                 if (req.PayedAmount > 0 && settings.CashAccountId.HasValue)
                     details.Add(Detail(entry.Oid, settings.CashAccountId.Value,
                         debit: 0, credit: req.PayedAmount,
                         $"Cash Payment - {req.ReferenceNumber}",
                         $"دفع نقدي - {req.ReferenceNumber}", seq++));
 
-                // CR Supplier Payable — unpaid remainder only
-                var inRemainingPayable = totalValue - req.PayedAmount;
+                // CR Supplier Payable — unpaid remainder (GrossTotal - PayedAmount)
+                var inRemainingPayable = grossTotal - req.PayedAmount;
                 if (inRemainingPayable > 0 && supplierAccountId.HasValue)
                     details.Add(Detail(entry.Oid, supplierAccountId.Value,
                         debit: 0, credit: inRemainingPayable,
                         $"Supplier Payable - {req.ReferenceNumber}",
-                        $"دائن مورد - {req.ReferenceNumber}", seq++));
+                        $"دائن المورد - {req.ReferenceNumber}", seq++));
                 break;
 
             // ─────────────────────────────────────────────────────────────
@@ -638,44 +683,81 @@ public sealed class JournalPostingService : IJournalPostingService
                 break;
 
             // ─────────────────────────────────────────────────────────────
-            // RETURN — Purchase return to supplier
-            //   DR Supplier Payable = totalValue - PayedAmount (reduce payable)
-            //   DR Cash             = PayedAmount (refund if was paid)
-            //   CR VAT Input        = TaxAmount (if any)
-            //   CR Inventory        = netCost (excl. tax)
+            // RETURN — Purchase return to supplier (exact reversal of IN)
+            //
+            // Debit:
+            //   DR Supplier Payable = GrossTotal - PayedAmount  (reduce payable for unpaid portion)
+            //   DR Cash             = PayedAmount               (cash refund for already-paid portion)
+            //
+            // Credit:
+            //   CR VAT Input  = TaxableVatAmount  (reverse recoverable VAT — taxable items ONLY)
+            //   CR Inventory  = TaxableNet + ZeroVatNet + ExemptNet
+            //
+            // Rules:
+            //   • VAT Input reversal only if TaxableVatAmount > 0 (mirror of IN).
+            //   • Journal balances: DR(SupplierPayable + Cash) = CR(VatInput + Inventory).
+            // ─────────────────────────────────────────────────────────────
+            // ─────────────────────────────────────────────────────────────
+            // RETURN — Purchase return to supplier (exact reversal of IN)
+            //
+            // Entry 1 (this entry):
+            //   DR Supplier Payable = GrossTotal       (always full amount)
+            //   CR VAT Input        = TaxableVatAmount (taxable items ONLY)
+            //   CR Inventory (taxable net)  = TaxableNetCost
+            //   CR Inventory (zero-VAT net) = ZeroVatNetCost → PurchaseWithoutVatAccount
+            //   CR Inventory (exempt net)   = ExemptNetCost
+            //
+            // Entry 2 (cash refund — posted separately if PayedAmount > 0):
+            //   DR Cash             = PayedAmount
+            //   CR Supplier Payable = PayedAmount
             // ─────────────────────────────────────────────────────────────
             case "RETURN":
-                // DR Supplier Payable — reduce only the unpaid portion
-                var retRemainingPayable = totalValue - req.PayedAmount;
+                // DR Supplier Payable — unpaid remainder only
+                var retRemainingPayable = grossTotal - req.PayedAmount;
                 if (retRemainingPayable > 0 && supplierAccountId.HasValue)
                     details.Add(Detail(entry.Oid, supplierAccountId.Value,
                         debit: retRemainingPayable, credit: 0,
                         $"Purchase Return - {req.ReferenceNumber}",
-                        $"مدين مورد - {req.ReferenceNumber}", seq++));
+                        $"مدين المورد - {req.ReferenceNumber}", seq++));
 
-                // DR Cash — refund of amount that was already paid
+                // DR Cash — refund of amount already paid
                 if (req.PayedAmount > 0 && settings.CashAccountId.HasValue)
                     details.Add(Detail(entry.Oid, settings.CashAccountId.Value,
                         debit: req.PayedAmount, credit: 0,
                         $"Cash Refund - {req.ReferenceNumber}",
                         $"استرداد نقدي - {req.ReferenceNumber}", seq++));
 
-                // CR VAT Input (reverse the recoverable tax)
-                if (req.TotalTaxAmount > 0 && settings.VatInputAccountId.HasValue)
+                // CR VAT Input — reverse the recoverable tax (taxable items ONLY)
+                if (req.TaxableVatAmount > 0 && settings.VatInputAccountId.HasValue)
                     details.Add(Detail(entry.Oid, settings.VatInputAccountId.Value,
-                        debit: 0, credit: req.TotalTaxAmount,
+                        debit: 0, credit: req.TaxableVatAmount,
                         $"VAT Input Reversal - {req.ReferenceNumber}",
                         $"عكس ضريبة مدخلات - {req.ReferenceNumber}", seq++));
 
-                // CR Inventory (net cost excl. tax)
-                if (settings.InventoryAccountId.HasValue)
-                {
-                    var invAmount = req.TotalNetCost > 0 ? req.TotalNetCost : totalValue;
+                // CR Inventory (taxable items)
+                if (req.TaxableNetCost > 0 && settings.InventoryAccountId.HasValue)
                     details.Add(Detail(entry.Oid, settings.InventoryAccountId.Value,
-                        debit: 0, credit: invAmount,
-                        $"Return to Supplier - {req.ReferenceNumber}",
-                        $"إرجاع للمورد - {req.ReferenceNumber}", seq++));
+                        debit: 0, credit: req.TaxableNetCost,
+                        $"Return Taxable - {req.ReferenceNumber}",
+                        $"إرجاع خاضع - {req.ReferenceNumber}", seq++));
+
+                // CR Purchase Without VAT (zero-rated items)
+                if (req.ZeroVatNetCost > 0)
+                {
+                    var zeroVatAccountId = settings.PurchaseWithoutVatAccountId ?? settings.InventoryAccountId;
+                    if (zeroVatAccountId.HasValue)
+                        details.Add(Detail(entry.Oid, zeroVatAccountId.Value,
+                            debit: 0, credit: req.ZeroVatNetCost,
+                            $"Return Zero-VAT - {req.ReferenceNumber}",
+                            $"إرجاع صفري الضريبة - {req.ReferenceNumber}", seq++));
                 }
+
+                // CR Inventory (exempt items)
+                if (req.ExemptNetCost > 0 && settings.InventoryAccountId.HasValue)
+                    details.Add(Detail(entry.Oid, settings.InventoryAccountId.Value,
+                        debit: 0, credit: req.ExemptNetCost,
+                        $"Return Exempt - {req.ReferenceNumber}",
+                        $"إرجاع معفى - {req.ReferenceNumber}", seq++));
                 break;
 
             // ─────────────────────────────────────────────────────────────
