@@ -55,13 +55,12 @@ public class GetTrialBalanceHandler(
 
         var treePaths = accounts.ToDictionary(a => a.Oid, a => BuildTreePath(a.Oid));
 
-        // ── 3. Build descendant set for ParentAccountId subtree filter ────────
+        // ── 3. Build descendant set for ParentAccountIds subtree filter ───────
         HashSet<Guid>? subtreeIds = null;
-        if (req.ParentAccountId.HasValue)
+        if (req.ParentAccountIds.Count > 0)
         {
             subtreeIds = [];
-            var stack = new Stack<Guid>();
-            stack.Push(req.ParentAccountId.Value);
+            var stack = new Stack<Guid>(req.ParentAccountIds);
             while (stack.Count > 0)
             {
                 var current = stack.Pop();

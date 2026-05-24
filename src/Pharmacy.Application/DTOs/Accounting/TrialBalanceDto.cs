@@ -35,10 +35,11 @@ public class TrialBalanceRequest
     public List<Guid> AccountIds { get; set; } = [];
 
     /// <summary>
-    /// Filter to a specific account subtree.
-    /// Null = entire chart of accounts.
+    /// Multi-select account subtree filter.
+    /// Each entry acts as a subtree root — all descendants are included.
+    /// Empty = entire chart of accounts.
     /// </summary>
-    public Guid? ParentAccountId { get; set; }
+    public List<Guid> ParentAccountIds { get; set; } = [];
 
     /// <summary>
     /// true  → leaf accounts only (posting accounts).
