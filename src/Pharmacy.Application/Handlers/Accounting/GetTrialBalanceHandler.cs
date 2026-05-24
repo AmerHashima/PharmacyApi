@@ -6,7 +6,7 @@ using Pharmacy.Domain.Interfaces.Accounting;
 
 namespace Pharmacy.Application.Handlers.Accounting;
 
-public class GetTrialBalanceHandler(ITrialBalanceViewRepository viewRepo)
+public class GetTrialBalanceHandler(ITrialBalanceViewRepository viewRepo, IAccountRepository accountRepo)
     : IRequestHandler<GetTrialBalanceQuery, TrialBalanceReportDto>
 {
     public async Task<TrialBalanceReportDto> Handle(
@@ -34,9 +34,19 @@ public class GetTrialBalanceHandler(ITrialBalanceViewRepository viewRepo)
 
         // IsLeafOnly filter
         if (req.IsLeafOnly == true)
-            q = q.Where(r => r.IsLeaf);
+        {
+            q = q.Where(r =>
+                !accountRepo.GetQueryable().Any(child =>
+                    child.ParentId == r.Oid &&
+                    !child.IsDeleted));
+        }
         else if (req.IsLeafOnly == false)
-            q = q.Where(r => !r.IsLeaf);
+        {
+            q = q.Where(r =>
+                accountRepo.GetQueryable().Any(child =>
+                    child.ParentId == r.Oid &&
+                    !child.IsDeleted));
+        }
 
         // Account level range filter
         if (req.MinLevel > 1)
