@@ -85,6 +85,7 @@ public class PharmacyDbContext : DbContext
     public DbSet<PaymentVoucherDetail> PaymentVoucherDetails { get; set; }
     public DbSet<VoucherSequence> VoucherSequences { get; set; }
     public DbSet<AccountingSettings> AccountingSettings { get; set; }
+    public DbSet<TrialBalanceViewRow> TrialBalanceViewRows { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -316,6 +317,11 @@ public class PharmacyDbContext : DbContext
         // =========================================
         // 🔹 Accounting module FK configurations
         // =========================================
+
+        // 🔹 Keyless view — Trial Balance
+        modelBuilder.Entity<TrialBalanceViewRow>()
+            .HasNoKey()
+            .ToView("vw_TrialBalanceTree", "Accounting");
 
         // Account self-referencing parent
         modelBuilder.Entity<Account>()

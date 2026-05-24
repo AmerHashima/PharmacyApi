@@ -2,17 +2,11 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Pharmacy.Application.DTOs.Accounting;
 using Pharmacy.Application.Queries.Accounting;
-using Pharmacy.Domain.Interfaces;
 using Pharmacy.Domain.Interfaces.Accounting;
 
 namespace Pharmacy.Application.Handlers.Accounting;
 
-public class GetTrialBalanceHandler(
-    IAccountRepository accountRepo,
-    IJournalEntryRepository journalEntryRepo,
-    IJournalEntryDetailRepository detailRepo,
-    IBranchRepository branchRepo,
-    ICostCenterRepository costCenterRepo)
+public class GetTrialBalanceHandler(ITrialBalanceViewRepository viewRepo)
     : IRequestHandler<GetTrialBalanceQuery, TrialBalanceReportDto>
 {
     public async Task<TrialBalanceReportDto> Handle(
@@ -20,234 +14,173 @@ public class GetTrialBalanceHandler(
         CancellationToken cancellationToken)
     {
         var req = query.Request;
-        var toDateExclusive = req.ToDate.Date.AddDays(1); // < toDateExclusive  ≡  <= ToDate
+        var fromDate        = req.FromDate.Date;
+        var toDateExclusive = req.ToDate.Date.AddDays(1);
 
-        // ── 1. Load all accounts ─────────────────────────────────────────────
-        var accounts = await accountRepo.GetQueryable()
-            .Where(a => a.IsActive)
-            .Select(a => new
-            {
-                a.Oid,
-                a.ParentId,
-                a.AccountCode,
-                a.AccountNameAr,
-                a.AccountNameEn,
-                a.AccountLevel,
-                a.IsLeaf
-            })
-            .ToListAsync(cancellationToken);
+        // ── 1. Base query from view ───────────────────────────────────────────
+        var q = viewRepo.GetQueryable();
 
-        var accountMap = accounts.ToDictionary(a => a.Oid);
-
-        // ── 2. Build tree paths for sorting (code-based dot path) ─────────────
-        string BuildTreePath(Guid id)
-        {
-            var parts = new Stack<string>();
-            var current = id;
-            while (accountMap.TryGetValue(current, out var node))
-            {
-                parts.Push(node.AccountCode);
-                if (node.ParentId is null) break;
-                current = node.ParentId.Value;
-            }
-            return string.Join(".", parts);
-        }
-
-        var treePaths = accounts.ToDictionary(a => a.Oid, a => BuildTreePath(a.Oid));
-
-        // ── 3. Build descendant set for ParentAccountIds subtree filter ───────
-        HashSet<Guid>? subtreeIds = null;
-        if (req.ParentAccountIds.Count > 0)
-        {
-            subtreeIds = [];
-            var stack = new Stack<Guid>(req.ParentAccountIds);
-            while (stack.Count > 0)
-            {
-                var current = stack.Pop();
-                subtreeIds.Add(current);
-                foreach (var child in accounts.Where(a => a.ParentId == current))
-                    stack.Push(child.Oid);
-            }
-        }
-
-        // ── 4. Build flat detail lines joined with JournalEntry ───────────────
-        var entriesQ = journalEntryRepo.GetQueryable()
-            .Where(e => !e.IsReversed);
-
+        // Branch filter
         if (req.BranchIds.Count > 0)
-            entriesQ = entriesQ.Where(e => e.BranchId != null && req.BranchIds.Contains(e.BranchId.Value));
+            q = q.Where(r => r.BranchId != null && req.BranchIds.Contains(r.BranchId.Value));
 
-        var detailsQ = detailRepo.GetQueryable();
-
+        // Cost center filter
         if (req.CostCenterIds.Count > 0)
-            detailsQ = detailsQ.Where(d => d.CostCenterId != null && req.CostCenterIds.Contains(d.CostCenterId.Value));
+            q = q.Where(r => r.CostCenterId != null && req.CostCenterIds.Contains(r.CostCenterId.Value));
 
+        // Specific accounts filter
         if (req.AccountIds.Count > 0)
-            detailsQ = detailsQ.Where(d => req.AccountIds.Contains(d.AccountId));
+            q = q.Where(r => req.AccountIds.Contains(r.Oid));
 
-        var lines = await (
-            from d in detailsQ
-            join e in entriesQ on d.JournalEntryId equals e.Oid
-            select new
+        // IsLeafOnly filter
+        if (req.IsLeafOnly == true)
+            q = q.Where(r => r.IsLeaf);
+        else if (req.IsLeafOnly == false)
+            q = q.Where(r => !r.IsLeaf);
+
+        // Account level range filter
+        if (req.MinLevel > 1)
+            q = q.Where(r => r.AccountLevel >= req.MinLevel);
+        if (req.MaxLevel.HasValue)
+            q = q.Where(r => r.AccountLevel <= req.MaxLevel.Value);
+
+        // ── 2. Group and aggregate on the server ──────────────────────────────
+        var grouped = await q
+            .GroupBy(r => new
             {
-                d.AccountId,
-                e.BranchId,
-                d.CostCenterId,
-                e.EntryDate,
-                d.Debit,
-                d.Credit
+                r.Oid,
+                r.ParentId,
+                r.ParentCode,
+                r.ParentNameAr,
+                r.AccountCode,
+                r.AccountNameAr,
+                r.AccountNameEn,
+                r.AccountLevel,
+                r.IsLeaf,
+                r.DisplayName,
+                r.TreePath,
+                r.BranchId,
+                r.BranchNameAr,
+                r.BranchNameEn,
+                r.CostCenterId,
+                r.CostCenterNameAr,
+                r.CostCenterNameEn,
             })
-            .ToListAsync(cancellationToken);
-
-        // ── 5. Group and aggregate ────────────────────────────────────────────
-        var grouped = lines
-            .GroupBy(l => (l.AccountId, l.BranchId, l.CostCenterId))
-            .Select(g =>
+            .Select(g => new
             {
-                // Opening: cumulative net before FromDate → split into DR / CR
-                var openingNet = g
-                    .Where(l => l.EntryDate.Date < req.FromDate.Date)
-                    .Sum(l => l.Debit - l.Credit);
+                g.Key.Oid,
+                g.Key.ParentId,
+                g.Key.ParentCode,
+                g.Key.ParentNameAr,
+                g.Key.AccountCode,
+                g.Key.AccountNameAr,
+                g.Key.AccountNameEn,
+                g.Key.AccountLevel,
+                g.Key.IsLeaf,
+                g.Key.DisplayName,
+                g.Key.TreePath,
+                g.Key.BranchId,
+                g.Key.BranchNameAr,
+                g.Key.BranchNameEn,
+                g.Key.CostCenterId,
+                g.Key.CostCenterNameAr,
+                g.Key.CostCenterNameEn,
+
+                // Opening: net before FromDate
+                OpeningNet = g.Sum(r => r.EntryDate != null && r.EntryDate.Value < fromDate
+                    ? r.Debit - r.Credit : 0m),
 
                 // Period: raw sums within [FromDate, ToDate]
-                var periodLines = g.Where(l =>
-                    l.EntryDate.Date >= req.FromDate.Date &&
-                    l.EntryDate.Date < toDateExclusive);
-                var periodDebit  = periodLines.Sum(l => l.Debit);
-                var periodCredit = periodLines.Sum(l => l.Credit);
+                PeriodDebit = g.Sum(r => r.EntryDate != null
+                    && r.EntryDate.Value >= fromDate
+                    && r.EntryDate.Value < toDateExclusive
+                    ? r.Debit : 0m),
 
-                // Closing: cumulative net through end of ToDate → split into DR / CR
-                var closingNet = g
-                    .Where(l => l.EntryDate.Date < toDateExclusive)
-                    .Sum(l => l.Debit - l.Credit);
+                PeriodCredit = g.Sum(r => r.EntryDate != null
+                    && r.EntryDate.Value >= fromDate
+                    && r.EntryDate.Value < toDateExclusive
+                    ? r.Credit : 0m),
 
-                return new
-                {
-                    g.Key.AccountId,
-                    g.Key.BranchId,
-                    g.Key.CostCenterId,
-                    OpeningDebit  = openingNet  > 0 ? openingNet  : 0m,
-                    OpeningCredit = openingNet  < 0 ? -openingNet : 0m,
-                    PeriodDebit   = periodDebit,
-                    PeriodCredit  = periodCredit,
-                    ClosingDebit  = closingNet  > 0 ? closingNet  : 0m,
-                    ClosingCredit = closingNet  < 0 ? -closingNet : 0m,
-                };
+                // Closing: cumulative net through end of ToDate
+                ClosingNet = g.Sum(r => r.EntryDate != null && r.EntryDate.Value < toDateExclusive
+                    ? r.Debit - r.Credit : 0m),
             })
-            .ToList();
+            .ToListAsync(cancellationToken);
 
-        // ── 6. Load branch & cost center name lookups ─────────────────────────
-        var branchIds = grouped
-            .Where(g => g.BranchId.HasValue)
-            .Select(g => g.BranchId!.Value)
-            .Distinct()
-            .ToHashSet();
+        // ── 3. ParentAccountIds subtree filter (in-memory, needs tree walk) ───
+        if (req.ParentAccountIds.Count > 0)
+        {
+            // Collect all account Oids present in the result for tree traversal
+            var accountParents = grouped
+                .Select(g => (g.Oid, g.ParentId))
+                .Distinct()
+                .ToDictionary(x => x.Oid, x => x.ParentId);
 
-        var costCenterIds = grouped
-            .Where(g => g.CostCenterId.HasValue)
-            .Select(g => g.CostCenterId!.Value)
-            .Distinct()
-            .ToHashSet();
+            var subtreeIds = new HashSet<Guid>(req.ParentAccountIds);
+            bool added;
+            do
+            {
+                added = false;
+                foreach (var (oid, parentId) in accountParents)
+                {
+                    if (!subtreeIds.Contains(oid) && parentId.HasValue && subtreeIds.Contains(parentId.Value))
+                    {
+                        subtreeIds.Add(oid);
+                        added = true;
+                    }
+                }
+            } while (added);
 
-        var branchNames = branchIds.Count > 0
-            ? await branchRepo.GetQueryable()
-                .Where(b => branchIds.Contains(b.Oid))
-                .Select(b => new { b.Oid, b.BranchName })
-                .ToDictionaryAsync(b => b.Oid, b => b.BranchName, cancellationToken)
-            : new Dictionary<Guid, string>();
+            grouped = grouped.Where(g => subtreeIds.Contains(g.Oid)).ToList();
+        }
 
-        var costCenterNames = costCenterIds.Count > 0
-            ? await costCenterRepo.GetQueryable()
-                .Where(c => costCenterIds.Contains(c.Oid))
-                .Select(c => new { c.Oid, c.NameAr, c.NameEn })
-                .ToDictionaryAsync(c => c.Oid, cancellationToken)
-            : [];
-
-        // ── 7. Apply account-level filters & assemble rows ────────────────────
-        var rows = new List<TrialBalanceRowDto>();
+        // ── 4. Assemble rows & apply RemoveZeroBalance ────────────────────────
+        var rows = new List<TrialBalanceRowDto>(grouped.Count);
 
         foreach (var g in grouped)
         {
-            if (!accountMap.TryGetValue(g.AccountId, out var acct)) continue;
+            var openingDebit  = g.OpeningNet  > 0 ? g.OpeningNet  : 0m;
+            var openingCredit = g.OpeningNet  < 0 ? -g.OpeningNet : 0m;
+            var closingDebit  = g.ClosingNet  > 0 ? g.ClosingNet  : 0m;
+            var closingCredit = g.ClosingNet  < 0 ? -g.ClosingNet : 0m;
 
-            // Specific accounts filter
-            if (req.AccountIds.Count > 0 && !req.AccountIds.Contains(g.AccountId)) continue;
-
-            // IsLeafOnly filter
-            if (req.IsLeafOnly == true && !acct.IsLeaf) continue;
-
-            // Level range filter
-            if (acct.AccountLevel < req.MinLevel) continue;
-            if (req.MaxLevel.HasValue && acct.AccountLevel > req.MaxLevel.Value) continue;
-
-            // Subtree filter
-            if (subtreeIds is not null && !subtreeIds.Contains(g.AccountId)) continue;
-
-            // RemoveZeroBalance filter
             if (req.RemoveZeroBalance &&
-                g.OpeningDebit  == 0 && g.OpeningCredit  == 0 &&
-                g.PeriodDebit   == 0 && g.PeriodCredit   == 0 &&
-                g.ClosingDebit  == 0 && g.ClosingCredit  == 0)
+                openingDebit  == 0 && openingCredit  == 0 &&
+                g.PeriodDebit == 0 && g.PeriodCredit == 0 &&
+                closingDebit  == 0 && closingCredit  == 0)
                 continue;
-
-            // Resolve parent names
-            var parentNameAr = acct.ParentId.HasValue && accountMap.TryGetValue(acct.ParentId.Value, out var parent)
-                ? parent.AccountNameAr : null;
-            var parentCode = acct.ParentId.HasValue && accountMap.TryGetValue(acct.ParentId.Value, out var parentC)
-                ? parentC.AccountCode : null;
-            var parentNameEn = acct.ParentId.HasValue && accountMap.TryGetValue(acct.ParentId.Value, out var parentE)
-                ? parentE.AccountNameEn : null;
-
-            // Branch names (Branch entity has a single BranchName field)
-            string? branchNameAr = g.BranchId.HasValue && branchNames.TryGetValue(g.BranchId.Value, out var bn) ? bn : null;
-
-            // Cost center names
-            string? ccNameAr = null, ccNameEn = null;
-            if (g.CostCenterId.HasValue && costCenterNames.TryGetValue(g.CostCenterId.Value, out var cc))
-            {
-                ccNameAr = cc.NameAr;
-                ccNameEn = cc.NameEn;
-            }
-
-            // DisplayName — indent by level
-            var indent = new string(' ', (acct.AccountLevel - 1) * 4);
-            var displayName = $"{indent}{acct.AccountNameAr}";
 
             rows.Add(new TrialBalanceRowDto
             {
-                Oid             = g.AccountId,
-                ParentId        = acct.ParentId,
-                ParentCode      = parentCode,
-                ParentNameAr    = parentNameAr,
-                ParentNameEn    = parentNameEn,
-                AccountCode     = acct.AccountCode,
-                AccountNameAr   = acct.AccountNameAr,
-                AccountNameEn   = acct.AccountNameEn,
-                AccountLevel    = acct.AccountLevel,
-                IsLeaf          = acct.IsLeaf,
-                DisplayName     = displayName,
-                TreePath        = treePaths.TryGetValue(g.AccountId, out var tp) ? tp : acct.AccountCode,
-                BranchId        = g.BranchId,
-                BranchNameAr    = branchNameAr,
-                BranchNameEn    = branchNameAr,   // Branch has a single name field
-                CostCenterId    = g.CostCenterId,
-                CostCenterNameAr = ccNameAr,
-                CostCenterNameEn = ccNameEn,
-                OpeningDebit    = g.OpeningDebit,
-                OpeningCredit   = g.OpeningCredit,
-                PeriodDebit     = g.PeriodDebit,
-                PeriodCredit    = g.PeriodCredit,
-                ClosingDebit    = g.ClosingDebit,
-                ClosingCredit   = g.ClosingCredit,
+                Oid              = g.Oid,
+                ParentId         = g.ParentId,
+                ParentCode       = g.ParentCode,
+                ParentNameAr     = g.ParentNameAr,
+                AccountCode      = g.AccountCode,
+                AccountNameAr    = g.AccountNameAr,
+                AccountNameEn    = g.AccountNameEn,
+                AccountLevel     = g.AccountLevel,
+                IsLeaf           = g.IsLeaf,
+                DisplayName      = g.DisplayName,
+                TreePath         = g.TreePath,
+                BranchId         = g.BranchId,
+                BranchNameAr     = g.BranchNameAr,
+                BranchNameEn     = g.BranchNameEn,
+                CostCenterId     = g.CostCenterId,
+                CostCenterNameAr = g.CostCenterNameAr,
+                CostCenterNameEn = g.CostCenterNameEn,
+                OpeningDebit     = openingDebit,
+                OpeningCredit    = openingCredit,
+                PeriodDebit      = g.PeriodDebit,
+                PeriodCredit     = g.PeriodCredit,
+                ClosingDebit     = closingDebit,
+                ClosingCredit    = closingCredit,
             });
         }
 
-        // Sort by tree path for a natural account tree order
-        rows = [.. rows.OrderBy(r => r.TreePath)
-                       .ThenBy(r => r.BranchId.ToString())
-                       .ThenBy(r => r.CostCenterId.ToString())];
+        rows.Sort((a, b) => string.Compare(a.TreePath, b.TreePath, StringComparison.Ordinal));
 
-        // ── 8. Build envelope ─────────────────────────────────────────────────
+        // ── 5. Return envelope ────────────────────────────────────────────────
         return new TrialBalanceReportDto
         {
             Rows               = rows,
