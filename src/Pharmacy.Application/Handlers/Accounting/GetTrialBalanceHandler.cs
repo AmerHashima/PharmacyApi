@@ -2,186 +2,253 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Pharmacy.Application.DTOs.Accounting;
 using Pharmacy.Application.Queries.Accounting;
+using Pharmacy.Domain.Interfaces;
 using Pharmacy.Domain.Interfaces.Accounting;
 
 namespace Pharmacy.Application.Handlers.Accounting;
 
-/// <summary>
-/// Trial Balance (ميزان المراجعة) — pure EF Core LINQ, no raw SQL.
-///
-///   Step 1 — Load full chart of accounts (flat list, no navigation).
-///   Step 2 — Build descendant sets: for each account, collect all descendant IDs
-///             (self + children recursively) via iterative stack traversal.
-///   Step 3 — Load opening (before FromDate) and period (FromDate..ToDate) journal
-///             detail lines; group by leaf AccountId; roll up totals to every ancestor.
-///   Step 4 — Build dot-separated TreePath per account for sorting and display.
-///   Step 5 — Apply in-memory filters (subtree, IsLeaf, Level, HideZeroBalance).
-///   Step 6 — Project TrialBalanceRowDto, compute totals, return envelope.
-/// </summary>
-public class GetTrialBalanceHandler : IRequestHandler<GetTrialBalanceQuery, TrialBalanceReportDto>
+public class GetTrialBalanceHandler(
+    IAccountRepository accountRepo,
+    IJournalEntryRepository journalEntryRepo,
+    IJournalEntryDetailRepository detailRepo,
+    IBranchRepository branchRepo,
+    ICostCenterRepository costCenterRepo)
+    : IRequestHandler<GetTrialBalanceQuery, TrialBalanceReportDto>
 {
-    private readonly IAccountRepository _accountRepo;
-    private readonly IJournalEntryDetailRepository _detailRepo;
-    private readonly IJournalEntryRepository _journalRepo;
-
-    public GetTrialBalanceHandler(
-        IAccountRepository accountRepo,
-        IJournalEntryDetailRepository detailRepo,
-        IJournalEntryRepository journalRepo)
-    {
-        _accountRepo = accountRepo;
-        _detailRepo  = detailRepo;
-        _journalRepo = journalRepo;
-    }
-
     public async Task<TrialBalanceReportDto> Handle(
-        GetTrialBalanceQuery request,
+        GetTrialBalanceQuery query,
         CancellationToken cancellationToken)
     {
-        var req      = request.Request;
-        var fromDate = req.FromDate.Date;
-        var toDate   = req.ToDate.Date.AddDays(1); // exclusive upper bound
+        var req = query.Request;
+        var toDateExclusive = req.ToDate.Date.AddDays(1); // < toDateExclusive  ≡  <= ToDate
 
-        // ── Step 1: chart of accounts ─────────────────────────────────────────
-        var accounts = await _accountRepo.GetQueryable()
-            .AsNoTracking()
-            .Where(a => !a.IsDeleted)
-            .Select(a => new AccountFlat
+        // ── 1. Load all accounts ─────────────────────────────────────────────
+        var accounts = await accountRepo.GetQueryable()
+            .Where(a => a.IsActive)
+            .Select(a => new
             {
-                Oid           = a.Oid,
-                ParentId      = a.ParentId,
-                AccountCode   = a.AccountCode,
-                AccountNameAr = a.AccountNameAr,
-                AccountNameEn = a.AccountNameEn,
-                AccountLevel  = a.AccountLevel,
-                IsLeaf        = a.IsLeaf,
+                a.Oid,
+                a.ParentId,
+                a.AccountCode,
+                a.AccountNameAr,
+                a.AccountNameEn,
+                a.AccountLevel,
+                a.IsLeaf
             })
             .ToListAsync(cancellationToken);
 
-        var accountMap     = accounts.ToDictionary(a => a.Oid);
-        var childrenLookup = accounts
-            .Where(a => a.ParentId.HasValue)
-            .ToLookup(a => a.ParentId!.Value, a => a.Oid);
+        var accountMap = accounts.ToDictionary(a => a.Oid);
 
-        // ── Step 2: descendant sets ───────────────────────────────────────────
-        var descendantsOf = new Dictionary<Guid, HashSet<Guid>>(accounts.Count);
-        foreach (var acc in accounts)
-            descendantsOf[acc.Oid] = BuildDescendants(acc.Oid, childrenLookup);
-
-        // ── Step 3: journal movements ─────────────────────────────────────────
-        var journalQuery = _journalRepo.GetQueryable()
-            .AsNoTracking()
-            .Where(j => !j.IsDeleted && !j.IsReversed);
-
-        if (req.BranchId.HasValue)
-            journalQuery = journalQuery.Where(j => j.BranchId == req.BranchId);
-
-        var detailQuery = _detailRepo.GetQueryable()
-            .AsNoTracking()
-            .Where(d => !d.IsDeleted);
-
-        var openingLines = await (
-            from j in journalQuery.Where(j => j.EntryDate < fromDate)
-            join d in detailQuery on j.Oid equals d.JournalEntryId
-            select new { d.AccountId, d.Debit, d.Credit }
-        ).ToListAsync(cancellationToken);
-
-        var periodLines = await (
-            from j in journalQuery.Where(j => j.EntryDate >= fromDate && j.EntryDate < toDate)
-            join d in detailQuery on j.Oid equals d.JournalEntryId
-            select new { d.AccountId, d.Debit, d.Credit }
-        ).ToListAsync(cancellationToken);
-
-        // Group by leaf AccountId
-        var openingByLeaf = openingLines
-            .GroupBy(l => l.AccountId)
-            .ToDictionary(g => g.Key, g => (Debit: g.Sum(l => l.Debit), Credit: g.Sum(l => l.Credit)));
-
-        var periodByLeaf = periodLines
-            .GroupBy(l => l.AccountId)
-            .ToDictionary(g => g.Key, g => (Debit: g.Sum(l => l.Debit), Credit: g.Sum(l => l.Credit)));
-
-        // Roll up to every ancestor
-        var openingRolled = new Dictionary<Guid, (decimal Debit, decimal Credit)>(accounts.Count);
-        var periodRolled  = new Dictionary<Guid, (decimal Debit, decimal Credit)>(accounts.Count);
-
-        foreach (var acc in accounts)
+        // ── 2. Build tree paths for sorting (code-based dot path) ─────────────
+        string BuildTreePath(Guid id)
         {
-            decimal oDr = 0, oCr = 0, pDr = 0, pCr = 0;
-            foreach (var childId in descendantsOf[acc.Oid])
+            var parts = new Stack<string>();
+            var current = id;
+            while (accountMap.TryGetValue(current, out var node))
             {
-                if (openingByLeaf.TryGetValue(childId, out var o)) { oDr += o.Debit; oCr += o.Credit; }
-                if (periodByLeaf.TryGetValue(childId,  out var p)) { pDr += p.Debit; pCr += p.Credit; }
+                parts.Push(node.AccountCode);
+                if (node.ParentId is null) break;
+                current = node.ParentId.Value;
             }
-            openingRolled[acc.Oid] = (oDr, oCr);
-            periodRolled[acc.Oid]  = (pDr, pCr);
+            return string.Join(".", parts);
         }
 
-        // ── Step 4: tree paths ────────────────────────────────────────────────
-        var treePaths = accounts.ToDictionary(
-            a => a.Oid,
-            a => BuildTreePath(a.Oid, accountMap));
+        var treePaths = accounts.ToDictionary(a => a.Oid, a => BuildTreePath(a.Oid));
 
-        // ── Step 5: filter ────────────────────────────────────────────────────
-        IEnumerable<AccountFlat> filtered = accounts;
-
-        if (req.ParentAccountId.HasValue && descendantsOf.TryGetValue(req.ParentAccountId.Value, out var subtree))
-            filtered = filtered.Where(a => subtree.Contains(a.Oid));
-
-        if (req.IsLeafOnly.HasValue)
-            filtered = filtered.Where(a => a.IsLeaf == req.IsLeafOnly.Value);
-
-        filtered = filtered.Where(a => a.AccountLevel >= req.MinLevel);
-
-        if (req.MaxLevel.HasValue)
-            filtered = filtered.Where(a => a.AccountLevel <= req.MaxLevel.Value);
-
-        // ── Step 6: project rows ──────────────────────────────────────────────
-        var rows = filtered.Select(acc =>
+        // ── 3. Build descendant set for ParentAccountId subtree filter ────────
+        HashSet<Guid>? subtreeIds = null;
+        if (req.ParentAccountId.HasValue)
         {
-            var (oDr, oCr) = openingRolled[acc.Oid];
-            var (pDr, pCr) = periodRolled[acc.Oid];
-
-            var openingDebit  = oDr > oCr ? oDr - oCr : 0m;
-            var openingCredit = oCr > oDr ? oCr - oDr : 0m;
-
-            var closingNet    = (oDr - oCr) + (pDr - pCr);
-            var closingDebit  = closingNet > 0 ?  closingNet : 0m;
-            var closingCredit = closingNet < 0 ? -closingNet : 0m;
-
-            var parent = acc.ParentId.HasValue && accountMap.TryGetValue(acc.ParentId.Value, out var p) ? p : null;
-
-            return new TrialBalanceRowDto
+            subtreeIds = [];
+            var stack = new Stack<Guid>();
+            stack.Push(req.ParentAccountId.Value);
+            while (stack.Count > 0)
             {
-                Oid           = acc.Oid,
-                ParentId      = acc.ParentId,
-                ParentCode    = parent?.AccountCode,
-                ParentNameAr  = parent?.AccountNameAr,
-                ParentNameEn  = parent?.AccountNameEn,
-                AccountCode   = acc.AccountCode,
-                AccountNameAr = acc.AccountNameAr,
-                AccountNameEn = acc.AccountNameEn,
-                AccountLevel  = acc.AccountLevel,
-                IsLeaf        = acc.IsLeaf,
-                DisplayName   = new string(' ', (acc.AccountLevel - 1) * 4) + acc.AccountNameAr,
-                TreePath      = treePaths[acc.Oid],
-                OpeningDebit  = openingDebit,
-                OpeningCredit = openingCredit,
-                PeriodDebit   = pDr,
-                PeriodCredit  = pCr,
-                ClosingDebit  = closingDebit,
-                ClosingCredit = closingCredit,
-            };
-        }).ToList();
+                var current = stack.Pop();
+                subtreeIds.Add(current);
+                foreach (var child in accounts.Where(a => a.ParentId == current))
+                    stack.Push(child.Oid);
+            }
+        }
 
-        if (req.HideZeroBalance)
-            rows = rows.Where(r =>
-                r.OpeningDebit != 0 || r.OpeningCredit != 0 ||
-                r.PeriodDebit  != 0 || r.PeriodCredit  != 0 ||
-                r.ClosingDebit != 0 || r.ClosingCredit != 0).ToList();
+        // ── 4. Build flat detail lines joined with JournalEntry ───────────────
+        var entriesQ = journalEntryRepo.GetQueryable()
+            .Where(e => !e.IsReversed);
 
-        rows = rows.OrderBy(r => r.TreePath).ToList();
+        if (req.BranchIds.Count > 0)
+            entriesQ = entriesQ.Where(e => e.BranchId != null && req.BranchIds.Contains(e.BranchId.Value));
 
+        var detailsQ = detailRepo.GetQueryable();
+
+        if (req.CostCenterIds.Count > 0)
+            detailsQ = detailsQ.Where(d => d.CostCenterId != null && req.CostCenterIds.Contains(d.CostCenterId.Value));
+
+        if (req.AccountIds.Count > 0)
+            detailsQ = detailsQ.Where(d => req.AccountIds.Contains(d.AccountId));
+
+        var lines = await (
+            from d in detailsQ
+            join e in entriesQ on d.JournalEntryId equals e.Oid
+            select new
+            {
+                d.AccountId,
+                e.BranchId,
+                d.CostCenterId,
+                e.EntryDate,
+                d.Debit,
+                d.Credit
+            })
+            .ToListAsync(cancellationToken);
+
+        // ── 5. Group and aggregate ────────────────────────────────────────────
+        var grouped = lines
+            .GroupBy(l => (l.AccountId, l.BranchId, l.CostCenterId))
+            .Select(g =>
+            {
+                // Opening: cumulative net before FromDate → split into DR / CR
+                var openingNet = g
+                    .Where(l => l.EntryDate.Date < req.FromDate.Date)
+                    .Sum(l => l.Debit - l.Credit);
+
+                // Period: raw sums within [FromDate, ToDate]
+                var periodLines = g.Where(l =>
+                    l.EntryDate.Date >= req.FromDate.Date &&
+                    l.EntryDate.Date < toDateExclusive);
+                var periodDebit  = periodLines.Sum(l => l.Debit);
+                var periodCredit = periodLines.Sum(l => l.Credit);
+
+                // Closing: cumulative net through end of ToDate → split into DR / CR
+                var closingNet = g
+                    .Where(l => l.EntryDate.Date < toDateExclusive)
+                    .Sum(l => l.Debit - l.Credit);
+
+                return new
+                {
+                    g.Key.AccountId,
+                    g.Key.BranchId,
+                    g.Key.CostCenterId,
+                    OpeningDebit  = openingNet  > 0 ? openingNet  : 0m,
+                    OpeningCredit = openingNet  < 0 ? -openingNet : 0m,
+                    PeriodDebit   = periodDebit,
+                    PeriodCredit  = periodCredit,
+                    ClosingDebit  = closingNet  > 0 ? closingNet  : 0m,
+                    ClosingCredit = closingNet  < 0 ? -closingNet : 0m,
+                };
+            })
+            .ToList();
+
+        // ── 6. Load branch & cost center name lookups ─────────────────────────
+        var branchIds = grouped
+            .Where(g => g.BranchId.HasValue)
+            .Select(g => g.BranchId!.Value)
+            .Distinct()
+            .ToHashSet();
+
+        var costCenterIds = grouped
+            .Where(g => g.CostCenterId.HasValue)
+            .Select(g => g.CostCenterId!.Value)
+            .Distinct()
+            .ToHashSet();
+
+        var branchNames = branchIds.Count > 0
+            ? await branchRepo.GetQueryable()
+                .Where(b => branchIds.Contains(b.Oid))
+                .Select(b => new { b.Oid, b.BranchName })
+                .ToDictionaryAsync(b => b.Oid, b => b.BranchName, cancellationToken)
+            : new Dictionary<Guid, string>();
+
+        var costCenterNames = costCenterIds.Count > 0
+            ? await costCenterRepo.GetQueryable()
+                .Where(c => costCenterIds.Contains(c.Oid))
+                .Select(c => new { c.Oid, c.NameAr, c.NameEn })
+                .ToDictionaryAsync(c => c.Oid, cancellationToken)
+            : [];
+
+        // ── 7. Apply account-level filters & assemble rows ────────────────────
+        var rows = new List<TrialBalanceRowDto>();
+
+        foreach (var g in grouped)
+        {
+            if (!accountMap.TryGetValue(g.AccountId, out var acct)) continue;
+
+            // Specific accounts filter
+            if (req.AccountIds.Count > 0 && !req.AccountIds.Contains(g.AccountId)) continue;
+
+            // IsLeafOnly filter
+            if (req.IsLeafOnly == true && !acct.IsLeaf) continue;
+
+            // Level range filter
+            if (acct.AccountLevel < req.MinLevel) continue;
+            if (req.MaxLevel.HasValue && acct.AccountLevel > req.MaxLevel.Value) continue;
+
+            // Subtree filter
+            if (subtreeIds is not null && !subtreeIds.Contains(g.AccountId)) continue;
+
+            // RemoveZeroBalance filter
+            if (req.RemoveZeroBalance &&
+                g.OpeningDebit  == 0 && g.OpeningCredit  == 0 &&
+                g.PeriodDebit   == 0 && g.PeriodCredit   == 0 &&
+                g.ClosingDebit  == 0 && g.ClosingCredit  == 0)
+                continue;
+
+            // Resolve parent names
+            var parentNameAr = acct.ParentId.HasValue && accountMap.TryGetValue(acct.ParentId.Value, out var parent)
+                ? parent.AccountNameAr : null;
+            var parentCode = acct.ParentId.HasValue && accountMap.TryGetValue(acct.ParentId.Value, out var parentC)
+                ? parentC.AccountCode : null;
+            var parentNameEn = acct.ParentId.HasValue && accountMap.TryGetValue(acct.ParentId.Value, out var parentE)
+                ? parentE.AccountNameEn : null;
+
+            // Branch names (Branch entity has a single BranchName field)
+            string? branchNameAr = g.BranchId.HasValue && branchNames.TryGetValue(g.BranchId.Value, out var bn) ? bn : null;
+
+            // Cost center names
+            string? ccNameAr = null, ccNameEn = null;
+            if (g.CostCenterId.HasValue && costCenterNames.TryGetValue(g.CostCenterId.Value, out var cc))
+            {
+                ccNameAr = cc.NameAr;
+                ccNameEn = cc.NameEn;
+            }
+
+            // DisplayName — indent by level
+            var indent = new string(' ', (acct.AccountLevel - 1) * 4);
+            var displayName = $"{indent}{acct.AccountNameAr}";
+
+            rows.Add(new TrialBalanceRowDto
+            {
+                Oid             = g.AccountId,
+                ParentId        = acct.ParentId,
+                ParentCode      = parentCode,
+                ParentNameAr    = parentNameAr,
+                ParentNameEn    = parentNameEn,
+                AccountCode     = acct.AccountCode,
+                AccountNameAr   = acct.AccountNameAr,
+                AccountNameEn   = acct.AccountNameEn,
+                AccountLevel    = acct.AccountLevel,
+                IsLeaf          = acct.IsLeaf,
+                DisplayName     = displayName,
+                TreePath        = treePaths.TryGetValue(g.AccountId, out var tp) ? tp : acct.AccountCode,
+                BranchId        = g.BranchId,
+                BranchNameAr    = branchNameAr,
+                BranchNameEn    = branchNameAr,   // Branch has a single name field
+                CostCenterId    = g.CostCenterId,
+                CostCenterNameAr = ccNameAr,
+                CostCenterNameEn = ccNameEn,
+                OpeningDebit    = g.OpeningDebit,
+                OpeningCredit   = g.OpeningCredit,
+                PeriodDebit     = g.PeriodDebit,
+                PeriodCredit    = g.PeriodCredit,
+                ClosingDebit    = g.ClosingDebit,
+                ClosingCredit   = g.ClosingCredit,
+            });
+        }
+
+        // Sort by tree path for a natural account tree order
+        rows = [.. rows.OrderBy(r => r.TreePath)
+                       .ThenBy(r => r.BranchId.ToString())
+                       .ThenBy(r => r.CostCenterId.ToString())];
+
+        // ── 8. Build envelope ─────────────────────────────────────────────────
         return new TrialBalanceReportDto
         {
             Rows               = rows,
@@ -193,50 +260,10 @@ public class GetTrialBalanceHandler : IRequestHandler<GetTrialBalanceQuery, Tria
             TotalClosingCredit = rows.Sum(r => r.ClosingCredit),
             FromDate           = req.FromDate,
             ToDate             = req.ToDate,
-            BranchId           = req.BranchId,
+            BranchIds          = req.BranchIds,
+            CostCenterIds      = req.CostCenterIds,
+            AccountIds         = req.AccountIds,
             RowCount           = rows.Count,
         };
-    }
-
-    // ── Helpers ───────────────────────────────────────────────────────────────
-
-    private static HashSet<Guid> BuildDescendants(Guid accountId, ILookup<Guid, Guid> childrenLookup)
-    {
-        var result = new HashSet<Guid> { accountId };
-        var stack  = new Stack<Guid>();
-        stack.Push(accountId);
-        while (stack.Count > 0)
-        {
-            var current = stack.Pop();
-            foreach (var child in childrenLookup[current])
-                if (result.Add(child))
-                    stack.Push(child);
-        }
-        return result;
-    }
-
-    private static string BuildTreePath(Guid accountId, Dictionary<Guid, AccountFlat> map)
-    {
-        var parts   = new List<string>();
-        var current = accountId;
-        while (map.TryGetValue(current, out var acc))
-        {
-            parts.Add(acc.AccountCode);
-            if (acc.ParentId.HasValue) current = acc.ParentId.Value;
-            else break;
-        }
-        parts.Reverse();
-        return string.Join(".", parts);
-    }
-
-    private class AccountFlat
-    {
-        public Guid    Oid           { get; set; }
-        public Guid?   ParentId      { get; set; }
-        public string  AccountCode   { get; set; } = string.Empty;
-        public string  AccountNameAr { get; set; } = string.Empty;
-        public string? AccountNameEn { get; set; }
-        public int     AccountLevel  { get; set; }
-        public bool    IsLeaf        { get; set; }
     }
 }
