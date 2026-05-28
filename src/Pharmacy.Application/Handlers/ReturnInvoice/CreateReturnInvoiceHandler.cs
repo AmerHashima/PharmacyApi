@@ -71,9 +71,11 @@ public class CreateReturnInvoiceHandler : IRequestHandler<CreateReturnInvoiceCom
         // Validate branch exists
         var branch = await _branchRepository.GetByIdAsync(request.ReturnInvoice.BranchId, cancellationToken);
         if (branch == null)
-        {
             throw new KeyNotFoundException($"Branch with ID '{request.ReturnInvoice.BranchId}' not found");
-        }
+
+        // Pre-flight accounting validation when auto-post is enabled
+        if (branch.AutoPostJournal)
+            await _journalPostingService.ValidateReturnAccountingSetupAsync(request.ReturnInvoice.BranchId, cancellationToken);
 
         // Validate all products exist and check RemainingQuantity on original invoice items
         foreach (var item in request.ReturnInvoice.Items)
@@ -291,7 +293,8 @@ public class CreateReturnInvoiceHandler : IRequestHandler<CreateReturnInvoiceCom
             RefundMethods:     refundMethods.AsReadOnly(),
             CustomerId:        originalInvoice.CustomerId);
 
-        await _journalPostingService.PostReturnInvoiceAsync(postingRequest, cancellationToken);
+        if (branch.AutoPostJournal)
+            await _journalPostingService.PostReturnInvoiceAsync(postingRequest, cancellationToken);
 
         return _mapper.Map<ReturnInvoiceDto>(result);
     }

@@ -106,6 +106,13 @@ public class Branch : BaseEntity
     [ForeignKey(nameof(DefaultStoreId))]
     public virtual Store? DefaultStore { get; set; }
 
+    /// <summary>
+    /// When true, every sales invoice, return, and stock transaction automatically
+    /// creates a balanced JournalEntry upon save.
+    /// When false, postings must be triggered manually via the post-journal endpoints.
+    /// </summary>
+    public bool AutoPostJournal { get; set; } = false;
+
     public virtual ICollection<SystemUser> Users { get; set; } = new List<SystemUser>();
     public virtual ICollection<Stock> Stocks { get; set; } = new List<Stock>();
     public virtual ICollection<StockTransaction> OutgoingTransactions { get; set; } = new List<StockTransaction>();

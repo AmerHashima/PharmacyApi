@@ -58,12 +58,17 @@ public class CreateStockTransactionWithDetailsHandler
 
         var typeCode = transactionType.ValueCode?.ToUpperInvariant();
 
+        // Resolve the primary branch (FromBranch for OUT/TRANSFER, ToBranch for IN/RETURN)
+        var primaryBranchId = request.Transaction.FromBranchId ?? request.Transaction.ToBranchId;
+
         // Validate branches based on transaction type
+        Domain.Entities.Branch? primaryBranch = null;
         if (request.Transaction.FromBranchId.HasValue)
         {
             var fromBranch = await _branchRepository.GetByIdAsync(request.Transaction.FromBranchId.Value, cancellationToken);
             if (fromBranch == null)
                 throw new KeyNotFoundException($"From Branch with ID '{request.Transaction.FromBranchId}' not found");
+            primaryBranch ??= fromBranch;
         }
 
         if (request.Transaction.ToBranchId.HasValue)
@@ -71,10 +76,16 @@ public class CreateStockTransactionWithDetailsHandler
             var toBranch = await _branchRepository.GetByIdAsync(request.Transaction.ToBranchId.Value, cancellationToken);
             if (toBranch == null)
                 throw new KeyNotFoundException($"To Branch with ID '{request.Transaction.ToBranchId}' not found");
+            primaryBranch ??= toBranch;
         }
 
         // Validate required branches per transaction type
         ValidateBranches(typeCode, request.Transaction.FromBranchId, request.Transaction.ToBranchId);
+
+        // Pre-flight accounting validation when auto-post is enabled
+        if (primaryBranch?.AutoPostJournal == true && primaryBranchId.HasValue)
+            await _journalPostingService.ValidateStockTransactionAccountingSetupAsync(
+                primaryBranchId.Value, typeCode ?? string.Empty, cancellationToken);
 
         // Validate all products exist and cache names for journal posting
         var productNameCache = new Dictionary<Guid, string>();
@@ -220,7 +231,8 @@ public class CreateStockTransactionWithDetailsHandler
             TaxableVatAmount: taxableVatAmount,
             PayedAmount:      request.Transaction.PayedAmount ?? 0);
 
-        await _journalPostingService.PostStockTransactionAsync(postingRequest, cancellationToken);
+        if (primaryBranch?.AutoPostJournal == true)
+            await _journalPostingService.PostStockTransactionAsync(postingRequest, cancellationToken);
 
         // Fetch complete transaction with all includes
         var completeTransaction = await _transactionRepository.GetByIdAsync(createdTransaction.Oid, cancellationToken);

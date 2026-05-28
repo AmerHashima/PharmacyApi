@@ -1,4 +1,5 @@
 using Pharmacy.Domain.Common;
+using Pharmacy.Domain.Entities.Accounting;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
@@ -118,4 +119,13 @@ public class StockTransaction : BaseEntity
     /// </summary>
     [Column(TypeName = "decimal(18,2)")]
     public decimal? RemainingAmount { get; set; }
+
+    /// <summary>
+    /// FK to JournalEntry created when this transaction was posted to the ledger.
+    /// Null = not yet posted.
+    /// </summary>
+    public Guid? JournalEntryId { get; set; }
+
+    [ForeignKey(nameof(JournalEntryId))]
+    public virtual JournalEntry? JournalEntry { get; set; }
 }

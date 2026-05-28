@@ -128,6 +128,95 @@ public sealed class JournalPostingService : IJournalPostingService
     }
 
     // ═════════════════════════════════════════════════════════════════════════
+    // ACCOUNTING SETUP VALIDATION
+    // ═════════════════════════════════════════════════════════════════════════
+
+    public async Task ValidateSalesAccountingSetupAsync(Guid branchId, CancellationToken ct = default)
+    {
+        var settings = await _settingsRepo.GetByBranchAsync(branchId, ct);
+        if (settings is null)
+            throw new InvalidOperationException(
+                $"لم يتم تهيئة إعدادات المحاسبة للفرع '{branchId}'. " +
+                "يرجى إعداد الحسابات أولاً قبل إجراء أي عملية بيع.");
+
+        var missing = new List<string>();
+        if (!settings.SalesAccountId.HasValue)           missing.Add("حساب المبيعات (SalesAccount)");
+        if (!settings.CashAccountId.HasValue)            missing.Add("حساب الصندوق (CashAccount)");
+        if (!settings.ReceivableAccountId.HasValue)      missing.Add("حساب العملاء/المدينين (ReceivableAccount)");
+        if (!settings.CogsAccountId.HasValue)            missing.Add("حساب تكلفة البضاعة المباعة (CogsAccount)");
+        if (!settings.InventoryAccountId.HasValue)       missing.Add("حساب المخزون (InventoryAccount)");
+
+        if (missing.Count > 0)
+            throw new InvalidOperationException(
+                "لا يمكن إتمام البيع — الحسابات التالية غير مُعيَّنة للفرع:\n" +
+                string.Join("\n", missing.Select(m => $"  • {m}")));
+    }
+
+    public async Task ValidateReturnAccountingSetupAsync(Guid branchId, CancellationToken ct = default)
+    {
+        var settings = await _settingsRepo.GetByBranchAsync(branchId, ct);
+        if (settings is null)
+            throw new InvalidOperationException(
+                $"لم يتم تهيئة إعدادات المحاسبة للفرع '{branchId}'.");
+
+        var missing = new List<string>();
+        if (!settings.SalesAccountId.HasValue)      missing.Add("حساب المبيعات (SalesAccount)");
+        if (!settings.CashAccountId.HasValue)        missing.Add("حساب الصندوق (CashAccount)");
+        if (!settings.ReceivableAccountId.HasValue)  missing.Add("حساب العملاء/المدينين (ReceivableAccount)");
+        if (!settings.CogsAccountId.HasValue)        missing.Add("حساب تكلفة البضاعة المباعة (CogsAccount)");
+        if (!settings.InventoryAccountId.HasValue)   missing.Add("حساب المخزون (InventoryAccount)");
+
+        if (missing.Count > 0)
+            throw new InvalidOperationException(
+                "لا يمكن إتمام المرتجع — الحسابات التالية غير مُعيَّنة للفرع:\n" +
+                string.Join("\n", missing.Select(m => $"  • {m}")));
+    }
+
+    public async Task ValidateStockTransactionAccountingSetupAsync(
+        Guid branchId, string typeCode, CancellationToken ct = default)
+    {
+        var settings = await _settingsRepo.GetByBranchAsync(branchId, ct);
+        if (settings is null)
+            throw new InvalidOperationException(
+                $"لم يتم تهيئة إعدادات المحاسبة للفرع '{branchId}'.");
+
+        var missing = new List<string>();
+        if (!settings.InventoryAccountId.HasValue)   missing.Add("حساب المخزون (InventoryAccount)");
+
+        switch (typeCode.ToUpperInvariant())
+        {
+            case "IN":
+                if (!settings.SupplierPayableAccountId.HasValue && !settings.PurchaseAccountId.HasValue)
+                    missing.Add("حساب الموردين/المشتريات (SupplierPayableAccount أو PurchaseAccount)");
+                break;
+            case "OUT":
+                if (!settings.CogsAccountId.HasValue) missing.Add("حساب تكلفة البضاعة (CogsAccount)");
+                break;
+            case "RETURN":
+                if (!settings.SupplierPayableAccountId.HasValue && !settings.PurchaseAccountId.HasValue)
+                    missing.Add("حساب الموردين (SupplierPayableAccount)");
+                break;
+            case "ADJUSTMENT":
+                if (!settings.InventoryAdjustmentAccountId.HasValue && !settings.InventoryLossAccountId.HasValue)
+                    missing.Add("حساب تسوية المخزون (InventoryAdjustmentAccount)");
+                break;
+            case "EXPIRED":
+                if (!settings.ExpiredItemsAccountId.HasValue && !settings.InventoryLossAccountId.HasValue)
+                    missing.Add("حساب منتهي الصلاحية (ExpiredItemsAccount)");
+                break;
+            case "DAMAGED":
+                if (!settings.DamagedInventoryAccountId.HasValue && !settings.InventoryLossAccountId.HasValue)
+                    missing.Add("حساب البضاعة التالفة (DamagedInventoryAccount)");
+                break;
+        }
+
+        if (missing.Count > 0)
+            throw new InvalidOperationException(
+                $"لا يمكن إتمام حركة المخزون ({typeCode}) — الحسابات التالية غير مُعيَّنة:\n" +
+                string.Join("\n", missing.Select(m => $"  • {m}")));
+    }
+
+    // ═════════════════════════════════════════════════════════════════════════
     // SALES INVOICE POSTING — PRODUCTION-GRADE
     // ═════════════════════════════════════════════════════════════════════════
     public async Task<SalesInvoicePostingResult> PostSalesInvoiceAsync(
@@ -511,6 +600,12 @@ public sealed class JournalPostingService : IJournalPostingService
         StockTransactionPostingRequest req,
         CancellationToken ct = default)
     {
+        // ── 0. Duplicate-posting guard ────────────────────────────────────
+        var stockTxCheck = await _context.StockTransactions.FindAsync([req.TransactionOid], ct);
+        if (stockTxCheck?.JournalEntryId.HasValue == true)
+            throw new InvalidOperationException(
+                $"StockTransaction '{req.TransactionOid}' is already posted (JE={stockTxCheck.JournalEntryId}).");
+
         // ── 1. FiscalYear closed guard ────────────────────────────────────
         if (req.FiscalYearId.HasValue)
         {
@@ -848,6 +943,15 @@ public sealed class JournalPostingService : IJournalPostingService
             try
             {
                 await _journalRepo.InsertMasterDetailAsync(entry, details, ct);
+
+                // Stamp the JournalEntryId onto the StockTransaction record
+                var stockTx = await _context.StockTransactions.FindAsync([req.TransactionOid], ct);
+                if (stockTx is not null)
+                {
+                    stockTx.JournalEntryId = entry.Oid;
+                    await _context.SaveChangesAsync(ct);
+                }
+
                 await tx.CommitAsync(ct);
             }
             catch

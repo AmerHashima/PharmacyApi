@@ -125,4 +125,25 @@ public class JournalEntryController : BaseApiController
             return ErrorResponse<TrialBalanceReportDto>($"Error retrieving trial balance: {ex.Message}", 500);
         }
     }
+
+    /// <summary>
+    /// Validate that all required accounting accounts are configured for a branch and operation type.
+    /// OperationType values: SALES, RETURN, IN, OUT, TRANSFER, ADJUSTMENT, EXPIRED, DAMAGED
+    /// </summary>
+    [HttpGet("validate-setup/{branchId}")]
+    public async Task<ActionResult<ApiResponse<AccountingValidationResultDto>>> ValidateSetup(
+        Guid branchId,
+        [FromQuery] string operationType,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var result = await _mediator.Send(new ValidateBranchAccountingSetupQuery(branchId, operationType), cancellationToken);
+            return SuccessResponse(result, result.IsValid ? "Setup is complete" : "Setup is incomplete");
+        }
+        catch (Exception ex)
+        {
+            return ErrorResponse<AccountingValidationResultDto>($"Error validating setup: {ex.Message}", 500);
+        }
+    }
 }

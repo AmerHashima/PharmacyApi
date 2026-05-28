@@ -37,4 +37,10 @@ public interface IStockTransactionRepository : IBaseRepository<StockTransaction>
     /// Generate a unique reference number
     /// </summary>
     Task<string> GenerateReferenceNumberAsync(string prefix, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Get a single transaction with all detail lines and navigation properties (TransactionType, FromBranch, ToBranch, Supplier, Details.Product).
+    /// Used for manual journal re-post.
+    /// </summary>
+    Task<StockTransaction?> GetWithDetailsAsync(Guid transactionId, CancellationToken cancellationToken = default);
 }

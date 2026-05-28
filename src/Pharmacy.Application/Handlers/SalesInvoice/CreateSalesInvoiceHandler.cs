@@ -68,6 +68,11 @@ public class CreateSalesInvoiceHandler : IRequestHandler<CreateSalesInvoiceComma
             throw new KeyNotFoundException($"Branch with ID '{request.Invoice.BranchId}' not found");
         }
 
+        // Pre-flight accounting validation (always, regardless of AutoPostJournal)
+        // Ensures accounts are configured before any sale is saved when auto-post is on
+        if (branch.AutoPostJournal)
+            await _journalPostingService.ValidateSalesAccountingSetupAsync(request.Invoice.BranchId, cancellationToken);
+
         // Validate all products exist and have sufficient stock
         foreach (var item in request.Invoice.Items)
         {
@@ -446,7 +451,8 @@ public class CreateSalesInvoiceHandler : IRequestHandler<CreateSalesInvoiceComma
             Payments:               payments.AsReadOnly(),
             CustomerId:             customerId);
 
-        await _journalPostingService.PostSalesInvoiceAsync(postingRequest, cancellationToken);
+        if (branch.AutoPostJournal)
+            await _journalPostingService.PostSalesInvoiceAsync(postingRequest, cancellationToken);
 
         return _mapper.Map<SalesInvoiceDto>(completeInvoice);
     }

@@ -105,4 +105,17 @@ public class StockTransactionRepository : BaseRepository<StockTransaction>, ISto
         
         return $"{prefix}-{today}-{sequence:D4}";
     }
+
+    public async Task<StockTransaction?> GetWithDetailsAsync(Guid transactionId, CancellationToken cancellationToken = default)
+    {
+        return await _dbSet
+            .Include(t => t.Details)
+                .ThenInclude(d => d.Product)
+            .Include(t => t.FromBranch)
+            .Include(t => t.ToBranch)
+            .Include(t => t.TransactionType)
+            .Include(t => t.Supplier)
+            .Where(t => t.Oid == transactionId && !t.IsDeleted)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
 }

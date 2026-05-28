@@ -90,4 +90,21 @@ public class PaymentVoucherController : BaseApiController
         }
         catch (Exception ex) { return ErrorResponse<bool>($"Error deleting payment voucher: {ex.Message}", 500); }
     }
+
+    /// <summary>
+    /// Re-create and link a journal entry for a payment voucher that currently has no journal entry.
+    /// Use this when JournalEntryId is null (e.g. after the linked journal was manually deleted).
+    /// </summary>
+    [HttpPost("{id}/post-journal")]
+    public async Task<ActionResult<ApiResponse<JournalEntryDto>>> PostJournal(Guid id, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var result = await _mediator.Send(new PostPaymentVoucherJournalCommand(id), cancellationToken);
+            return SuccessResponse(result, "Payment voucher posted to journal successfully");
+        }
+        catch (KeyNotFoundException ex) { return ErrorResponse<JournalEntryDto>(ex.Message, 404); }
+        catch (InvalidOperationException ex) { return ErrorResponse<JournalEntryDto>(ex.Message, 400); }
+        catch (Exception ex) { return ErrorResponse<JournalEntryDto>($"Error posting journal: {ex.Message}", 500); }
+    }
 }

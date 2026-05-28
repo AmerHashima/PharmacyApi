@@ -1,5 +1,7 @@
 using Pharmacy.Api.Models;
+using Pharmacy.Application.Commands.Accounting;
 using Pharmacy.Application.Commands.ReturnInvoice;
+using Pharmacy.Application.DTOs.Accounting;
 using Pharmacy.Application.DTOs.ReturnInvoice;
 using Pharmacy.Application.DTOs.Common;
 using Pharmacy.Application.Queries.ReturnInvoice;
@@ -103,5 +105,22 @@ public class ReturnInvoiceController : BaseApiController
         {
             return ErrorResponse<ReturnInvoiceDto>(ex.Message, 400);
         }
+    }
+
+    /// <summary>
+    /// Manually post a return invoice to the journal.
+    /// Used for branches where AutoPostJournal=false.
+    /// </summary>
+    [HttpPost("{id}/post-journal")]
+    public async Task<ActionResult<ApiResponse<JournalEntryDto>>> PostJournal(Guid id, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var result = await _mediator.Send(new PostReturnInvoiceJournalCommand(id), cancellationToken);
+            return SuccessResponse(result, "Return invoice posted to journal successfully");
+        }
+        catch (KeyNotFoundException ex) { return ErrorResponse<JournalEntryDto>(ex.Message, 404); }
+        catch (InvalidOperationException ex) { return ErrorResponse<JournalEntryDto>(ex.Message, 400); }
+        catch (Exception ex) { return ErrorResponse<JournalEntryDto>($"Error posting journal: {ex.Message}", 500); }
     }
 }

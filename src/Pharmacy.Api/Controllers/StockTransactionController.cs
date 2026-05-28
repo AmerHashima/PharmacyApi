@@ -2,7 +2,9 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Pharmacy.Api.Models;
+using Pharmacy.Application.Commands.Accounting;
 using Pharmacy.Application.Commands.StockTransaction;
+using Pharmacy.Application.DTOs.Accounting;
 using Pharmacy.Application.DTOs.Common;
 using Pharmacy.Application.DTOs.StockTransaction;
 using Pharmacy.Application.Queries.StockTransaction;
@@ -229,5 +231,22 @@ public class StockTransactionController : BaseApiController
         {
             return ErrorResponse<OpenStockResultDto>($"Error resolving open stock: {ex.Message}", 500);
         }
+    }
+
+    /// <summary>
+    /// Manually post a stock transaction to the journal.
+    /// Used for branches where AutoPostJournal=false.
+    /// </summary>
+    [HttpPost("{id}/post-journal")]
+    public async Task<ActionResult<ApiResponse<JournalEntryDto>>> PostJournal(Guid id, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var result = await _mediator.Send(new PostStockTransactionJournalCommand(id), cancellationToken);
+            return SuccessResponse(result, "Stock transaction posted to journal successfully");
+        }
+        catch (KeyNotFoundException ex) { return ErrorResponse<JournalEntryDto>(ex.Message, 404); }
+        catch (InvalidOperationException ex) { return ErrorResponse<JournalEntryDto>(ex.Message, 400); }
+        catch (Exception ex) { return ErrorResponse<JournalEntryDto>($"Error posting journal: {ex.Message}", 500); }
     }
 }

@@ -150,6 +150,25 @@ public record ReturnInvoicePostingRequest(
 public interface IJournalPostingService
 {
     /// <summary>
+    /// Validates that all required accounting accounts are configured for the branch
+    /// before allowing a sales invoice to be created.
+    /// Throws <see cref="InvalidOperationException"/> listing every missing account.
+    /// </summary>
+    Task ValidateSalesAccountingSetupAsync(Guid branchId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Validates that all required accounting accounts are configured for the branch
+    /// before allowing a return invoice to be created.
+    /// </summary>
+    Task ValidateReturnAccountingSetupAsync(Guid branchId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Validates that all required accounting accounts are configured for the branch
+    /// before allowing a stock transaction to be created.
+    /// </summary>
+    Task ValidateStockTransactionAccountingSetupAsync(Guid branchId, string typeCode, CancellationToken ct = default);
+
+    /// <summary>
     /// Posts a sales invoice with full double-entry accounting.
     /// Supports mixed VAT (taxable/zero-rated/exempt in one invoice).
     /// Supports partial/mixed payments.
