@@ -9,10 +9,10 @@ using Pharmacy.Domain.Interfaces.Accounting;
 namespace Pharmacy.Application.Handlers.Accounting;
 
 /// <summary>
-/// Manually posts a stock transaction to the journal.
-/// Used for branches where AutoPostJournal=false — operator triggers posting explicitly.
+/// Manually posts one or more stock transactions to the journal.
+/// Each item is processed independently; failures are collected rather than aborting the batch.
 /// </summary>
-public class PostStockTransactionJournalHandler : IRequestHandler<PostStockTransactionJournalCommand, JournalEntryDto>
+public class PostStockTransactionJournalHandler : IRequestHandler<PostStockTransactionJournalCommand, PostJournalBatchResultDto>
 {
     private readonly IStockTransactionRepository _transactionRepository;
     private readonly IFiscalYearRepository _fiscalYearRepository;
@@ -31,28 +31,56 @@ public class PostStockTransactionJournalHandler : IRequestHandler<PostStockTrans
         _mapper                = mapper;
     }
 
-    public async Task<JournalEntryDto> Handle(PostStockTransactionJournalCommand request, CancellationToken cancellationToken)
+    public async Task<PostJournalBatchResultDto> Handle(PostStockTransactionJournalCommand request, CancellationToken cancellationToken)
     {
-        var transaction = await _transactionRepository.GetWithDetailsAsync(request.TransactionId, cancellationToken)
-            ?? throw new KeyNotFoundException($"Stock transaction '{request.TransactionId}' not found");
+        var batch = new PostJournalBatchResultDto { TotalRequested = request.TransactionIds.Count };
+
+        foreach (var transactionId in request.TransactionIds)
+        {
+            try
+            {
+                var entry = await PostSingleAsync(transactionId, cancellationToken);
+                batch.Results.Add(new PostJournalItemResultDto
+                {
+                    Id           = transactionId,
+                    Success      = true,
+                    JournalEntry = entry
+                });
+                batch.TotalSucceeded++;
+            }
+            catch (Exception ex)
+            {
+                batch.Results.Add(new PostJournalItemResultDto
+                {
+                    Id      = transactionId,
+                    Success = false,
+                    Error   = ex.Message
+                });
+                batch.TotalFailed++;
+            }
+        }
+
+        return batch;
+    }
+
+    private async Task<JournalEntryDto> PostSingleAsync(Guid transactionId, CancellationToken cancellationToken)
+    {
+        var transaction = await _transactionRepository.GetWithDetailsAsync(transactionId, cancellationToken)
+            ?? throw new KeyNotFoundException($"Stock transaction '{transactionId}' not found");
 
         if (transaction.JournalEntryId.HasValue)
             throw new InvalidOperationException($"Stock transaction '{transaction.ReferenceNumber}' is already posted to journal entry '{transaction.JournalEntryId}'");
 
         var typeCode = transaction.TransactionType?.ValueCode
-            ?? throw new InvalidOperationException($"Stock transaction '{request.TransactionId}' has no transaction type");
+            ?? throw new InvalidOperationException($"Stock transaction '{transactionId}' has no transaction type");
 
-        // Fiscal year
-        Guid? fiscalYearId = null;
         var fy = await _fiscalYearRepository.GetCurrentAsync(cancellationToken);
-        fiscalYearId = fy?.Oid;
+        var fiscalYearId = fy?.Oid;
 
-        // Recompute VAT breakdown from persisted detail lines
         decimal taxableNetCost   = 0;
         decimal zeroVatNetCost   = 0;
         decimal exemptNetCost    = 0;
         decimal taxableVatAmount = 0;
-
         var postingItems = new List<StockTransactionLineItem>();
         int lineIdx = 0;
 

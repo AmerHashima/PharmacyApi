@@ -234,19 +234,21 @@ public class StockTransactionController : BaseApiController
     }
 
     /// <summary>
-    /// Manually post a stock transaction to the journal.
+    /// Manually post journal entries for a list of stock transactions.
     /// Used for branches where AutoPostJournal=false.
     /// </summary>
-    [HttpPost("{id}/post-journal")]
-    public async Task<ActionResult<ApiResponse<JournalEntryDto>>> PostJournal(Guid id, CancellationToken cancellationToken)
+    [HttpPost("post-journal")]
+    public async Task<ActionResult<ApiResponse<PostJournalBatchResultDto>>> PostJournal(
+        [FromBody] List<Guid> ids, CancellationToken cancellationToken)
     {
         try
         {
-            var result = await _mediator.Send(new PostStockTransactionJournalCommand(id), cancellationToken);
-            return SuccessResponse(result, "Stock transaction posted to journal successfully");
+            var result = await _mediator.Send(new PostStockTransactionJournalCommand(ids), cancellationToken);
+            var message = result.TotalFailed == 0
+                ? $"All {result.TotalSucceeded} transaction(s) posted successfully"
+                : $"{result.TotalSucceeded} succeeded, {result.TotalFailed} failed";
+            return SuccessResponse(result, message);
         }
-        catch (KeyNotFoundException ex) { return ErrorResponse<JournalEntryDto>(ex.Message, 404); }
-        catch (InvalidOperationException ex) { return ErrorResponse<JournalEntryDto>(ex.Message, 400); }
-        catch (Exception ex) { return ErrorResponse<JournalEntryDto>($"Error posting journal: {ex.Message}", 500); }
+        catch (Exception ex) { return ErrorResponse<PostJournalBatchResultDto>($"Error posting journals: {ex.Message}", 500); }
     }
 }

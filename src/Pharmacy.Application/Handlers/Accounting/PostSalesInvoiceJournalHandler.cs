@@ -9,10 +9,11 @@ using Pharmacy.Domain.Interfaces.Accounting;
 namespace Pharmacy.Application.Handlers.Accounting;
 
 /// <summary>
-/// Manually posts a sales invoice to the journal.
+/// Manually posts one or more sales invoices to the journal.
 /// Used for branches where AutoPostJournal=false — operator triggers posting explicitly.
+/// Each item is processed independently; failures are collected rather than aborting the batch.
 /// </summary>
-public class PostSalesInvoiceJournalHandler : IRequestHandler<PostSalesInvoiceJournalCommand, JournalEntryDto>
+public class PostSalesInvoiceJournalHandler : IRequestHandler<PostSalesInvoiceJournalCommand, PostJournalBatchResultDto>
 {
     private readonly ISalesInvoiceRepository _invoiceRepository;
     private readonly IAppLookupDetailRepository _lookupRepository;
@@ -34,20 +35,50 @@ public class PostSalesInvoiceJournalHandler : IRequestHandler<PostSalesInvoiceJo
         _mapper                = mapper;
     }
 
-    public async Task<JournalEntryDto> Handle(PostSalesInvoiceJournalCommand request, CancellationToken cancellationToken)
+    public async Task<PostJournalBatchResultDto> Handle(PostSalesInvoiceJournalCommand request, CancellationToken cancellationToken)
     {
-        var invoice = await _invoiceRepository.GetWithItemsAsync(request.InvoiceId, cancellationToken)
-            ?? throw new KeyNotFoundException($"Sales invoice '{request.InvoiceId}' not found");
+        var batch = new PostJournalBatchResultDto { TotalRequested = request.InvoiceIds.Count };
+
+        foreach (var invoiceId in request.InvoiceIds)
+        {
+            try
+            {
+                var entry = await PostSingleAsync(invoiceId, cancellationToken);
+                batch.Results.Add(new PostJournalItemResultDto
+                {
+                    Id           = invoiceId,
+                    Success      = true,
+                    JournalEntry = entry
+                });
+                batch.TotalSucceeded++;
+            }
+            catch (Exception ex)
+            {
+                batch.Results.Add(new PostJournalItemResultDto
+                {
+                    Id      = invoiceId,
+                    Success = false,
+                    Error   = ex.Message
+                });
+                batch.TotalFailed++;
+            }
+        }
+
+        return batch;
+    }
+
+    private async Task<JournalEntryDto> PostSingleAsync(Guid invoiceId, CancellationToken cancellationToken)
+    {
+        var invoice = await _invoiceRepository.GetWithItemsAsync(invoiceId, cancellationToken)
+            ?? throw new KeyNotFoundException($"Sales invoice '{invoiceId}' not found");
 
         if (invoice.JournalEntryId.HasValue)
             throw new InvalidOperationException($"Invoice '{invoice.InvoiceNumber}' is already posted to journal entry '{invoice.JournalEntryId}'");
 
-        // Resolve payment method code
         var paymentMethodCode = invoice.PaymentMethodId.HasValue
             ? (await _lookupRepository.GetByIdAsync(invoice.PaymentMethodId.Value, cancellationToken))?.ValueCode
             : null;
 
-        // Fiscal year (use stored FK or fall back to current open year)
         Guid? fiscalYearId = invoice.FiscalYearId;
         if (fiscalYearId == null)
         {
@@ -55,7 +86,6 @@ public class PostSalesInvoiceJournalHandler : IRequestHandler<PostSalesInvoiceJo
             fiscalYearId = fy?.Oid;
         }
 
-        // Build line items with VAT category classification
         var enhancedItems = invoice.Items
             .Where(i => !i.IsDeleted)
             .Select(i =>
@@ -85,7 +115,6 @@ public class PostSalesInvoiceJournalHandler : IRequestHandler<PostSalesInvoiceJo
             .ToList()
             .AsReadOnly();
 
-        // Build payments collection
         var payments = new List<PaymentMethodDetail>();
         if (!string.IsNullOrEmpty(paymentMethodCode))
         {

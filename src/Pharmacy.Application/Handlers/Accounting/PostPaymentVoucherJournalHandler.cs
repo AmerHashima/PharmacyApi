@@ -10,12 +10,13 @@ using Pharmacy.Domain.Interfaces.Accounting;
 namespace Pharmacy.Application.Handlers.Accounting;
 
 /// <summary>
-/// Re-creates and links a journal entry for a payment voucher whose JournalEntryId is null.
+/// Re-creates and links journal entries for one or more payment vouchers whose JournalEntryId is null.
 /// Mirrors the same double-entry logic as <see cref="CreatePaymentVoucherHandler"/>:
 ///   CR each detail account  (the payable / expense accounts being paid)
 ///   DR the cash-box or bank account (the source of funds)
+/// Each item is processed independently; failures are collected rather than aborting the batch.
 /// </summary>
-public class PostPaymentVoucherJournalHandler : IRequestHandler<PostPaymentVoucherJournalCommand, JournalEntryDto>
+public class PostPaymentVoucherJournalHandler : IRequestHandler<PostPaymentVoucherJournalCommand, PostJournalBatchResultDto>
 {
     private readonly IPaymentVoucherRepository _voucherRepository;
     private readonly IJournalEntryRepository _journalEntryRepository;
@@ -43,10 +44,32 @@ public class PostPaymentVoucherJournalHandler : IRequestHandler<PostPaymentVouch
         _mapper               = mapper;
     }
 
-    public async Task<JournalEntryDto> Handle(PostPaymentVoucherJournalCommand request, CancellationToken cancellationToken)
+    public async Task<PostJournalBatchResultDto> Handle(PostPaymentVoucherJournalCommand request, CancellationToken cancellationToken)
     {
-        var voucher = await _voucherRepository.GetWithDetailsAsync(request.VoucherId, cancellationToken)
-            ?? throw new KeyNotFoundException($"Payment voucher '{request.VoucherId}' not found");
+        var batch = new PostJournalBatchResultDto { TotalRequested = request.VoucherIds.Count };
+
+        foreach (var voucherId in request.VoucherIds)
+        {
+            try
+            {
+                var entry = await PostSingleAsync(voucherId, cancellationToken);
+                batch.Results.Add(new PostJournalItemResultDto { Id = voucherId, Success = true, JournalEntry = entry });
+                batch.TotalSucceeded++;
+            }
+            catch (Exception ex)
+            {
+                batch.Results.Add(new PostJournalItemResultDto { Id = voucherId, Success = false, Error = ex.Message });
+                batch.TotalFailed++;
+            }
+        }
+
+        return batch;
+    }
+
+    private async Task<JournalEntryDto> PostSingleAsync(Guid voucherId, CancellationToken cancellationToken)
+    {
+        var voucher = await _voucherRepository.GetWithDetailsAsync(voucherId, cancellationToken)
+            ?? throw new KeyNotFoundException($"Payment voucher '{voucherId}' not found");
 
         if (voucher.JournalEntryId.HasValue)
             throw new InvalidOperationException(
@@ -59,14 +82,11 @@ public class PostPaymentVoucherJournalHandler : IRequestHandler<PostPaymentVouch
         var branchId = voucher.BranchId
             ?? throw new InvalidOperationException("Payment voucher has no BranchId — cannot generate journal number");
 
-        // Generate a new journal entry number
         var journalEntryNumber = await _voucherNumberService.GenerateJournalEntryNumberAsync(branchId, cancellationToken);
 
-        // Resolve reference type
         var lookupDetails = await _lookupDetailRepository.GetByLookupCodeAsync("JOURNAL_REFERENCE_TYPE", cancellationToken);
         var referenceTypeId = lookupDetails.FirstOrDefault(d => d.ValueCode == IVoucherNumberService.PAYMENT_VOUCHER)?.Oid;
 
-        // Build journal entry
         var journalEntry = new JournalEntry
         {
             EntryNumber     = journalEntryNumber,
@@ -79,7 +99,6 @@ public class PostPaymentVoucherJournalHandler : IRequestHandler<PostPaymentVouch
             CreatedAt       = DateTime.UtcNow,
         };
 
-        // CR each detail account (what is being paid out to)
         var journalDetails = voucher.Details.Select(d => new JournalEntryDetail
         {
             JournalEntryId = journalEntry.Oid,
@@ -91,17 +110,15 @@ public class PostPaymentVoucherJournalHandler : IRequestHandler<PostPaymentVouch
             CreatedAt      = DateTime.UtcNow,
         }).ToList();
 
-        // DR the bank / cashbox account (source of funds)
         var balancingAccountId = await ResolveBalancingAccountIdAsync(voucher.BankAccountId, voucher.CashBoxId, cancellationToken);
         if (balancingAccountId.HasValue)
         {
-            var total = journalDetails.Sum(d => d.Credit);
             journalDetails.Add(new JournalEntryDetail
             {
                 JournalEntryId = journalEntry.Oid,
                 AccountId      = balancingAccountId.Value,
                 Description    = voucher.Notes,
-                Debit          = total,
+                Debit          = journalDetails.Sum(d => d.Credit),
                 Credit         = 0,
                 CreatedAt      = DateTime.UtcNow,
             });
@@ -112,7 +129,6 @@ public class PostPaymentVoucherJournalHandler : IRequestHandler<PostPaymentVouch
 
         await _journalEntryRepository.InsertMasterDetailAsync(journalEntry, journalDetails, cancellationToken);
 
-        // Link voucher → journal entry
         voucher.JournalEntryId = journalEntry.Oid;
         await _voucherRepository.UpdateAsync(voucher, cancellationToken);
 

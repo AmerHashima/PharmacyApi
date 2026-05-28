@@ -10,12 +10,13 @@ using Pharmacy.Domain.Interfaces.Accounting;
 namespace Pharmacy.Application.Handlers.Accounting;
 
 /// <summary>
-/// Re-creates and links a journal entry for a receipt voucher whose JournalEntryId is null.
+/// Re-creates and links journal entries for one or more receipt vouchers whose JournalEntryId is null.
 /// Mirrors the same double-entry logic as <see cref="CreateReceiptVoucherHandler"/>:
 ///   DR each detail account  (the receivable / income accounts being collected)
 ///   CR the cash-box or bank account (the destination of funds)
+/// Each item is processed independently; failures are collected rather than aborting the batch.
 /// </summary>
-public class PostReceiptVoucherJournalHandler : IRequestHandler<PostReceiptVoucherJournalCommand, JournalEntryDto>
+public class PostReceiptVoucherJournalHandler : IRequestHandler<PostReceiptVoucherJournalCommand, PostJournalBatchResultDto>
 {
     private readonly IReceiptVoucherRepository _voucherRepository;
     private readonly IJournalEntryRepository _journalEntryRepository;
@@ -43,10 +44,32 @@ public class PostReceiptVoucherJournalHandler : IRequestHandler<PostReceiptVouch
         _mapper                 = mapper;
     }
 
-    public async Task<JournalEntryDto> Handle(PostReceiptVoucherJournalCommand request, CancellationToken cancellationToken)
+    public async Task<PostJournalBatchResultDto> Handle(PostReceiptVoucherJournalCommand request, CancellationToken cancellationToken)
     {
-        var voucher = await _voucherRepository.GetWithDetailsAsync(request.VoucherId, cancellationToken)
-            ?? throw new KeyNotFoundException($"Receipt voucher '{request.VoucherId}' not found");
+        var batch = new PostJournalBatchResultDto { TotalRequested = request.VoucherIds.Count };
+
+        foreach (var voucherId in request.VoucherIds)
+        {
+            try
+            {
+                var entry = await PostSingleAsync(voucherId, cancellationToken);
+                batch.Results.Add(new PostJournalItemResultDto { Id = voucherId, Success = true, JournalEntry = entry });
+                batch.TotalSucceeded++;
+            }
+            catch (Exception ex)
+            {
+                batch.Results.Add(new PostJournalItemResultDto { Id = voucherId, Success = false, Error = ex.Message });
+                batch.TotalFailed++;
+            }
+        }
+
+        return batch;
+    }
+
+    private async Task<JournalEntryDto> PostSingleAsync(Guid voucherId, CancellationToken cancellationToken)
+    {
+        var voucher = await _voucherRepository.GetWithDetailsAsync(voucherId, cancellationToken)
+            ?? throw new KeyNotFoundException($"Receipt voucher '{voucherId}' not found");
 
         if (voucher.JournalEntryId.HasValue)
             throw new InvalidOperationException(
@@ -59,14 +82,11 @@ public class PostReceiptVoucherJournalHandler : IRequestHandler<PostReceiptVouch
         var branchId = voucher.BranchId
             ?? throw new InvalidOperationException("Receipt voucher has no BranchId — cannot generate journal number");
 
-        // Generate a new journal entry number
         var journalEntryNumber = await _voucherNumberService.GenerateJournalEntryNumberAsync(branchId, cancellationToken);
 
-        // Resolve reference type
         var lookupDetails = await _lookupDetailRepository.GetByLookupCodeAsync("JOURNAL_REFERENCE_TYPE", cancellationToken);
         var referenceTypeId = lookupDetails.FirstOrDefault(d => d.ValueCode == IVoucherNumberService.RECEIPT_VOUCHER)?.Oid;
 
-        // Build journal entry
         var journalEntry = new JournalEntry
         {
             EntryNumber     = journalEntryNumber,
@@ -79,7 +99,6 @@ public class PostReceiptVoucherJournalHandler : IRequestHandler<PostReceiptVouch
             CreatedAt       = DateTime.UtcNow,
         };
 
-        // DR each detail account (what is being collected / received)
         var journalDetails = voucher.Details.Select(d => new JournalEntryDetail
         {
             JournalEntryId = journalEntry.Oid,
@@ -91,18 +110,16 @@ public class PostReceiptVoucherJournalHandler : IRequestHandler<PostReceiptVouch
             CreatedAt      = DateTime.UtcNow,
         }).ToList();
 
-        // CR the bank / cashbox account (destination of funds)
         var balancingAccountId = await ResolveBalancingAccountIdAsync(voucher.BankAccountId, voucher.CashBoxId, cancellationToken);
         if (balancingAccountId.HasValue)
         {
-            var total = journalDetails.Sum(d => d.Debit);
             journalDetails.Add(new JournalEntryDetail
             {
                 JournalEntryId = journalEntry.Oid,
                 AccountId      = balancingAccountId.Value,
                 Description    = voucher.Notes,
                 Debit          = 0,
-                Credit         = total,
+                Credit         = journalDetails.Sum(d => d.Debit),
                 CreatedAt      = DateTime.UtcNow,
             });
         }
@@ -112,7 +129,6 @@ public class PostReceiptVoucherJournalHandler : IRequestHandler<PostReceiptVouch
 
         await _journalEntryRepository.InsertMasterDetailAsync(journalEntry, journalDetails, cancellationToken);
 
-        // Link voucher → journal entry
         voucher.JournalEntryId = journalEntry.Oid;
         await _voucherRepository.UpdateAsync(voucher, cancellationToken);
 

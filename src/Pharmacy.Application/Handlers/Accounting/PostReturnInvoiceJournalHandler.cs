@@ -9,10 +9,10 @@ using Pharmacy.Domain.Interfaces.Accounting;
 namespace Pharmacy.Application.Handlers.Accounting;
 
 /// <summary>
-/// Manually posts a return invoice to the journal.
-/// Used for branches where AutoPostJournal=false — operator triggers posting explicitly.
+/// Manually posts one or more return invoices to the journal.
+/// Each item is processed independently; failures are collected rather than aborting the batch.
 /// </summary>
-public class PostReturnInvoiceJournalHandler : IRequestHandler<PostReturnInvoiceJournalCommand, JournalEntryDto>
+public class PostReturnInvoiceJournalHandler : IRequestHandler<PostReturnInvoiceJournalCommand, PostJournalBatchResultDto>
 {
     private readonly IReturnInvoiceRepository _returnInvoiceRepository;
     private readonly ISalesInvoiceRepository _salesInvoiceRepository;
@@ -40,24 +40,53 @@ public class PostReturnInvoiceJournalHandler : IRequestHandler<PostReturnInvoice
         _mapper                  = mapper;
     }
 
-    public async Task<JournalEntryDto> Handle(PostReturnInvoiceJournalCommand request, CancellationToken cancellationToken)
+    public async Task<PostJournalBatchResultDto> Handle(PostReturnInvoiceJournalCommand request, CancellationToken cancellationToken)
     {
-        var returnInvoice = await _returnInvoiceRepository.GetWithItemsAsync(request.ReturnInvoiceId, cancellationToken)
-            ?? throw new KeyNotFoundException($"Return invoice '{request.ReturnInvoiceId}' not found");
+        var batch = new PostJournalBatchResultDto { TotalRequested = request.ReturnInvoiceIds.Count };
+
+        foreach (var returnInvoiceId in request.ReturnInvoiceIds)
+        {
+            try
+            {
+                var entry = await PostSingleAsync(returnInvoiceId, cancellationToken);
+                batch.Results.Add(new PostJournalItemResultDto
+                {
+                    Id           = returnInvoiceId,
+                    Success      = true,
+                    JournalEntry = entry
+                });
+                batch.TotalSucceeded++;
+            }
+            catch (Exception ex)
+            {
+                batch.Results.Add(new PostJournalItemResultDto
+                {
+                    Id      = returnInvoiceId,
+                    Success = false,
+                    Error   = ex.Message
+                });
+                batch.TotalFailed++;
+            }
+        }
+
+        return batch;
+    }
+
+    private async Task<JournalEntryDto> PostSingleAsync(Guid returnInvoiceId, CancellationToken cancellationToken)
+    {
+        var returnInvoice = await _returnInvoiceRepository.GetWithItemsAsync(returnInvoiceId, cancellationToken)
+            ?? throw new KeyNotFoundException($"Return invoice '{returnInvoiceId}' not found");
 
         if (returnInvoice.JournalEntryId.HasValue)
             throw new InvalidOperationException($"Return invoice '{returnInvoice.ReturnNumber}' is already posted to journal entry '{returnInvoice.JournalEntryId}'");
 
-        // Load original invoice for tax/cost data
         var originalInvoice = await _salesInvoiceRepository.GetWithItemsAsync(returnInvoice.OriginalInvoiceId, cancellationToken)
             ?? throw new KeyNotFoundException($"Original invoice '{returnInvoice.OriginalInvoiceId}' not found");
 
-        // Resolve payment method code
         var paymentMethodCode = returnInvoice.PaymentMethodId.HasValue
             ? (await _lookupRepository.GetByIdAsync(returnInvoice.PaymentMethodId.Value, cancellationToken))?.ValueCode
             : null;
 
-        // Fiscal year
         Guid? fiscalYearId = returnInvoice.FiscalYearId;
         if (fiscalYearId == null)
         {
@@ -65,7 +94,6 @@ public class PostReturnInvoiceJournalHandler : IRequestHandler<PostReturnInvoice
             fiscalYearId = fy?.Oid;
         }
 
-        // Build enhanced line items with VAT category derived from original invoice items
         var enhancedItems = new List<SalesInvoiceLineItem>();
         decimal totalTaxAmount = 0m;
 
@@ -104,7 +132,6 @@ public class PostReturnInvoiceJournalHandler : IRequestHandler<PostReturnInvoice
                 IsFreeItem:         false));
         }
 
-        // Refund total includes VAT
         var refundTotal = (returnInvoice.TotalAmount ?? 0m) + totalTaxAmount;
 
         var refundMethods = new List<PaymentMethodDetail>();
