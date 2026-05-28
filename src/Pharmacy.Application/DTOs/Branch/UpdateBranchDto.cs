@@ -57,6 +57,8 @@ public class UpdateBranchDto
     [MaxLength(200, ErrorMessage = "Registration name cannot exceed 200 characters")]
     public string? RegistrationName { get; set; }
 
+    public bool AutoPostJournal { get; set; }
+
     public int? Status { get; set; }
 }
 

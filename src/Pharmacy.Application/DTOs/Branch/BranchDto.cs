@@ -24,5 +24,6 @@ public class BranchDto
     public string? CityName { get; set; }
     public string? PostalZone { get; set; }
     public string? RegistrationName { get; set; }
+    public bool AutoPostJournal { get; set; }
     public DateTime CreatedAt { get; set; }
 }
