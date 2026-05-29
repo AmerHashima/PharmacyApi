@@ -99,16 +99,18 @@ public class PostPaymentVoucherJournalHandler : IRequestHandler<PostPaymentVouch
             CreatedAt       = DateTime.UtcNow,
         };
 
-        var journalDetails = voucher.Details.Select(d => new JournalEntryDetail
-        {
-            JournalEntryId = journalEntry.Oid,
-            AccountId      = d.AccountId,
-            CostCenterId   = d.CostCenterId,
-            Description    = d.Description,
-            Debit          = 0,
-            Credit         = d.Amount,
-            CreatedAt      = DateTime.UtcNow,
-        }).ToList();
+        var journalDetails = voucher.Details
+            .Select((d, idx) => new JournalEntryDetail
+            {
+                JournalEntryId = journalEntry.Oid,
+                AccountId      = d.AccountId,
+                CostCenterId   = d.CostCenterId,
+                Description    = d.Description,
+                Debit          = 0,
+                Credit         = d.Amount,
+                LineNumber     = idx + 1,
+                CreatedAt      = DateTime.UtcNow,
+            }).ToList();
 
         var balancingAccountId = await ResolveBalancingAccountIdAsync(voucher.BankAccountId, voucher.CashBoxId, cancellationToken);
         if (balancingAccountId.HasValue)
@@ -120,6 +122,7 @@ public class PostPaymentVoucherJournalHandler : IRequestHandler<PostPaymentVouch
                 Description    = voucher.Notes,
                 Debit          = journalDetails.Sum(d => d.Credit),
                 Credit         = 0,
+                LineNumber     = journalDetails.Count + 1,
                 CreatedAt      = DateTime.UtcNow,
             });
         }

@@ -96,14 +96,16 @@ public sealed class JournalPostingService : IJournalPostingService
     private readonly IStakeholderRepository _stakeholderRepo;
     private readonly ISalesInvoiceRepository _invoiceRepo;
     private readonly IReturnInvoiceRepository _returnInvoiceRepo;
+    private readonly IAppLookupDetailRepository _lookupRepo;
     private readonly PharmacyDbContext _context;
 
-    public const string RefTypeSalesInvoice  = "SALES_INV";
-    public const string RefTypeReturnInvoice = "RETURN_INV";
-    public const string TypeSalesEntry       = "SI";
-    public const string TypePaymentEntry     = "SP";
-    public const string TypeCogsEntry        = "COGS";
-    public const string TypeReturnEntry      = "RI";
+    public const string RefTypeSalesInvoice     = "SALES_INVOICE";
+    public const string RefTypeReturnInvoice    = "RETURN_INVOICE";
+    public const string RefTypeStockTransaction = "STOCK_TRANSACTION";
+    public const string TypeSalesEntry          = "SI";
+    public const string TypePaymentEntry        = "SP";
+    public const string TypeCogsEntry           = "COGS";
+    public const string TypeReturnEntry         = "RI";
 
     public JournalPostingService(
         IJournalEntryRepository journalRepo,
@@ -114,6 +116,7 @@ public sealed class JournalPostingService : IJournalPostingService
         IStakeholderRepository stakeholderRepo,
         ISalesInvoiceRepository invoiceRepo,
         IReturnInvoiceRepository returnInvoiceRepo,
+        IAppLookupDetailRepository lookupRepo,
         PharmacyDbContext context)
     {
         _journalRepo       = journalRepo;
@@ -124,6 +127,7 @@ public sealed class JournalPostingService : IJournalPostingService
         _stakeholderRepo   = stakeholderRepo;
         _invoiceRepo       = invoiceRepo;
         _returnInvoiceRepo = returnInvoiceRepo;
+        _lookupRepo        = lookupRepo;
         _context           = context;
     }
 
@@ -264,15 +268,18 @@ public sealed class JournalPostingService : IJournalPostingService
 
         // ── 6. Create JournalEntry master ─────────────────────────────────
         var entryNumber = await _numberService.GenerateJournalEntryNumberAsync(req.BranchId, ct);
+        var refTypeLookup = await _lookupRepo.GetByLookupCodeAsync("JOURNAL_REFERENCE_TYPE", ct);
+        var referenceTypeId = refTypeLookup.FirstOrDefault(d => d.ValueCode == RefTypeSalesInvoice)?.Oid;
         var entry = new JournalEntry
         {
-            EntryNumber  = entryNumber,
-            EntryDate    = req.InvoiceDate,
-            FiscalYearId = req.FiscalYearId,
-            BranchId     = req.BranchId,
-            Description  = $"{TypeSalesEntry} - {req.InvoiceNumber}",
-            ReferenceId  = req.InvoiceOid,
-            CreatedAt    = DateTime.UtcNow,
+            EntryNumber     = entryNumber,
+            EntryDate       = req.InvoiceDate,
+            FiscalYearId    = req.FiscalYearId,
+            BranchId        = req.BranchId,
+            Description     = $"{TypeSalesEntry} - {req.InvoiceNumber}",
+            ReferenceId     = req.InvoiceOid,
+            ReferenceTypeId = referenceTypeId,
+            CreatedAt       = DateTime.UtcNow,
         };
 
         var details = new List<JournalEntryDetail>();
@@ -452,15 +459,18 @@ public sealed class JournalPostingService : IJournalPostingService
 
         // ── 5. Create JournalEntry master ─────────────────────────────────
         var entryNumber = await _numberService.GenerateJournalEntryNumberAsync(req.BranchId, ct);
+        var retRefTypeLookup = await _lookupRepo.GetByLookupCodeAsync("JOURNAL_REFERENCE_TYPE", ct);
+        var retReferenceTypeId = retRefTypeLookup.FirstOrDefault(d => d.ValueCode == RefTypeReturnInvoice)?.Oid;
         var entry = new JournalEntry
         {
-            EntryNumber  = entryNumber,
-            EntryDate    = req.ReturnDate,
-            FiscalYearId = req.FiscalYearId,
-            BranchId     = req.BranchId,
-            Description  = $"{TypeReturnEntry} - {req.ReturnNumber}",
-            ReferenceId  = req.ReturnInvoiceOid,
-            CreatedAt    = DateTime.UtcNow,
+            EntryNumber     = entryNumber,
+            EntryDate       = req.ReturnDate,
+            FiscalYearId    = req.FiscalYearId,
+            BranchId        = req.BranchId,
+            Description     = $"{TypeReturnEntry} - {req.ReturnNumber}",
+            ReferenceId     = req.ReturnInvoiceOid,
+            ReferenceTypeId = retReferenceTypeId,
+            CreatedAt       = DateTime.UtcNow,
         };
 
         var details = new List<JournalEntryDetail>();
@@ -641,15 +651,18 @@ public sealed class JournalPostingService : IJournalPostingService
 
         // ── 4. Create JournalEntry master ─────────────────────────────────
         var entryNumber = await _numberService.GenerateJournalEntryNumberAsync(req.BranchId, ct);
+        var stRefTypeLookup = await _lookupRepo.GetByLookupCodeAsync("JOURNAL_REFERENCE_TYPE", ct);
+        var stReferenceTypeId = stRefTypeLookup.FirstOrDefault(d => d.ValueCode == RefTypeStockTransaction)?.Oid;
         var entry = new JournalEntry
         {
-            EntryNumber  = entryNumber,
-            EntryDate    = req.TransactionDate,
-            FiscalYearId = req.FiscalYearId,
-            BranchId     = req.BranchId,
-            Description  = $"{typeCode} - {req.ReferenceNumber}",
-            ReferenceId  = req.TransactionOid,
-            CreatedAt    = DateTime.UtcNow,
+            EntryNumber     = entryNumber,
+            EntryDate       = req.TransactionDate,
+            FiscalYearId    = req.FiscalYearId,
+            BranchId        = req.BranchId,
+            Description     = $"{typeCode} - {req.ReferenceNumber}",
+            ReferenceId     = req.TransactionOid,
+            ReferenceTypeId = stReferenceTypeId,
+            CreatedAt       = DateTime.UtcNow,
         };
 
         var details = new List<JournalEntryDetail>();
@@ -962,6 +975,12 @@ public sealed class JournalPostingService : IJournalPostingService
         });
 
         return entry;
+    }
+
+    private async Task<Guid?> ResolveReferenceTypeIdAsync(string valueCode, CancellationToken ct)
+    {
+        var lookup = await _lookupRepo.GetByLookupCodeAsync("JOURNAL_REFERENCE_TYPE", ct);
+        return lookup.FirstOrDefault(d => d.ValueCode == valueCode)?.Oid;
     }
 
     private async Task<Guid?> ResolveCustomerAccountAsync(Guid? customerId, CancellationToken ct)

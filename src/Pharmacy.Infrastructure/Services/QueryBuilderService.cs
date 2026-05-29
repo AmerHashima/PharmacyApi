@@ -161,6 +161,48 @@ public class QueryBuilderService : IQueryBuilderService
         if (propertyAccess == null || propertyType == null)
             return null;
 
+        // For DateTime properties with comparison/equality operations, apply .Date
+        // so EF Core generates CAST(column AS date) — matching the full day regardless of time component.
+        var underlyingType = Nullable.GetUnderlyingType(propertyType) ?? propertyType;
+        bool isNullable = Nullable.GetUnderlyingType(propertyType) != null;
+        bool isDateTimeFilter = underlyingType == typeof(DateTime) && filter.Operation is
+            FilterOperation.Equal or FilterOperation.NotEqual or
+            FilterOperation.GreaterThan or FilterOperation.LessThan or
+            FilterOperation.GreaterThanOrEqual or FilterOperation.LessThanOrEqual;
+
+        if (isDateTimeFilter)
+        {
+            // For nullable DateTime?, unwrap with .Value first
+            var nonNullableAccess = isNullable
+                ? (Expression)Expression.Property(propertyAccess, "Value")
+                : propertyAccess;
+
+            // Apply .Date property → translates to CAST(column AS date) in SQL Server
+            var dateProperty = Expression.Property(nonNullableAccess, nameof(DateTime.Date));
+            var parsedDate = DateTime.Parse(filter.Value).Date;
+            var dateConstant = Expression.Constant(parsedDate, typeof(DateTime));
+
+            Expression comparison = filter.Operation switch
+            {
+                FilterOperation.Equal              => Expression.Equal(dateProperty, dateConstant),
+                FilterOperation.NotEqual           => Expression.NotEqual(dateProperty, dateConstant),
+                FilterOperation.GreaterThan        => Expression.GreaterThan(dateProperty, dateConstant),
+                FilterOperation.LessThan           => Expression.LessThan(dateProperty, dateConstant),
+                FilterOperation.GreaterThanOrEqual => Expression.GreaterThanOrEqual(dateProperty, dateConstant),
+                FilterOperation.LessThanOrEqual    => Expression.LessThanOrEqual(dateProperty, dateConstant),
+                _ => Expression.Constant(false)
+            };
+
+            // For nullable, guard with HasValue check
+            if (isNullable)
+            {
+                var hasValue = Expression.Property(propertyAccess, "HasValue");
+                comparison = Expression.AndAlso(hasValue, comparison);
+            }
+
+            return comparison;
+        }
+
         var filterValue = ConvertValue(filter.Value, propertyType);
 
         return filter.Operation switch
