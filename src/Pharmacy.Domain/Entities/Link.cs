@@ -31,4 +31,5 @@ public class Link : BaseEntity
     public bool? InViewList { get; set; }
 
     public virtual ICollection<ReportParameter> ReportParameters { get; set; } = new List<ReportParameter>();
+    public virtual ICollection<RoleLink> RoleLinks { get; set; } = new List<RoleLink>();
 }

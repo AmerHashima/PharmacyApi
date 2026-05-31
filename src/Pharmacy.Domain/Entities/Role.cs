@@ -16,6 +16,5 @@ public class Role : BaseEntity
 
     // Navigation Properties
     public virtual ICollection<SystemUser>? Users { get; set; }
-
-
+    public virtual ICollection<RoleLink>? RoleLinks { get; set; }
 }

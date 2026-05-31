@@ -12,6 +12,12 @@ public static class PharmacyDbContextSeed
 
         // Seed default roles (insert only non-existing)
         await SeedRolesAsync(context);
+
+        // Seed navigation links
+        await SeedLinksAsync(context);
+
+        // Seed Admin role → full access on all links
+        await SeedRoleLinksAsync(context);
     }
 
     private static async Task SeedLookupsAsync(PharmacyDbContext context)
@@ -1133,6 +1139,208 @@ public static class PharmacyDbContextSeed
         if (newRoles.Count > 0)
         {
             context.Roles.AddRange(newRoles);
+            await context.SaveChangesAsync();
+        }
+    }
+
+    // =========================================================================
+    // LINKS SEED
+    // =========================================================================
+    private static async Task SeedLinksAsync(PharmacyDbContext context)
+    {
+        // Each link has a deterministic Guid derived from its path.
+        // Type: 1 = navigation page, 3 = report
+        var links = new List<Link>
+        {
+            // ── Auth ─────────────────────────────────────────────────────────
+            L("30000000-0000-0000-0000-000000000001", "تسجيل الدخول",        "Login",               "/login",                                    1, active: true),
+            L("30000000-0000-0000-0000-000000000002", "تسجيل",               "Register",            "/register",                                 1, active: true),
+
+            // ── Branches ─────────────────────────────────────────────────────
+            L("30000000-0000-0000-0000-000000000010", "الفروع",               "Branches",            "/branches",                                 1),
+            L("30000000-0000-0000-0000-000000000011", "فرع جديد",             "New Branch",          "/branches/new",                             1),
+            L("30000000-0000-0000-0000-000000000012", "تعديل فرع",            "Edit Branch",         "/branches/edit/:id",                        1),
+
+            // ── Stores ───────────────────────────────────────────────────────
+            L("30000000-0000-0000-0000-000000000020", "المخازن",              "Stores",              "/stores",                                   1),
+
+            // ── Products ─────────────────────────────────────────────────────
+            L("30000000-0000-0000-0000-000000000030", "المنتجات",             "Products",            "/products",                                 1),
+            L("30000000-0000-0000-0000-000000000031", "منتج جديد",            "New Product",         "/products/new",                             1),
+            L("30000000-0000-0000-0000-000000000032", "تعديل منتج",           "Edit Product",        "/products/edit/:id",                        1),
+
+            // ── Roles ────────────────────────────────────────────────────────
+            L("30000000-0000-0000-0000-000000000040", "الصلاحيات",            "Roles",               "/roles",                                    1),
+
+            // ── Customers ────────────────────────────────────────────────────
+            L("30000000-0000-0000-0000-000000000050", "العملاء",              "Customers",           "/customers",                                1),
+            L("30000000-0000-0000-0000-000000000051", "عميل جديد",            "New Customer",        "/customers/new",                            1),
+            L("30000000-0000-0000-0000-000000000052", "تعديل عميل",           "Edit Customer",       "/customers/edit/:id",                       1),
+
+            // ── Doctors ──────────────────────────────────────────────────────
+            L("30000000-0000-0000-0000-000000000060", "الأطباء",              "Doctors",             "/doctors",                                  1),
+            L("30000000-0000-0000-0000-000000000061", "طبيب جديد",            "New Doctor",          "/doctors/new",                              1),
+            L("30000000-0000-0000-0000-000000000062", "تعديل طبيب",           "Edit Doctor",         "/doctors/edit/:id",                         1),
+
+            // ── Offers ───────────────────────────────────────────────────────
+            L("30000000-0000-0000-0000-000000000070", "العروض",               "Offers",              "/offers",                                   1),
+            L("30000000-0000-0000-0000-000000000071", "عرض جديد",             "New Offer",           "/offers/new",                               1),
+            L("30000000-0000-0000-0000-000000000072", "تعديل عرض",            "Edit Offer",          "/offers/edit/:id",                          1),
+
+            // ── Sales ────────────────────────────────────────────────────────
+            L("30000000-0000-0000-0000-000000000080", "المبيعات",             "Sales",               "/sales",                                    1),
+            L("30000000-0000-0000-0000-000000000081", "سجل المبيعات",         "Sales History",       "/sales/history",                            1),
+            L("30000000-0000-0000-0000-000000000082", "المرتجعات",            "Sales Refunds",       "/sales/refunds",                            1),
+            L("30000000-0000-0000-0000-000000000083", "تفاصيل فاتورة",        "Sale Detail",         "/sales/:id",                                1),
+            L("30000000-0000-0000-0000-000000000084", "مرتجع فاتورة",         "Sale Refund",         "/sales/refund/:id",                         1),
+
+            // ── Stakeholders ─────────────────────────────────────────────────
+            L("30000000-0000-0000-0000-000000000090", "الموردون",             "Stakeholders",        "/stakeholders",                             1),
+            L("30000000-0000-0000-0000-000000000091", "مورد جديد",            "New Stakeholder",     "/stakeholders/new",                         1),
+            L("30000000-0000-0000-0000-000000000092", "تعديل مورد",           "Edit Stakeholder",    "/stakeholders/edit/:id",                    1),
+
+            // ── Stock ────────────────────────────────────────────────────────
+            L("30000000-0000-0000-0000-000000000100", "المخزون",              "Stock",               "/stock",                                    1),
+            L("30000000-0000-0000-0000-000000000101", "سجل المخزون",          "Stock History",       "/stock/history",                            1),
+            L("30000000-0000-0000-0000-000000000102", "مستويات المخزون",      "Stock Levels",        "/stock/levels",                             1),
+            L("30000000-0000-0000-0000-000000000103", "مرتجعات المخزون",      "Stock Returns",       "/stock/returns",                            1),
+            L("30000000-0000-0000-0000-000000000104", "حركات المخزون",        "Stock Transactions",  "/stock/transactions",                       1),
+            L("30000000-0000-0000-0000-000000000105", "تفاصيل حركة مخزون",   "Stock Transaction",   "/stock/transactions/:id",                   1),
+            L("30000000-0000-0000-0000-000000000106", "مرتجع حركة مخزون",    "Stock Txn Return",    "/stock/transactions/:id/return",             1),
+            L("30000000-0000-0000-0000-000000000107", "تفاصيل مرتجع مخزون",  "Stock Return Detail", "/stock/returns/:id",                        1),
+
+            // ── RSD ──────────────────────────────────────────────────────────
+            L("30000000-0000-0000-0000-000000000110", "RSD",                  "RSD",                 "/rsd",                                      1),
+            L("30000000-0000-0000-0000-000000000111", "سجلات RSD",            "RSD Logs",            "/rsd/logs",                                 1),
+
+            // ── Users ────────────────────────────────────────────────────────
+            L("30000000-0000-0000-0000-000000000120", "المستخدمون",           "Users",               "/users",                                    1),
+
+            // ── Lookups ──────────────────────────────────────────────────────
+            L("30000000-0000-0000-0000-000000000130", "القوائم المرجعية",     "Lookups",             "/lookups",                                  1),
+            L("30000000-0000-0000-0000-000000000131", "قائمة مرجعية",         "Lookup Detail",       "/lookups/:lookupCode",                      1),
+
+            // ── Generic Names ────────────────────────────────────────────────
+            L("30000000-0000-0000-0000-000000000140", "الأسماء العلمية",      "Generic Names",       "/generics",                                 1),
+            L("30000000-0000-0000-0000-000000000141", "اسم علمي جديد",        "New Generic",         "/generics/new",                             1),
+            L("30000000-0000-0000-0000-000000000142", "تعديل اسم علمي",       "Edit Generic",        "/generics/edit/:id",                        1),
+
+            // ── Integrations ─────────────────────────────────────────────────
+            L("30000000-0000-0000-0000-000000000150", "موفرو التكامل",        "Integration Providers","/integrations/providers",                  1),
+            L("30000000-0000-0000-0000-000000000151", "إعدادات التكامل",      "Integration Settings", "/integrations/settings",                   1),
+
+            // ── Invoice Builder ──────────────────────────────────────────────
+            L("30000000-0000-0000-0000-000000000160", "منشئ الفاتورة",        "Invoice Builder",     "/invoice-builder",                          1),
+            L("30000000-0000-0000-0000-000000000161", "فاتورة جديدة",         "New Invoice Layout",  "/invoice-builder/new",                      1),
+            L("30000000-0000-0000-0000-000000000162", "تعديل فاتورة",         "Edit Invoice Layout", "/invoice-builder/edit/:id",                 1),
+
+            // ── Reports ──────────────────────────────────────────────────────
+            L("30000000-0000-0000-0000-000000000170", "روابط التقارير",       "Report Links",        "/reports/links",                            3),
+            L("30000000-0000-0000-0000-000000000171", "تقرير رابط",           "Report Link Detail",  "/reports/links/:id",                        3),
+            L("30000000-0000-0000-0000-000000000172", "ميزان المراجعة",       "Trial Balance",       "/reports/TrialBalanceTreeReport",           3),
+            L("30000000-0000-0000-0000-000000000173", "تقرير قيود اليومية",   "Journal Entries Report","/reports/journal-entries",                3),
+
+            // ── Accounting — Cash Boxes ───────────────────────────────────────
+            L("30000000-0000-0000-0000-000000000180", "الصناديق",             "Cash Boxes",          "/accounting/cash-boxes",                    1),
+            L("30000000-0000-0000-0000-000000000181", "صندوق جديد",           "New Cash Box",        "/accounting/cash-boxes/new",                1),
+            L("30000000-0000-0000-0000-000000000182", "تعديل صندوق",          "Edit Cash Box",       "/accounting/cash-boxes/edit/:id",            1),
+
+            // ── Accounting — Bank Accounts ────────────────────────────────────
+            L("30000000-0000-0000-0000-000000000190", "الحسابات البنكية",     "Bank Accounts",       "/accounting/bank-accounts",                 1),
+            L("30000000-0000-0000-0000-000000000191", "حساب بنكي جديد",       "New Bank Account",    "/accounting/bank-accounts/new",             1),
+            L("30000000-0000-0000-0000-000000000192", "تعديل حساب بنكي",      "Edit Bank Account",   "/accounting/bank-accounts/edit/:id",        1),
+
+            // ── Accounting — Chart of Accounts ────────────────────────────────
+            L("30000000-0000-0000-0000-000000000200", "دليل الحسابات",        "Chart of Accounts",   "/accounting/chart-of-accounts",             1),
+
+            // ── Accounting — Journal Entries ──────────────────────────────────
+            L("30000000-0000-0000-0000-000000000210", "قيود اليومية",         "Journal Entries",     "/accounting/journal-entries",               1),
+            L("30000000-0000-0000-0000-000000000211", "قيد جديد",             "New Journal Entry",   "/accounting/journal-entries/new",           1),
+            L("30000000-0000-0000-0000-000000000212", "تعديل قيد",            "Edit Journal Entry",  "/accounting/journal-entries/edit/:id",      1),
+
+            // ── Accounting — Fiscal Years ─────────────────────────────────────
+            L("30000000-0000-0000-0000-000000000220", "السنوات المالية",      "Fiscal Years",        "/accounting/fiscal-years",                  1),
+            L("30000000-0000-0000-0000-000000000221", "سنة مالية جديدة",      "New Fiscal Year",     "/accounting/fiscal-years/new",              1),
+            L("30000000-0000-0000-0000-000000000222", "تعديل سنة مالية",      "Edit Fiscal Year",    "/accounting/fiscal-years/edit/:id",         1),
+
+            // ── Accounting — Cost Centers ─────────────────────────────────────
+            L("30000000-0000-0000-0000-000000000230", "مراكز التكلفة",        "Cost Centers",        "/accounting/cost-centers",                  1),
+            L("30000000-0000-0000-0000-000000000231", "مركز تكلفة جديد",      "New Cost Center",     "/accounting/cost-centers/new",              1),
+            L("30000000-0000-0000-0000-000000000232", "تعديل مركز تكلفة",     "Edit Cost Center",    "/accounting/cost-centers/edit/:id",         1),
+
+            // ── Accounting — Payment Vouchers ─────────────────────────────────
+            L("30000000-0000-0000-0000-000000000240", "سندات الصرف",          "Payment Vouchers",    "/accounting/payment-vouchers",              1),
+            L("30000000-0000-0000-0000-000000000241", "سند صرف جديد",         "New Payment Voucher", "/accounting/payment-vouchers/new",          1),
+            L("30000000-0000-0000-0000-000000000242", "تعديل سند صرف",        "Edit Payment Voucher","/accounting/payment-vouchers/edit/:id",     1),
+
+            // ── Accounting — Receipt Vouchers ─────────────────────────────────
+            L("30000000-0000-0000-0000-000000000250", "سندات القبض",          "Receipt Vouchers",    "/accounting/receipt-vouchers",              1),
+            L("30000000-0000-0000-0000-000000000251", "سند قبض جديد",         "New Receipt Voucher", "/accounting/receipt-vouchers/new",          1),
+            L("30000000-0000-0000-0000-000000000252", "تعديل سند قبض",        "Edit Receipt Voucher","/accounting/receipt-vouchers/edit/:id",     1),
+        };
+
+        var existingLinkIds = (await context.Links
+            .Select(l => l.Oid)
+            .ToListAsync())
+            .ToHashSet();
+
+        var newLinks = links.Where(l => !existingLinkIds.Contains(l.Oid)).ToList();
+        if (newLinks.Count > 0)
+        {
+            context.Links.AddRange(newLinks);
+            await context.SaveChangesAsync();
+        }
+    }
+
+    /// <summary>Helper factory for Link seed records.</summary>
+    private static Link L(string oid, string nameAr, string nameEn, string path, int type, bool active = true) => new()
+    {
+        Oid       = Guid.Parse(oid),
+        NameAr    = nameAr,
+        NameEn    = nameEn,
+        Path      = path,
+        Type      = type,
+        Active    = active,
+        InViewList = true,
+        CreatedAt = DateTime.UtcNow,
+    };
+
+    // =========================================================================
+    // ROLE-LINKS SEED  —  Admin gets full access on every link
+    // =========================================================================
+    private static async Task SeedRoleLinksAsync(PharmacyDbContext context)
+    {
+        var adminRoleId = Guid.Parse("20000000-0000-0000-0000-000000000001");
+
+        var allLinkIds = await context.Links
+            .Where(l => !l.IsDeleted)
+            .Select(l => l.Oid)
+            .ToListAsync();
+
+        var existingRoleLinkLinkIds = (await context.RoleLinks
+            .Where(rl => rl.RoleId == adminRoleId && !rl.IsDeleted)
+            .Select(rl => rl.LinkId)
+            .ToListAsync())
+            .ToHashSet();
+
+        var newRoleLinks = allLinkIds
+            .Where(linkId => !existingRoleLinkLinkIds.Contains(linkId))
+            .Select(linkId => new RoleLink
+            {
+                Oid       = Guid.NewGuid(),
+                RoleId    = adminRoleId,
+                LinkId    = linkId,
+                CanRead   = true,
+                CanWrite  = true,
+                CanEdit   = true,
+                CanDelete = true,
+                CreatedAt = DateTime.UtcNow,
+            })
+            .ToList();
+
+        if (newRoleLinks.Count > 0)
+        {
+            context.RoleLinks.AddRange(newRoleLinks);
             await context.SaveChangesAsync();
         }
     }

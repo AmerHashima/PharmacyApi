@@ -63,6 +63,7 @@ public class PharmacyDbContext : DbContext
 
     public DbSet<Link> Links { get; set; }
     public DbSet<ReportParameter> ReportParameters { get; set; }
+    public DbSet<RoleLink> RoleLinks { get; set; }
 
     // Doctors
     public DbSet<Doctor> Doctors { get; set; }

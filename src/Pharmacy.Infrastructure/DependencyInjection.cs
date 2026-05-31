@@ -51,6 +51,7 @@ public static class DependencyInjection
         // ====================================
         services.AddScoped<ISystemUserRepository, SystemUserRepository>();
         services.AddScoped<IRoleRepository, RoleRepository>();
+        services.AddScoped<IRoleLinkRepository, RoleLinkRepository>();
 
         // ====================================
         // Register repositories - Lookups
