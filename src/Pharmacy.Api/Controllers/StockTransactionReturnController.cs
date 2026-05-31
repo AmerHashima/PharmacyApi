@@ -2,7 +2,9 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Pharmacy.Api.Models;
+using Pharmacy.Application.Commands.Accounting;
 using Pharmacy.Application.Commands.StockTransactionReturn;
+using Pharmacy.Application.DTOs.Accounting;
 using Pharmacy.Application.DTOs.Common;
 using Pharmacy.Application.DTOs.StockTransactionReturn;
 using Pharmacy.Application.Queries.StockTransactionReturn;
@@ -88,5 +90,23 @@ public class StockTransactionReturnController : BaseApiController
         {
             return ErrorResponse<StockTransactionReturnWithDetailsDto>(ex.Message, 400);
         }
+    }
+
+    /// <summary>
+    /// Manually post journal entries for a list of stock transaction returns.
+    /// </summary>
+    [HttpPost("post-journal")]
+    public async Task<ActionResult<ApiResponse<PostJournalBatchResultDto>>> PostJournal(
+        [FromBody] List<Guid> ids, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var result = await _mediator.Send(new PostStockTransactionReturnJournalCommand(ids), cancellationToken);
+            var message = result.TotalFailed == 0
+                ? $"All {result.TotalSucceeded} return(s) posted successfully"
+                : $"{result.TotalSucceeded} succeeded, {result.TotalFailed} failed";
+            return SuccessResponse(result, message);
+        }
+        catch (Exception ex) { return ErrorResponse<PostJournalBatchResultDto>($"Error posting journals: {ex.Message}", 500); }
     }
 }

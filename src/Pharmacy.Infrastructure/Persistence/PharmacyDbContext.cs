@@ -57,6 +57,17 @@ public class PharmacyDbContext : DbContext
     public DbSet<StockTransactionReturn> StockTransactionReturns { get; set; }
     public DbSet<StockTransactionReturnDetail> StockTransactionReturnDetails { get; set; }
 
+    // Purchase Invoices
+    public DbSet<PurchaseInvoice> PurchaseInvoices { get; set; }
+    public DbSet<PurchaseInvoicePayment> PurchaseInvoicePayments { get; set; }
+
+    // Cashier Shifts
+    public DbSet<CashierShift> CashierShifts { get; set; }
+    public DbSet<CashierShiftDetail> CashierShiftDetails { get; set; }
+
+    // Sales Invoice Payments
+    public DbSet<SalesInvoicePayment> SalesInvoicePayments { get; set; }
+
     // RSD Operation Logs
     public DbSet<RsdOperationLog> RsdOperationLogs { get; set; }
     public DbSet<RsdOperationLogDetail> RsdOperationLogDetails { get; set; }

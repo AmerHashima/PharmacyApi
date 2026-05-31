@@ -143,4 +143,5 @@ public class SalesInvoice : BaseEntity
     public virtual ICollection<SalesInvoiceItem> Items { get; set; } = new List<SalesInvoiceItem>();
     public virtual ICollection<StockTransaction> StockTransactions { get; set; } = new List<StockTransaction>();
     public virtual ICollection<ReturnInvoice> ReturnInvoices { get; set; } = new List<ReturnInvoice>();
+    public virtual ICollection<SalesInvoicePayment> Payments { get; set; } = new List<SalesInvoicePayment>();
 }

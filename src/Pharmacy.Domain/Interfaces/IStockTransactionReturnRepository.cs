@@ -27,4 +27,9 @@ public interface IStockTransactionReturnRepository : IBaseRepository<StockTransa
     /// Get return transactions linked to a specific return invoice
     /// </summary>
     Task<IEnumerable<StockTransactionReturn>> GetByReturnInvoiceIdAsync(Guid returnInvoiceId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Get a single return transaction with all navigation properties and details loaded
+    /// </summary>
+    Task<StockTransactionReturn?> GetWithDetailsAsync(Guid id, CancellationToken cancellationToken = default);
 }

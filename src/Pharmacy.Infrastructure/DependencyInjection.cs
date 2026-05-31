@@ -125,6 +125,23 @@ public static class DependencyInjection
         services.AddScoped<IStockTransactionReturnDetailRepository, StockTransactionReturnDetailRepository>();
 
         // ====================================
+        // Register repositories - Purchase Invoices
+        // ====================================
+        services.AddScoped<IPurchaseInvoiceRepository, PurchaseInvoiceRepository>();
+        services.AddScoped<IPurchaseInvoicePaymentRepository, PurchaseInvoicePaymentRepository>();
+
+        // ====================================
+        // Register repositories - Cashier Shifts
+        // ====================================
+        services.AddScoped<ICashierShiftRepository, CashierShiftRepository>();
+        services.AddScoped<ICashierShiftDetailRepository, CashierShiftDetailRepository>();
+
+        // ====================================
+        // Register repositories - Sales Invoice Payments
+        // ====================================
+        services.AddScoped<ISalesInvoicePaymentRepository, SalesInvoicePaymentRepository>();
+
+        // ====================================
         // Register repositories - Integrations
         // ====================================
         services.AddScoped<IIntegrationProviderRepository, IntegrationProviderRepository>();

@@ -977,6 +977,58 @@ public sealed class JournalPostingService : IJournalPostingService
         return entry;
     }
 
+    // ═════════════════════════════════════════════════════════════════════════
+    // POST STOCK TRANSACTION RETURN
+    // Reuses stock transaction posting logic; stamps JournalEntryId on the
+    // StockTransactionReturn record instead of StockTransaction.
+    // ═════════════════════════════════════════════════════════════════════════
+    public async Task<JournalEntry> PostStockTransactionReturnAsync(
+        StockTransactionReturnPostingRequest req,
+        CancellationToken ct = default)
+    {
+        // ── 0. Duplicate-posting guard ────────────────────────────────────
+        var returnCheck = await _context.StockTransactionReturns.FindAsync([req.ReturnOid], ct);
+        if (returnCheck?.JournalEntryId.HasValue == true)
+            throw new InvalidOperationException(
+                $"StockTransactionReturn '{req.ReturnOid}' is already posted (JE={returnCheck.JournalEntryId}).");
+
+        // ── 1. Build an equivalent StockTransactionPostingRequest ─────────
+        var stockReq = new StockTransactionPostingRequest(
+            TransactionOid:   req.ReturnOid,
+            BranchId:         req.BranchId,
+            FiscalYearId:     req.FiscalYearId,
+            ReferenceNumber:  req.ReferenceNumber,
+            TransactionDate:  req.TransactionDate,
+            TypeCode:         req.TypeCode,
+            Items:            req.Items,
+            SupplierId:       req.SupplierId,
+            TaxableNetCost:   req.TaxableNetCost,
+            ZeroVatNetCost:   req.ZeroVatNetCost,
+            ExemptNetCost:    req.ExemptNetCost,
+            TaxableVatAmount: req.TaxableVatAmount,
+            PayedAmount:      req.PayedAmount);
+
+        // ── 2. Post using shared logic (will NOT find a StockTransaction row) ──
+        //    We skip the duplicate check in PostStockTransactionAsync by calling
+        //    the inner DB logic directly via the same execution path but
+        //    intercepting the stamp step. Instead we run the full method and
+        //    immediately afterwards re-stamp the correct entity.
+        //    NOTE: PostStockTransactionAsync tries to stamp StockTransactions —
+        //    that FindAsync will return null (no row with this OID there), which
+        //    is safe; it simply skips. We then stamp StockTransactionReturns.
+        var entry = await PostStockTransactionAsync(stockReq, ct);
+
+        // ── 3. Stamp JournalEntryId on StockTransactionReturn ─────────────
+        var returnEntity = await _context.StockTransactionReturns.FindAsync([req.ReturnOid], ct);
+        if (returnEntity is not null)
+        {
+            returnEntity.JournalEntryId = entry.Oid;
+            await _context.SaveChangesAsync(ct);
+        }
+
+        return entry;
+    }
+
     private async Task<Guid?> ResolveReferenceTypeIdAsync(string valueCode, CancellationToken ct)
     {
         var lookup = await _lookupRepo.GetByLookupCodeAsync("JOURNAL_REFERENCE_TYPE", ct);

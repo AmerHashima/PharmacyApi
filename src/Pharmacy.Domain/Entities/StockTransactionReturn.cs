@@ -1,4 +1,5 @@
 using Pharmacy.Domain.Common;
+using Pharmacy.Domain.Entities.Accounting;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
@@ -101,6 +102,14 @@ public class StockTransactionReturn : BaseEntity
     /// Date when return transaction was approved
     /// </summary>
     public DateTime? ApprovedDate { get; set; }
+
+    /// <summary>
+    /// FK to JournalEntry — set after journal is posted
+    /// </summary>
+    public Guid? JournalEntryId { get; set; }
+
+    [ForeignKey(nameof(JournalEntryId))]
+    public virtual JournalEntry? JournalEntry { get; set; }
 
     /// <summary>
     /// Collection of detail lines for this return transaction

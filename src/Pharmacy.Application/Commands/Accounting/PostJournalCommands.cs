@@ -12,6 +12,9 @@ public record PostReturnInvoiceJournalCommand(List<Guid> ReturnInvoiceIds) : IRe
 /// <summary>Manually post journal entries for a list of stock transactions.</summary>
 public record PostStockTransactionJournalCommand(List<Guid> TransactionIds) : IRequest<PostJournalBatchResultDto>;
 
+/// <summary>Manually post journal entries for a list of stock transaction returns.</summary>
+public record PostStockTransactionReturnJournalCommand(List<Guid> ReturnIds) : IRequest<PostJournalBatchResultDto>;
+
 /// <summary>Validate that accounting accounts are configured for a branch and operation type.</summary>
 public record ValidateBranchAccountingSetupQuery(Guid BranchId, string OperationType) : IRequest<AccountingValidationResultDto>;
 

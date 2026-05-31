@@ -139,6 +139,22 @@ public record ReturnInvoicePostingRequest(
     IReadOnlyList<PaymentMethodDetail> RefundMethods,  // How refund is issued
     Guid? CustomerId);
 
+/// <summary>All data needed to post a stock transaction return journal entry.</summary>
+public record StockTransactionReturnPostingRequest(
+    Guid   ReturnOid,
+    Guid   BranchId,
+    Guid?  FiscalYearId,
+    string ReferenceNumber,
+    DateTime TransactionDate,
+    string TypeCode,
+    IReadOnlyList<StockTransactionLineItem> Items,
+    Guid?   SupplierId       = null,
+    decimal TaxableNetCost   = 0,
+    decimal ZeroVatNetCost   = 0,
+    decimal ExemptNetCost    = 0,
+    decimal TaxableVatAmount = 0,
+    decimal PayedAmount      = 0);
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Service Interface
 // ─────────────────────────────────────────────────────────────────────────────
@@ -194,5 +210,12 @@ public interface IJournalPostingService
     /// </summary>
     Task<JournalEntry> PostStockTransactionAsync(
         StockTransactionPostingRequest req,
+        CancellationToken ct = default);
+
+    /// <summary>
+    /// Posts a stock transaction return to the journal and stamps JournalEntryId on the return record.
+    /// </summary>
+    Task<JournalEntry> PostStockTransactionReturnAsync(
+        StockTransactionReturnPostingRequest req,
         CancellationToken ct = default);
 }

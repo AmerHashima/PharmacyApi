@@ -78,4 +78,18 @@ public class StockTransactionReturnRepository : BaseRepository<StockTransactionR
             .OrderByDescending(t => t.TransactionDate)
             .ToListAsync(cancellationToken);
     }
+
+    public async Task<StockTransactionReturn?> GetWithDetailsAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        return await _dbSet
+            .Include(t => t.Details)
+                .ThenInclude(d => d.Product)
+            .Include(t => t.FromBranch)
+            .Include(t => t.ToBranch)
+            .Include(t => t.TransactionType)
+            .Include(t => t.Supplier)
+            .Include(t => t.ReturnInvoice)
+            .Include(t => t.OriginalTransaction)
+            .FirstOrDefaultAsync(t => t.Oid == id && !t.IsDeleted, cancellationToken);
+    }
 }

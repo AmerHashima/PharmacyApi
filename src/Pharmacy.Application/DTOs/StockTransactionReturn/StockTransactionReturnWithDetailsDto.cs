@@ -25,6 +25,7 @@ public class StockTransactionReturnWithDetailsDto
     public string Status { get; set; } = "Draft";
     public Guid? ApprovedBy { get; set; }
     public DateTime? ApprovedDate { get; set; }
+    public Guid? JournalEntryId { get; set; }
     public DateTime CreatedAt { get; set; }
     public Guid? CreatedBy { get; set; }
 
