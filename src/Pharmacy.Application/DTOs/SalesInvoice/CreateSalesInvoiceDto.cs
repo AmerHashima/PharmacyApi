@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using Pharmacy.Application.DTOs.SalesInvoicePayment;
 
 namespace Pharmacy.Application.DTOs.SalesInvoice;
 
@@ -81,6 +82,12 @@ public class CreateSalesInvoiceDto
     [Required(ErrorMessage = "At least one item is required")]
     [MinLength(1, ErrorMessage = "At least one item is required")]
     public List<CreateSalesInvoiceItemDto> Items { get; set; } = new();
+
+    /// <summary>
+    /// Payment records for this invoice. Saved atomically with the invoice.
+    /// When provided, PaidAmount on the invoice header is set to the sum of all payment amounts.
+    /// </summary>
+    public List<CreateSalesInvoicePaymentDto> Payments { get; set; } = new();
 }
 
 /// <summary>

@@ -1,11 +1,11 @@
 using AutoMapper;
+using MediatR;
 using Pharmacy.Application.Commands.SalesInvoice;
 using Pharmacy.Application.DTOs.SalesInvoice;
 using Pharmacy.Application.Interfaces;
 using Pharmacy.Domain.Entities;
 using Pharmacy.Domain.Interfaces;
 using Pharmacy.Domain.Interfaces.Accounting;
-using MediatR;
 
 namespace Pharmacy.Application.Handlers.SalesInvoice;
 
@@ -27,6 +27,7 @@ public class CreateSalesInvoiceHandler : IRequestHandler<CreateSalesInvoiceComma
     private readonly IOfferDetailRepository _offerDetailRepository;
     private readonly IJournalPostingService _journalPostingService;
     private readonly IFiscalYearRepository _fiscalYearRepository;
+    private readonly ISalesInvoicePaymentRepository _paymentRepository;
     private readonly IMapper _mapper;
 
     public CreateSalesInvoiceHandler(
@@ -42,6 +43,7 @@ public class CreateSalesInvoiceHandler : IRequestHandler<CreateSalesInvoiceComma
         IOfferDetailRepository offerDetailRepository,
         IJournalPostingService journalPostingService,
         IFiscalYearRepository fiscalYearRepository,
+        ISalesInvoicePaymentRepository paymentRepository,
         IMapper mapper)
     {
         _invoiceRepository    = invoiceRepository;
@@ -54,9 +56,10 @@ public class CreateSalesInvoiceHandler : IRequestHandler<CreateSalesInvoiceComma
         _customerRepository   = customerRepository;
         _invoiceNumberService = invoiceNumberService;
         _offerDetailRepository = offerDetailRepository;
-        _journalPostingService = journalPostingService;
-        _fiscalYearRepository  = fiscalYearRepository;
-        _mapper               = mapper;
+        _journalPostingService  = journalPostingService;
+        _fiscalYearRepository   = fiscalYearRepository;
+        _paymentRepository      = paymentRepository;
+        _mapper                 = mapper;
     }
 
     public async Task<SalesInvoiceDto> Handle(CreateSalesInvoiceCommand request, CancellationToken cancellationToken)
@@ -326,7 +329,29 @@ public class CreateSalesInvoiceHandler : IRequestHandler<CreateSalesInvoiceComma
         var fiscalYear = await _fiscalYearRepository.GetCurrentAsync(cancellationToken);
         invoice.FiscalYearId = fiscalYear?.Oid;
 
+        // If explicit payment lines are provided, derive PaidAmount from their sum
+        if (request.Invoice.Payments.Count > 0)
+            invoice.PaidAmount = request.Invoice.Payments.Sum(p => p.Amount);
+
         var createdInvoice = await _invoiceRepository.AddAsync(invoice, cancellationToken);
+
+        // Persist payment lines atomically with the invoice
+        foreach (var paymentDto in request.Invoice.Payments)
+        {
+            await _paymentRepository.AddAsync(new Domain.Entities.SalesInvoicePayment
+            {
+                SalesInvoiceId  = createdInvoice.Oid,
+                ShiftId         = paymentDto.ShiftId,
+                PaymentMethodId = paymentDto.PaymentMethodId,
+                Amount          = paymentDto.Amount,
+                ReferenceNumber = paymentDto.ReferenceNumber,
+                TransactionId   = paymentDto.TransactionId,
+                ApprovalCode    = paymentDto.ApprovalCode,
+                PaymentDate     = paymentDto.PaymentDate,
+                Notes           = paymentDto.Notes,
+                CreatedAt       = DateTime.UtcNow
+            }, cancellationToken);
+        }
 
         // Create invoice items and stock transactions
         int lineCounter = 1;
