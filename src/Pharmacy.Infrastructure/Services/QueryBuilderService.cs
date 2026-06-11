@@ -14,19 +14,17 @@ public class QueryBuilderService : IQueryBuilderService
         if (filters == null || !filters.Any())
             return query;
 
-        // Check if filters use grouping
+        foreach (var f in filters)
+        {
+            if (f.GroupId.HasValue && f.GroupId.Value == 0)
+                f.GroupId = null;
+        }
+
         var hasGroups = filters.Any(f => f.GroupId.HasValue);
 
-        if (hasGroups)
-        {
-            // Apply grouped filters: (Group1) AND (Group2) OR (Group3)
-            return ApplyGroupedFilters(query, filters);
-        }
-        else
-        {
-            // Apply simple filters with AND/OR logic
-            return ApplySimpleFilters(query, filters);
-        }
+        return hasGroups
+            ? ApplyGroupedFilters(query, filters)
+            : ApplySimpleFilters(query, filters);
     }
 
     private IQueryable<T> ApplySimpleFilters<T>(IQueryable<T> query, List<FilterRequest> filters)
@@ -37,9 +35,8 @@ public class QueryBuilderService : IQueryBuilderService
         var parameter = Expression.Parameter(typeof(T), "x");
         Expression? combinedExpression = null;
 
-        for (int i = 0; i < filters.Count; i++)
+        foreach (var filter in filters)
         {
-            var filter = filters[i];
             var filterExpression = BuildFilterExpression<T>(parameter, filter);
 
             if (filterExpression == null)
@@ -51,12 +48,9 @@ public class QueryBuilderService : IQueryBuilderService
             }
             else
             {
-                // Use the logical operator from the PREVIOUS filter to combine
-                var logicalOp = i > 0 ? filters[i - 1].LogicalOperator : LogicalOperator.And;
-
-                combinedExpression = logicalOp == LogicalOperator.And
-                    ? Expression.AndAlso(combinedExpression, filterExpression)
-                    : Expression.OrElse(combinedExpression, filterExpression);
+                combinedExpression = filter.LogicalOperator == LogicalOperator.Or
+                    ? Expression.OrElse(combinedExpression, filterExpression)
+                    : Expression.AndAlso(combinedExpression, filterExpression);
             }
         }
 
@@ -73,75 +67,63 @@ public class QueryBuilderService : IQueryBuilderService
     {
         var parameter = Expression.Parameter(typeof(T), "x");
 
-        // Group filters by GroupId
         var groups = filters
             .Where(f => f.GroupId.HasValue)
             .GroupBy(f => f.GroupId!.Value)
             .OrderBy(g => g.Key)
             .ToList();
 
-        // Filters without groups (apply with AND by default)
         var ungroupedFilters = filters.Where(f => !f.GroupId.HasValue).ToList();
 
         Expression? combinedExpression = null;
 
-        // First, process ungrouped filters
         foreach (var filter in ungroupedFilters)
         {
             var filterExpression = BuildFilterExpression<T>(parameter, filter);
-            if (filterExpression != null)
-            {
-                combinedExpression = combinedExpression == null
-                    ? filterExpression
+
+            if (filterExpression == null)
+                continue;
+
+            combinedExpression = combinedExpression == null
+                ? filterExpression
+                : filter.LogicalOperator == LogicalOperator.Or
+                    ? Expression.OrElse(combinedExpression, filterExpression)
                     : Expression.AndAlso(combinedExpression, filterExpression);
-            }
         }
 
-        // Then, process grouped filters
         foreach (var group in groups)
         {
             Expression? groupExpression = null;
             var groupFilters = group.ToList();
 
-            // Combine filters within the group
-            for (int i = 0; i < groupFilters.Count; i++)
+            foreach (var filter in groupFilters)
             {
-                var filter = groupFilters[i];
                 var filterExpression = BuildFilterExpression<T>(parameter, filter);
 
                 if (filterExpression == null)
                     continue;
 
-                if (groupExpression == null)
-                {
-                    groupExpression = filterExpression;
-                }
-                else
-                {
-                    var logicalOp = i > 0 ? groupFilters[i - 1].LogicalOperator : LogicalOperator.And;
-                    groupExpression = logicalOp == LogicalOperator.And
-                        ? Expression.AndAlso(groupExpression, filterExpression)
-                        : Expression.OrElse(groupExpression, filterExpression);
-                }
+                groupExpression = groupExpression == null
+                    ? filterExpression
+                    : filter.LogicalOperator == LogicalOperator.Or
+                        ? Expression.OrElse(groupExpression, filterExpression)
+                        : Expression.AndAlso(groupExpression, filterExpression);
             }
 
-            // Combine group with main expression
-            if (groupExpression != null)
-            {
-                if (combinedExpression == null)
-                {
-                    combinedExpression = groupExpression;
-                }
-                else
-                {
-                    // Use logical operator from the last filter of previous group
-                    var previousGroup = groups.TakeWhile(g => g.Key < group.Key).LastOrDefault();
-                    var logicalOp = previousGroup?.Last().LogicalOperator ?? LogicalOperator.And;
+            if (groupExpression == null)
+                continue;
 
-                    combinedExpression = logicalOp == LogicalOperator.And
-                        ? Expression.AndAlso(combinedExpression, groupExpression)
-                        : Expression.OrElse(combinedExpression, groupExpression);
-                }
+            if (combinedExpression == null)
+            {
+                combinedExpression = groupExpression;
+            }
+            else
+            {
+                var firstFilterInGroup = groupFilters.FirstOrDefault();
+
+                combinedExpression = firstFilterInGroup?.LogicalOperator == LogicalOperator.Or
+                    ? Expression.OrElse(combinedExpression, groupExpression)
+                    : Expression.AndAlso(combinedExpression, groupExpression);
             }
         }
 
@@ -156,44 +138,84 @@ public class QueryBuilderService : IQueryBuilderService
 
     private Expression? BuildFilterExpression<T>(ParameterExpression parameter, FilterRequest filter)
     {
-        // Support nested properties using dot-notation (e.g. "Product.GTIN") and case-insensitive matching
-        var (propertyAccess, propertyType) = BuildPropertyAccess<T>(parameter, filter.PropertyName);
-        if (propertyAccess == null || propertyType == null)
+        if (string.IsNullOrWhiteSpace(filter.PropertyName))
             return null;
 
-        // For DateTime properties with comparison/equality operations, apply .Date
-        // so EF Core generates CAST(column AS date) — matching the full day regardless of time component.
+        if (filter.PropertyName.Contains('.'))
+        {
+            var collectionExpression = TryBuildCollectionAnyExpression<T>(parameter, filter);
+
+            if (collectionExpression != null)
+                return collectionExpression;
+        }
+
+        var (propertyAccess, propertyType) = BuildPropertyAccess<T>(parameter, filter.PropertyName);
+
+        if (propertyAccess == null || propertyType == null)
+        {
+            var aliasMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                { "drugname", "Items.Product.DrugName" },
+                { "drugnamear", "Items.Product.DrugName" },
+                { "genericname", "Items.Product.GenericName" },
+                { "genericnameen", "Items.Product.GenericNameEN" },
+                { "price", "Items.Product.Price" },
+                { "gtin", "Items.Product.GTIN" },
+                { "barcode", "Items.Product.GTIN" }
+            };
+
+            if (aliasMap.TryGetValue(filter.PropertyName.Trim(), out var mapped))
+            {
+                var mappedFilter = new FilterRequest
+                {
+                    PropertyName = mapped,
+                    Value = filter.Value,
+                    Operation = filter.Operation,
+                    LogicalOperator = filter.LogicalOperator,
+                    GroupId = filter.GroupId
+                };
+
+                return BuildFilterExpression<T>(parameter, mappedFilter);
+            }
+
+            return null;
+        }
+
         var underlyingType = Nullable.GetUnderlyingType(propertyType) ?? propertyType;
-        bool isNullable = Nullable.GetUnderlyingType(propertyType) != null;
-        bool isDateTimeFilter = underlyingType == typeof(DateTime) && filter.Operation is
-            FilterOperation.Equal or FilterOperation.NotEqual or
-            FilterOperation.GreaterThan or FilterOperation.LessThan or
-            FilterOperation.GreaterThanOrEqual or FilterOperation.LessThanOrEqual;
+        var isNullable = Nullable.GetUnderlyingType(propertyType) != null;
+
+        var isDateTimeFilter =
+            underlyingType == typeof(DateTime) &&
+            filter.Operation is FilterOperation.Equal
+                or FilterOperation.NotEqual
+                or FilterOperation.GreaterThan
+                or FilterOperation.LessThan
+                or FilterOperation.GreaterThanOrEqual
+                or FilterOperation.LessThanOrEqual;
 
         if (isDateTimeFilter)
         {
-            // For nullable DateTime?, unwrap with .Value first
+            if (!DateTime.TryParse(filter.Value, out var parsedDate))
+                return null;
+
             var nonNullableAccess = isNullable
-                ? (Expression)Expression.Property(propertyAccess, "Value")
+                ? Expression.Property(propertyAccess, "Value")
                 : propertyAccess;
 
-            // Apply .Date property → translates to CAST(column AS date) in SQL Server
             var dateProperty = Expression.Property(nonNullableAccess, nameof(DateTime.Date));
-            var parsedDate = DateTime.Parse(filter.Value).Date;
-            var dateConstant = Expression.Constant(parsedDate, typeof(DateTime));
+            var dateConstant = Expression.Constant(parsedDate.Date, typeof(DateTime));
 
             Expression comparison = filter.Operation switch
             {
-                FilterOperation.Equal              => Expression.Equal(dateProperty, dateConstant),
-                FilterOperation.NotEqual           => Expression.NotEqual(dateProperty, dateConstant),
-                FilterOperation.GreaterThan        => Expression.GreaterThan(dateProperty, dateConstant),
-                FilterOperation.LessThan           => Expression.LessThan(dateProperty, dateConstant),
+                FilterOperation.Equal => Expression.Equal(dateProperty, dateConstant),
+                FilterOperation.NotEqual => Expression.NotEqual(dateProperty, dateConstant),
+                FilterOperation.GreaterThan => Expression.GreaterThan(dateProperty, dateConstant),
+                FilterOperation.LessThan => Expression.LessThan(dateProperty, dateConstant),
                 FilterOperation.GreaterThanOrEqual => Expression.GreaterThanOrEqual(dateProperty, dateConstant),
-                FilterOperation.LessThanOrEqual    => Expression.LessThanOrEqual(dateProperty, dateConstant),
+                FilterOperation.LessThanOrEqual => Expression.LessThanOrEqual(dateProperty, dateConstant),
                 _ => Expression.Constant(false)
             };
 
-            // For nullable, guard with HasValue check
             if (isNullable)
             {
                 var hasValue = Expression.Property(propertyAccess, "HasValue");
@@ -224,6 +246,99 @@ public class QueryBuilderService : IQueryBuilderService
         };
     }
 
+    private Expression? TryBuildCollectionAnyExpression<T>(ParameterExpression parameter, FilterRequest filter)
+    {
+        var parts = filter.PropertyName.Split('.', StringSplitOptions.RemoveEmptyEntries);
+
+        Expression current = parameter;
+        Type currentType = typeof(T);
+
+        for (int i = 0; i < parts.Length; i++)
+        {
+            var prop = currentType.GetProperty(parts[i], BindingFlags.IgnoreCase | BindingFlags.Public | BindingFlags.Instance);
+
+            if (prop == null)
+                return null;
+
+            var propAccess = Expression.Property(current, prop);
+            var propType = prop.PropertyType;
+
+            var isCollection =
+                propType != typeof(string) &&
+                typeof(System.Collections.IEnumerable).IsAssignableFrom(propType);
+
+            if (!isCollection)
+            {
+                current = propAccess;
+                currentType = propType;
+                continue;
+            }
+
+            Type? elementType = propType.IsArray
+                ? propType.GetElementType()
+                : propType.IsGenericType
+                    ? propType.GetGenericArguments().FirstOrDefault()
+                    : null;
+
+            if (elementType == null)
+                return null;
+
+            var remainingParts = parts.Skip(i + 1).ToArray();
+
+            if (!remainingParts.Any())
+                return null;
+
+            var innerParam = Expression.Parameter(elementType, "y");
+            Expression innerCurrent = innerParam;
+            Type innerType = elementType;
+
+            foreach (var part in remainingParts)
+            {
+                var innerProp = innerType.GetProperty(part, BindingFlags.IgnoreCase | BindingFlags.Public | BindingFlags.Instance);
+
+                if (innerProp == null)
+                    return null;
+
+                innerCurrent = Expression.Property(innerCurrent, innerProp);
+                innerType = innerProp.PropertyType;
+            }
+
+            var innerFilterValue = ConvertValue(filter.Value, innerType);
+
+            Expression? innerComparison = filter.Operation switch
+            {
+                FilterOperation.Equal => CreateEqualExpression(innerCurrent, innerFilterValue, innerType),
+                FilterOperation.NotEqual => CreateNotEqualExpression(innerCurrent, innerFilterValue, innerType),
+                FilterOperation.Contains => CreateContainsExpression(innerCurrent, innerFilterValue),
+                FilterOperation.StartsWith => CreateStartsWithExpression(innerCurrent, innerFilterValue),
+                FilterOperation.EndsWith => CreateEndsWithExpression(innerCurrent, innerFilterValue),
+                FilterOperation.GreaterThan => CreateComparisonExpression(innerCurrent, innerFilterValue, ExpressionType.GreaterThan),
+                FilterOperation.LessThan => CreateComparisonExpression(innerCurrent, innerFilterValue, ExpressionType.LessThan),
+                FilterOperation.GreaterThanOrEqual => CreateComparisonExpression(innerCurrent, innerFilterValue, ExpressionType.GreaterThanOrEqual),
+                FilterOperation.LessThanOrEqual => CreateComparisonExpression(innerCurrent, innerFilterValue, ExpressionType.LessThanOrEqual),
+                FilterOperation.IsNull => CreateNullExpression(innerCurrent, true),
+                FilterOperation.IsNotNull => CreateNullExpression(innerCurrent, false),
+                FilterOperation.In => CreateInExpression(innerCurrent, filter.Value, innerType),
+                FilterOperation.NotIn => CreateNotInExpression(innerCurrent, filter.Value, innerType),
+                _ => null
+            };
+
+            if (innerComparison == null)
+                return null;
+
+            var innerLambda = Expression.Lambda(innerComparison, innerParam);
+
+            var anyMethod = typeof(Enumerable)
+                .GetMethods(BindingFlags.Static | BindingFlags.Public)
+                .First(m => m.Name == nameof(Enumerable.Any) && m.GetParameters().Length == 2)
+                .MakeGenericMethod(elementType);
+
+            return Expression.Call(anyMethod, propAccess, innerLambda);
+        }
+
+        return null;
+    }
+
     public IQueryable<T> ApplySorting<T>(IQueryable<T> query, List<SortRequest> sorts)
     {
         if (sorts == null || !sorts.Any())
@@ -234,22 +349,32 @@ public class QueryBuilderService : IQueryBuilderService
         for (int i = 0; i < sorts.Count; i++)
         {
             var sort = sorts[i];
-            // Support nested property names for sorting as well
-            var propertyExpression = CreatePropertyExpressionByName<T>(sort.SortBy);
-            if (propertyExpression == null) continue;
 
-            if (i == 0)
-            {
-                orderedQuery = sort.SortDirection.ToLower() == "desc"
-                    ? query.OrderByDescending(propertyExpression)
-                    : query.OrderBy(propertyExpression);
-            }
-            else
-            {
-                orderedQuery = sort.SortDirection.ToLower() == "desc"
-                    ? orderedQuery!.ThenByDescending(propertyExpression)
-                    : orderedQuery!.ThenBy(propertyExpression);
-            }
+            var parameter = Expression.Parameter(typeof(T), "x");
+            var (memberExpr, propType) = BuildPropertyAccess<T>(parameter, sort.SortBy);
+
+            if (memberExpr == null || propType == null)
+                continue;
+
+            var delegateType = typeof(Func<,>).MakeGenericType(typeof(T), propType);
+            var lambda = Expression.Lambda(delegateType, memberExpr, parameter);
+
+            var methodName = i == 0
+                ? sort.SortDirection?.Equals("desc", StringComparison.OrdinalIgnoreCase) == true
+                    ? nameof(Queryable.OrderByDescending)
+                    : nameof(Queryable.OrderBy)
+                : sort.SortDirection?.Equals("desc", StringComparison.OrdinalIgnoreCase) == true
+                    ? nameof(Queryable.ThenByDescending)
+                    : nameof(Queryable.ThenBy);
+
+            var method = typeof(Queryable)
+                .GetMethods(BindingFlags.Public | BindingFlags.Static)
+                .First(m => m.Name == methodName && m.GetParameters().Length == 2)
+                .MakeGenericMethod(typeof(T), propType);
+
+            orderedQuery = i == 0
+                ? (IOrderedQueryable<T>)method.Invoke(null, new object[] { query, lambda })!
+                : (IOrderedQueryable<T>)method.Invoke(null, new object[] { orderedQuery!, lambda })!;
         }
 
         return orderedQuery ?? query;
@@ -257,7 +382,6 @@ public class QueryBuilderService : IQueryBuilderService
 
     public async Task<PagedResult<T>> ApplyPaginationAsync<T>(IQueryable<T> query, PaginationRequest pagination)
     {
-        // Apply includes for specific entities
         query = ApplyIncludes(query);
 
         var totalRecords = await query.CountAsync();
@@ -269,7 +393,7 @@ public class QueryBuilderService : IQueryBuilderService
         }
 
         var pageNumber = Math.Max(1, pagination.PageNumber);
-        var pageSize = Math.Max(1, Math.Min(1000, pagination.PageSize)); // Max 1000 records per page
+        var pageSize = Math.Max(1, Math.Min(1000, pagination.PageSize));
 
         var skip = (pageNumber - 1) * pageSize;
         var pagedData = await query.Skip(skip).Take(pageSize).ToListAsync();
@@ -279,129 +403,91 @@ public class QueryBuilderService : IQueryBuilderService
 
     public IQueryable<T> SelectColumns<T>(IQueryable<T> query, List<string> columns)
     {
-        // If columns list is null or empty, return all columns
         if (columns == null || !columns.Any())
             return query;
 
-        // Validate that all requested columns exist in the entity
         var entityType = typeof(T);
         var validColumns = new List<string>();
 
         foreach (var column in columns)
         {
             var property = entityType.GetProperty(column, BindingFlags.IgnoreCase | BindingFlags.Public | BindingFlags.Instance);
+
             if (property != null)
-            {
-                validColumns.Add(property.Name); // Use the actual property name (case-correct)
-            }
+                validColumns.Add(property.Name);
         }
 
-        // If no valid columns found, return all columns
-        if (!validColumns.Any())
-            return query;
-
-        // Note: EF Core doesn't support dynamic projection in a way that returns T
-        // The query will still load all columns from the database, but the consumer
-        // can filter the mapped DTOs. For true column-level optimization, you'd need
-        // to return IQueryable<object> or use reflection to create a dynamic type.
-
-        // For now, we return the full query and let the mapping layer handle selection
         return query;
     }
 
     public async Task<PagedResult<Dictionary<string, object>>> ApplyPaginationWithColumnsAsync<T>(
-        IQueryable<T> query, 
-        PaginationRequest pagination, 
+        IQueryable<T> query,
+        PaginationRequest pagination,
         List<string> columns)
     {
-        // Apply includes for specific entities (before projection)
         query = ApplyIncludes(query);
 
-        // Get entity properties
         var entityType = typeof(T);
         var properties = entityType.GetProperties(BindingFlags.Public | BindingFlags.Instance);
 
-        // Determine which columns to select
         List<PropertyInfo> selectedProperties;
+
         if (columns == null || !columns.Any())
         {
-            // If no columns specified, select all properties
             selectedProperties = properties.ToList();
         }
         else
         {
-            // Select only requested columns (case-insensitive)
             selectedProperties = new List<PropertyInfo>();
+
             foreach (var column in columns)
             {
-                var property = properties.FirstOrDefault(p => 
+                var property = properties.FirstOrDefault(p =>
                     p.Name.Equals(column, StringComparison.OrdinalIgnoreCase));
+
                 if (property != null)
-                {
                     selectedProperties.Add(property);
-                }
             }
 
-            // If no valid columns found, select all
             if (!selectedProperties.Any())
-            {
                 selectedProperties = properties.ToList();
-            }
         }
 
-        // Ensure we have ordering BEFORE projection to avoid SQL warning
-        // Apply default ordering by first selected property if no order exists
         if (!IsOrdered(query) && selectedProperties.Any())
         {
             var firstProp = selectedProperties.First();
+
             var orderParam = Expression.Parameter(entityType, "x");
             var propertyAccess = Expression.Property(orderParam, firstProp);
-            var objectConversion = Expression.Convert(propertyAccess, typeof(object));
-            var orderSelector = Expression.Lambda<Func<T, object>>(objectConversion, orderParam);
-            query = query.OrderBy(orderSelector);
+            var orderLambda = Expression.Lambda(
+                typeof(Func<,>).MakeGenericType(entityType, firstProp.PropertyType),
+                propertyAccess,
+                orderParam);
+
+            var orderMethod = typeof(Queryable)
+                .GetMethods()
+                .First(m => m.Name == nameof(Queryable.OrderBy) && m.GetParameters().Length == 2)
+                .MakeGenericMethod(entityType, firstProp.PropertyType);
+
+            query = (IQueryable<T>)orderMethod.Invoke(null, new object[] { query, orderLambda })!;
         }
 
-        // Get total count before projection
         var totalRecords = await query.CountAsync();
 
-        // Build dynamic expression for column selection
         var parameter = Expression.Parameter(entityType, "x");
 
-        // Create dictionary initializer expressions
-        var addMethod = typeof(Dictionary<string, object>).GetMethod("Add", new[] { typeof(string), typeof(object) })!;
-        var dictionaryType = typeof(Dictionary<string, object>);
-        var constructor = dictionaryType.GetConstructor(Type.EmptyTypes)!;
+        var elementExprs = selectedProperties
+            .Select(p => (Expression)Expression.Convert(Expression.Property(parameter, p), typeof(object)))
+            .ToArray();
 
-        // Create initializers for each selected property
-        var elementInits = selectedProperties.Select(prop =>
-        {
-            var propertyAccess = Expression.Property(parameter, prop);
-            var propertyAsObject = Expression.Convert(propertyAccess, typeof(object));
+        var newArray = Expression.NewArrayInit(typeof(object), elementExprs);
+        var selector = Expression.Lambda<Func<T, object[]>>(newArray, parameter);
 
-            // Don't convert null to DBNull here - let null pass through naturally
-            // The AutoMapper converter will handle null/DBNull conversion if needed
-            return Expression.ElementInit(
-                addMethod,
-                Expression.Constant(prop.Name),
-                propertyAsObject
-            );
-        }).ToList();
-
-        // Create the dictionary initialization expression
-        var dictionaryInit = Expression.ListInit(
-            Expression.New(constructor),
-            elementInits
-        );
-
-        // Create the selector lambda: x => new Dictionary<string, object> { { "Prop1", x.Prop1 }, ... }
-        var selector = Expression.Lambda<Func<T, Dictionary<string, object>>>(dictionaryInit, parameter);
-
-        // Apply the projection
         var projectionQuery = query.Select(selector);
 
-        // Apply pagination
-        int pageNumber, pageSize;
-        IQueryable<Dictionary<string, object>> pagedQuery;
+        int pageNumber;
+        int pageSize;
+        IQueryable<object[]> pagedQuery;
 
         if (pagination.GetAll)
         {
@@ -413,66 +499,62 @@ public class QueryBuilderService : IQueryBuilderService
         {
             pageNumber = Math.Max(1, pagination.PageNumber);
             pageSize = Math.Max(1, Math.Min(1000, pagination.PageSize));
+
             var skip = (pageNumber - 1) * pageSize;
             pagedQuery = projectionQuery.Skip(skip).Take(pageSize);
         }
 
-        // Execute query - EF Core will generate SQL with only selected columns
-        var result = await pagedQuery.ToListAsync();
+        var raw = await pagedQuery.ToListAsync();
+
+        var result = raw.Select(arr =>
+        {
+            var dict = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
+
+            for (int i = 0; i < selectedProperties.Count; i++)
+                dict[selectedProperties[i].Name] = arr[i];
+
+            return dict;
+        }).ToList();
 
         return PagedResult<Dictionary<string, object>>.Create(result, totalRecords, pageNumber, pageSize);
     }
 
     private bool IsOrdered<T>(IQueryable<T> query)
     {
-        // Check if the query already has an OrderBy applied
-        return query.Expression.ToString().Contains("OrderBy") || 
+        return query.Expression.ToString().Contains("OrderBy") ||
                query.Expression.ToString().Contains("ThenBy");
     }
 
-    /// <summary>
-    /// Unified method to execute query with filters, sorting, pagination and optional column selection
-    /// </summary>
     public async Task<PagedResult<object>> ExecuteQueryAsync<T>(IQueryable<T> query, DataRequest request)
     {
-        // Apply filters
         query = ApplyFilters(query, request.Filters);
-
-        // Apply sorting
         query = ApplySorting(query, request.Sort);
 
-        // Check if column selection is requested
         if (request.Columns != null && request.Columns.Count > 0)
         {
-            // Use column-specific pagination
             var pagedDictResult = await ApplyPaginationWithColumnsAsync(query, request.Pagination, request.Columns);
 
-            // Convert PagedResult<Dictionary<string, object>> to PagedResult<object>
             var objectList = pagedDictResult.Data.Cast<object>().ToList();
+
             return PagedResult<object>.Create(
                 objectList,
                 pagedDictResult.TotalRecords,
                 pagedDictResult.PageNumber,
                 pagedDictResult.PageSize);
         }
-        else
-        {
-            // Use full entity pagination
-            var pagedResult = await ApplyPaginationAsync(query, request.Pagination);
 
-            // Convert PagedResult<T> to PagedResult<object>
-            var objectList = pagedResult.Data.Cast<object>().ToList();
-            return PagedResult<object>.Create(
-                objectList,
-                pagedResult.TotalRecords,
-                pagedResult.PageNumber,
-                pagedResult.PageSize);
-        }
+        var pagedResult = await ApplyPaginationAsync(query, request.Pagination);
+        var fullObjectList = pagedResult.Data.Cast<object>().ToList();
+
+        return PagedResult<object>.Create(
+            fullObjectList,
+            pagedResult.TotalRecords,
+            pagedResult.PageNumber,
+            pagedResult.PageSize);
     }
 
     private IQueryable<T> ApplyIncludes<T>(IQueryable<T> query)
     {
-        // Apply specific includes based on entity type
         if (typeof(T) == typeof(AppLookupMaster))
         {
             return query.Cast<AppLookupMaster>()
@@ -480,38 +562,30 @@ public class QueryBuilderService : IQueryBuilderService
                 .Cast<T>();
         }
 
-        
         if (typeof(T) == typeof(SystemUser))
         {
-            // For system users, we might want to include related data if needed
-            // Currently no navigation properties to include, but can be extended
             return query;
         }
 
-        // Add more include logic for other entities as needed
         return query;
     }
 
-    private PropertyInfo? GetProperty<T>(string propertyName)
-    {
-        return typeof(T).GetProperty(propertyName, BindingFlags.IgnoreCase | BindingFlags.Public | BindingFlags.Instance);
-    }
-
-    /// <summary>
-    /// Build a MemberExpression for nested properties (supports dot notation) and return the final property type
-    /// </summary>
-    private (Expression? memberExpression, Type? propertyType) BuildPropertyAccess<T>(ParameterExpression parameter, string propertyName)
+    private (Expression? memberExpression, Type? propertyType) BuildPropertyAccess<T>(
+        ParameterExpression parameter,
+        string propertyName)
     {
         if (string.IsNullOrWhiteSpace(propertyName))
             return (null, null);
 
         Expression current = parameter;
-        Type? currentType = typeof(T);
+        Type currentType = typeof(T);
+
         var parts = propertyName.Split('.', StringSplitOptions.RemoveEmptyEntries);
 
         foreach (var part in parts)
         {
             var prop = currentType.GetProperty(part, BindingFlags.IgnoreCase | BindingFlags.Public | BindingFlags.Instance);
+
             if (prop == null)
                 return (null, null);
 
@@ -522,31 +596,10 @@ public class QueryBuilderService : IQueryBuilderService
         return (current, currentType);
     }
 
-    /// <summary>
-    /// Create an OrderBy expression for nested property name (supports dot notation)
-    /// </summary>
-    private Expression<Func<T, object>>? CreatePropertyExpressionByName<T>(string propertyName)
-    {
-        var parameter = Expression.Parameter(typeof(T), "x");
-        var (memberExpr, propType) = BuildPropertyAccess<T>(parameter, propertyName);
-        if (memberExpr == null)
-            return null;
-
-        var convert = Expression.Convert(memberExpr, typeof(object));
-        return Expression.Lambda<Func<T, object>>(convert, parameter);
-    }
-
-    private Expression<Func<T, object>> CreatePropertyExpression<T>(PropertyInfo property)
-    {
-        var parameter = Expression.Parameter(typeof(T), "x");
-        var propertyAccess = Expression.MakeMemberAccess(parameter, property);
-        var objectConversion = Expression.Convert(propertyAccess, typeof(object));
-        return Expression.Lambda<Func<T, object>>(objectConversion, parameter);
-    }
-
     private object? ConvertValue(string value, Type targetType)
     {
-        if (string.IsNullOrEmpty(value)) return null;
+        if (string.IsNullOrEmpty(value))
+            return null;
 
         var underlyingType = Nullable.GetUnderlyingType(targetType) ?? targetType;
 
@@ -598,11 +651,8 @@ public class QueryBuilderService : IQueryBuilderService
 
     private Expression CreateEqualExpression(Expression property, object? value, Type propertyType)
     {
-        // Handle nullable types properly
         if (value == null)
-        {
             return Expression.Equal(property, Expression.Constant(null, propertyType));
-        }
 
         var constant = Expression.Constant(value, propertyType);
         return Expression.Equal(property, constant);
@@ -610,22 +660,18 @@ public class QueryBuilderService : IQueryBuilderService
 
     private Expression CreateNotEqualExpression(Expression property, object? value, Type propertyType)
     {
-        // Handle nullable types properly
         if (value == null)
-        {
             return Expression.NotEqual(property, Expression.Constant(null, propertyType));
-        }
 
         var constant = Expression.Constant(value, propertyType);
         return Expression.NotEqual(property, constant);
     }
 
-    private Expression CreateContainsExpression(Expression property, object? value)
+    private Expression? CreateContainsExpression(Expression property, object? value)
     {
         if (property.Type != typeof(string) || value is not string stringValue)
-            return Expression.Constant(true); // Skip invalid contains operations
+            return null;
 
-        // Handle null check for string properties
         var nullCheck = Expression.NotEqual(property, Expression.Constant(null, typeof(string)));
         var method = typeof(string).GetMethod(nameof(string.Contains), new[] { typeof(string) });
         var constant = Expression.Constant(stringValue);
@@ -634,12 +680,11 @@ public class QueryBuilderService : IQueryBuilderService
         return Expression.AndAlso(nullCheck, containsCall);
     }
 
-    private Expression CreateStartsWithExpression(Expression property, object? value)
+    private Expression? CreateStartsWithExpression(Expression property, object? value)
     {
         if (property.Type != typeof(string) || value is not string stringValue)
-            return Expression.Constant(true);
+            return null;
 
-        // Handle null check for string properties
         var nullCheck = Expression.NotEqual(property, Expression.Constant(null, typeof(string)));
         var method = typeof(string).GetMethod(nameof(string.StartsWith), new[] { typeof(string) });
         var constant = Expression.Constant(stringValue);
@@ -648,12 +693,11 @@ public class QueryBuilderService : IQueryBuilderService
         return Expression.AndAlso(nullCheck, startsWithCall);
     }
 
-    private Expression CreateEndsWithExpression(Expression property, object? value)
+    private Expression? CreateEndsWithExpression(Expression property, object? value)
     {
         if (property.Type != typeof(string) || value is not string stringValue)
-            return Expression.Constant(true);
+            return null;
 
-        // Handle null check for string properties
         var nullCheck = Expression.NotEqual(property, Expression.Constant(null, typeof(string)));
         var method = typeof(string).GetMethod(nameof(string.EndsWith), new[] { typeof(string) });
         var constant = Expression.Constant(stringValue);
@@ -662,10 +706,10 @@ public class QueryBuilderService : IQueryBuilderService
         return Expression.AndAlso(nullCheck, endsWithCall);
     }
 
-    private Expression CreateComparisonExpression(Expression property, object? value, ExpressionType comparison)
+    private Expression? CreateComparisonExpression(Expression property, object? value, ExpressionType comparison)
     {
         if (value == null)
-            return Expression.Constant(false); // Can't compare with null
+            return null;
 
         var constant = Expression.Constant(value, property.Type);
         return Expression.MakeBinary(comparison, property, constant);
@@ -674,31 +718,38 @@ public class QueryBuilderService : IQueryBuilderService
     private Expression CreateNullExpression(Expression property, bool isNull)
     {
         var nullConstant = Expression.Constant(null, property.Type);
-        return isNull ? Expression.Equal(property, nullConstant) : Expression.NotEqual(property, nullConstant);
+        return isNull
+            ? Expression.Equal(property, nullConstant)
+            : Expression.NotEqual(property, nullConstant);
     }
 
-    private Expression CreateInExpression(Expression property, string values, Type propertyType)
+    private Expression? CreateInExpression(Expression property, string values, Type propertyType)
     {
-        var valueArray = values.Split(',', StringSplitOptions.RemoveEmptyEntries)
+        var valueArray = values
+            .Split(',', StringSplitOptions.RemoveEmptyEntries)
             .Select(v => ConvertValue(v.Trim(), propertyType))
             .Where(v => v != null)
             .ToArray();
 
         if (!valueArray.Any())
-            return Expression.Constant(false);
+            return null;
 
         var constantArray = Expression.Constant(valueArray);
 
-        var containsMethod = typeof(Enumerable).GetMethods()
-            .First(m => m.Name == "Contains" && m.GetParameters().Length == 2)
+        var containsMethod = typeof(Enumerable)
+            .GetMethods()
+            .First(m => m.Name == nameof(Enumerable.Contains) && m.GetParameters().Length == 2)
             .MakeGenericMethod(propertyType);
 
         return Expression.Call(containsMethod, constantArray, property);
     }
 
-    private Expression CreateNotInExpression(Expression property, string values, Type propertyType)
+    private Expression? CreateNotInExpression(Expression property, string values, Type propertyType)
     {
         var inExpression = CreateInExpression(property, values, propertyType);
-        return Expression.Not(inExpression);
+
+        return inExpression == null
+            ? null
+            : Expression.Not(inExpression);
     }
 }

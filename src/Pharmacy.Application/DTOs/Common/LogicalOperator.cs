@@ -9,7 +9,7 @@ public enum LogicalOperator
     /// All conditions must be true (default)
     /// </summary>
     And = 0,
-    
+
     /// <summary>
     /// At least one condition must be true
     /// </summary>
