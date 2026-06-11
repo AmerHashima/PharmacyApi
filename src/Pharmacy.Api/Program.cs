@@ -143,6 +143,8 @@ try
                 {
                     success = false,
                     message = "You are not authorized to access this resource",
+                    messageEn = "You are not authorized to access this resource",
+                    messageAr = "غير مصرح لك بالوصول إلى هذا المورد",
                     error = context.Error ?? "authentication_failed",
                     errorDescription = context.ErrorDescription ?? "JWT token validation failed",
                     data = (object?)null

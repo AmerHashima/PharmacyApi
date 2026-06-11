@@ -1,0 +1,31 @@
+{
+  "OperationCompleted": "Operation completed successfully",
+  "ValidationFailed": "Validation failed",
+  "InternalServerError": "An internal server error occurred",
+  "UnauthorizedAccess": "You are not authorized to access this resource",
+  "Forbidden": "You are forbidden from accessing this resource",
+  "FileAccessDenied": "File system access denied: {0}",
+  "ResourceCreated": "Resource created successfully",
+  "ResourceDeleted": "Resource deleted successfully",
+  "YouAreNotAuthorized": "You are not authorized to access this resource",
+
+  "DispatchAccepted": "Dispatch accepted successfully",
+  "DispatchDetailRetrieved": "Dispatch detail retrieved successfully",
+  "BatchAccepted": "Batch accepted successfully",
+  "PharmacySaleReported": "Pharmacy sale reported successfully",
+  "PharmacySaleCancelled": "Pharmacy sale cancelled successfully",
+  "StakeholderListRetrieved": "Stakeholder list retrieved successfully",
+  "ReturnBatchSubmitted": "Return batch submitted successfully",
+
+  "DrugListSyncStarted": "Drug list sync started. Use the statusUrl to poll for progress.",
+  "JobNotFound": "Job '{0}' not found.",
+  "JobState": "Job is {0}.",
+
+  "RsdOperationLogsRetrieved": "RSD operation logs retrieved successfully",
+  "RsdOperationLogRetrieved": "RSD operation log retrieved successfully",
+  "RsdOperationLogNotFound": "RSD operation log not found",
+
+  "ErrorRetrievingRsdOperationLogs": "Error retrieving RSD operation logs: {0}",
+  "ErrorRetrievingRsdOperationLog": "Error retrieving RSD operation log: {0}"
+  ,"SalesInvoiceCreated": "Sales invoice created successfully"
+}

@@ -1,0 +1,31 @@
+{
+  "OperationCompleted": "اكتملت العملية بنجاح",
+  "ValidationFailed": "فشل التحقق",
+  "InternalServerError": "حدث خطأ داخلي في الخادم",
+  "UnauthorizedAccess": "غير مصرح لك بالوصول إلى هذا المورد",
+  "Forbidden": "ممنوع من الوصول إلى هذا المورد",
+  "FileAccessDenied": "تم رفض الوصول إلى نظام الملفات: {0}",
+  "ResourceCreated": "تم إنشاء المورد بنجاح",
+  "ResourceDeleted": "تم حذف المورد بنجاح",
+  "YouAreNotAuthorized": "غير مصرح لك بالوصول إلى هذا المورد",
+
+  "DispatchAccepted": "تم قبول الشحنة بنجاح",
+  "DispatchDetailRetrieved": "تم استرجاع تفاصيل الشحنة بنجاح",
+  "BatchAccepted": "تم قبول الدفعة بنجاح",
+  "PharmacySaleReported": "تم الإبلاغ عن بيع الصيدلية بنجاح",
+  "PharmacySaleCancelled": "تم إلغاء بيع الصيدلية بنجاح",
+  "StakeholderListRetrieved": "تم استرجاع قائمة أصحاب المصلحة بنجاح",
+  "ReturnBatchSubmitted": "تم إرسال طلب إرجاع الدفعة بنجاح",
+
+  "DrugListSyncStarted": "بدأ مزامنة قائمة الأدوية. استخدم رابط الحالة للاستعلام عن التقدم.",
+  "JobNotFound": "الوظيفة '{0}' غير موجودة.",
+  "JobState": "الوظيفة هي {0}.",
+
+  "RsdOperationLogsRetrieved": "تم استرجاع سجلات عمليات RSD بنجاح",
+  "RsdOperationLogRetrieved": "تم استرجاع سجل عملية RSD بنجاح",
+  "RsdOperationLogNotFound": "سجل عملية RSD غير موجود",
+
+  "ErrorRetrievingRsdOperationLogs": "خطأ أثناء استرجاع سجلات عمليات RSD: {0}",
+  "ErrorRetrievingRsdOperationLog": "خطأ أثناء استرجاع سجل عملية RSD: {0}"
+  ,"SalesInvoiceCreated": "تم إنشاء الفاتورة بنجاح"
+}
