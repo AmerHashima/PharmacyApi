@@ -28,6 +28,7 @@ public class CreateSalesInvoiceHandler : IRequestHandler<CreateSalesInvoiceComma
     private readonly IJournalPostingService _journalPostingService;
     private readonly IFiscalYearRepository _fiscalYearRepository;
     private readonly ISalesInvoicePaymentRepository _paymentRepository;
+    private readonly ICashierShiftDetailRepository _shiftDetailRepository;
     private readonly IMapper _mapper;
 
     public CreateSalesInvoiceHandler(
@@ -44,6 +45,7 @@ public class CreateSalesInvoiceHandler : IRequestHandler<CreateSalesInvoiceComma
         IJournalPostingService journalPostingService,
         IFiscalYearRepository fiscalYearRepository,
         ISalesInvoicePaymentRepository paymentRepository,
+        ICashierShiftDetailRepository shiftDetailRepository,
         IMapper mapper)
     {
         _invoiceRepository    = invoiceRepository;
@@ -59,6 +61,7 @@ public class CreateSalesInvoiceHandler : IRequestHandler<CreateSalesInvoiceComma
         _journalPostingService  = journalPostingService;
         _fiscalYearRepository   = fiscalYearRepository;
         _paymentRepository      = paymentRepository;
+        _shiftDetailRepository  = shiftDetailRepository;
         _mapper                 = mapper;
     }
 
@@ -351,6 +354,23 @@ public class CreateSalesInvoiceHandler : IRequestHandler<CreateSalesInvoiceComma
                 Notes           = paymentDto.Notes,
                 CreatedAt       = DateTime.UtcNow
             }, cancellationToken);
+
+            // Persist CashierShiftDetail record if ShiftId is provided
+            if (paymentDto.ShiftId.HasValue)
+            {
+                await _shiftDetailRepository.AddAsync(new Domain.Entities.CashierShiftDetail
+                {
+                    ShiftId       = paymentDto.ShiftId.Value,
+                    TransactionDate = paymentDto.PaymentDate,
+                    TransactionTypeId = null,  // Optional: can be used to categorize shift transactions
+                    ReferenceId   = createdInvoice.Oid,
+                    ReferenceNumber = invoiceNumber,
+                    PaymentMethodId = paymentDto.PaymentMethodId,
+                    Amount        = paymentDto.Amount,
+                    Notes         = $"Sale Invoice #{invoiceNumber}",
+                    CreatedAt     = DateTime.UtcNow
+                }, cancellationToken);
+            }
         }
 
         // Create invoice items and stock transactions

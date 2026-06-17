@@ -10,7 +10,7 @@ public class CreateStakeholderDto
     [MaxLength(20, ErrorMessage = "GLN cannot exceed 20 characters")]
     public string? GLN { get; set; }
 
-    [Required(ErrorMessage = "Name is required")]
+    //[Required(ErrorMessage = "Name is required")]
     [MaxLength(200, ErrorMessage = "Name cannot exceed 200 characters")]
     public string Name { get; set; } = string.Empty;
 
@@ -33,8 +33,8 @@ public class CreateStakeholderDto
     [MaxLength(20, ErrorMessage = "Phone cannot exceed 20 characters")]
     public string? Phone { get; set; }
 
-    [EmailAddress(ErrorMessage = "Invalid email format")]
-    [MaxLength(100, ErrorMessage = "Email cannot exceed 100 characters")]
+    //[EmailAddress(ErrorMessage = "Invalid email format")]
+    //[MaxLength(100, ErrorMessage = "Email cannot exceed 100 characters")]
     public string? Email { get; set; }
     
     public int? Status { get; set; }
