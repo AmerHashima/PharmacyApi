@@ -18,6 +18,8 @@ public class AccountingReportService : IAccountingReportService
         int AccountLevel,
         bool IsLeaf);
 
+    private sealed record AccountMovement(decimal Debit, decimal Credit);
+
     private readonly PharmacyDbContext _context;
     private readonly IAccountRepository _accountRepository;
 
@@ -325,6 +327,14 @@ ORDER BY
                     r.TreePath = BuildTreePath(acc.Oid, accountById);
                 }
             }
+
+            var movements = await LoadMovementsAsync(
+                fromDate,
+                toDate.AddDays(1),
+                request.BranchIds,
+                request.CostCenterIds,
+                cancellationToken);
+            ApplyIncomeStatementRollups(rows, accounts, accountById, movements);
         }
 
         return rows;
@@ -365,31 +375,12 @@ ORDER BY
             .ToListAsync(cancellationToken);
 
         var accountById = accounts.ToDictionary(a => a.Oid);
-        var balanceQuery =
-            from detail in _context.JournalEntryDetails
-            join entry in _context.JournalEntries on detail.JournalEntryId equals entry.Oid
-            where !detail.IsDeleted
-                  && !entry.IsDeleted
-                  && !entry.IsReversed
-                  && entry.EntryDate < toDateExclusive
-            select new { detail, entry };
-
-        if (request.BranchIds.Count > 0)
-            balanceQuery = balanceQuery.Where(x => x.entry.BranchId.HasValue && request.BranchIds.Contains(x.entry.BranchId.Value));
-
-        if (request.CostCenterIds.Count > 0)
-            balanceQuery = balanceQuery.Where(x => x.detail.CostCenterId.HasValue && request.CostCenterIds.Contains(x.detail.CostCenterId.Value));
-
-        var balances = await (
-            from journalLine in balanceQuery
-            group journalLine.detail by journalLine.detail.AccountId into grouped
-            select new
-            {
-                AccountId = grouped.Key,
-                Debit = grouped.Sum(x => x.Debit),
-                Credit = grouped.Sum(x => x.Credit)
-            })
-            .ToDictionaryAsync(x => x.AccountId, cancellationToken);
+        var balances = await LoadMovementsAsync(
+            null,
+            toDateExclusive,
+            request.BranchIds,
+            request.CostCenterIds,
+            cancellationToken);
 
         var reportAccounts = accounts
             .Where(a => a.AccountCode.StartsWith("1", StringComparison.Ordinal)
@@ -402,9 +393,12 @@ ORDER BY
         var rows = reportAccounts
             .Select(account =>
             {
-                balances.TryGetValue(account.Oid, out var balance);
-                var debit = balance?.Debit ?? 0m;
-                var credit = balance?.Credit ?? 0m;
+                var (debit, credit) = GetRollupMovement(
+                    account.Oid,
+                    GetBalanceSheetSectionNumber(account.AccountCode),
+                    accountById,
+                    balances,
+                    GetBalanceSheetSectionNumber);
                 var isAsset = account.AccountCode.StartsWith("1", StringComparison.Ordinal);
                 var amount = isAsset ? debit - credit : credit - debit;
                 var (sectionNo, sectionNameAr, sectionNameEn) = GetBalanceSheetSection(account.AccountCode);
@@ -444,11 +438,21 @@ ORDER BY
             .ThenBy(x => x.SortOrder, StringComparer.Ordinal)
             .ToList();
 
-        var totalAssets = rows.Where(x => x.SectionNo == 1).Sum(x => x.Amount);
-        var totalLiabilities = rows.Where(x => x.SectionNo == 2).Sum(x => x.Amount);
-        var totalEquity = rows.Where(x => x.SectionNo == 3).Sum(x => x.Amount);
-        var totalDebit = rows.Sum(x => x.Debit);
-        var totalCredit = rows.Sum(x => x.Credit);
+        // Totals are derived from direct movements only. Summing displayed parent
+        // rows would double-count children after the hierarchy roll-up.
+        var directBySection = accounts
+            .Where(a => GetBalanceSheetSectionNumber(a.AccountCode) is >= 1 and <= 3)
+            .Select(a => new
+            {
+                SectionNo = GetBalanceSheetSectionNumber(a.AccountCode),
+                Movement = balances.TryGetValue(a.Oid, out var movement) ? movement : new AccountMovement(0m, 0m)
+            })
+            .ToList();
+        var totalAssets = directBySection.Where(x => x.SectionNo == 1).Sum(x => x.Movement.Debit - x.Movement.Credit);
+        var totalLiabilities = directBySection.Where(x => x.SectionNo == 2).Sum(x => x.Movement.Credit - x.Movement.Debit);
+        var totalEquity = directBySection.Where(x => x.SectionNo == 3).Sum(x => x.Movement.Credit - x.Movement.Debit);
+        var totalDebit = directBySection.Sum(x => x.Movement.Debit);
+        var totalCredit = directBySection.Sum(x => x.Movement.Credit);
         var balanceStatus = totalAssets == totalLiabilities + totalEquity
             ? "الحسابات متوازنة" : "الحسابات غير متوازنة";
 
@@ -471,6 +475,157 @@ ORDER BY
         accountCode.StartsWith("2", StringComparison.Ordinal) ? (2, "الالتزامات", "Liabilities") :
         accountCode.StartsWith("3", StringComparison.Ordinal) ? (3, "حقوق الملكية", "Equity") :
         (9, "أخرى", "Other");
+
+    private async Task<Dictionary<Guid, AccountMovement>> LoadMovementsAsync(
+        DateTime? fromDate,
+        DateTime toDateExclusive,
+        IReadOnlyCollection<Guid> branchIds,
+        IReadOnlyCollection<Guid> costCenterIds,
+        CancellationToken cancellationToken)
+    {
+        var query =
+            from detail in _context.JournalEntryDetails
+            join entry in _context.JournalEntries on detail.JournalEntryId equals entry.Oid
+            where !detail.IsDeleted
+                  && !entry.IsDeleted
+                  && !entry.IsReversed
+                  && (!fromDate.HasValue || entry.EntryDate >= fromDate.Value)
+                  && entry.EntryDate < toDateExclusive
+            select new { detail, entry };
+
+        if (branchIds.Count > 0)
+            query = query.Where(x => x.entry.BranchId.HasValue && branchIds.Contains(x.entry.BranchId.Value));
+
+        if (costCenterIds.Count > 0)
+            query = query.Where(x => x.detail.CostCenterId.HasValue && costCenterIds.Contains(x.detail.CostCenterId.Value));
+
+        return await query
+            .GroupBy(x => x.detail.AccountId)
+            .Select(group => new
+            {
+                AccountId = group.Key,
+                Debit = group.Sum(x => x.detail.Debit),
+                Credit = group.Sum(x => x.detail.Credit)
+            })
+            .ToDictionaryAsync(x => x.AccountId, x => new AccountMovement(x.Debit, x.Credit), cancellationToken);
+    }
+
+    private static void ApplyIncomeStatementRollups(
+        IReadOnlyList<IncomeStatementRowDto> rows,
+        IReadOnlyList<AccountTreeNode> accounts,
+        IReadOnlyDictionary<Guid, AccountTreeNode> accountById,
+        IReadOnlyDictionary<Guid, AccountMovement> movements)
+    {
+        foreach (var row in rows)
+        {
+            var sectionNo = GetIncomeStatementSectionNumber(row.AccountCode);
+            var (debit, credit) = GetRollupMovement(
+                row.AccountId,
+                sectionNo,
+                accountById,
+                movements,
+                GetIncomeStatementSectionNumber);
+
+            row.Debit = debit;
+            row.Credit = credit;
+            row.Amount = sectionNo == 1 ? credit - debit : debit - credit;
+            row.DisplayAmount = row.Amount;
+
+            var hasChildren = accounts.Any(a => a.ParentId == row.AccountId);
+            row.IsBold = row.AccountLevel <= 2 || hasChildren;
+            row.BackColor = row.IsBold ? "#EBF2FC" : "#FFFFFF";
+        }
+
+        // Report totals use direct account movements, once per journal line;
+        // displayed parent totals are intentionally excluded to avoid duplication.
+        var direct = accounts
+            .Select(account => new
+            {
+                SectionNo = GetIncomeStatementSectionNumber(account.AccountCode),
+                Movement = movements.TryGetValue(account.Oid, out var movement) ? movement : new AccountMovement(0m, 0m)
+            })
+            .Where(x => x.SectionNo is 1 or 2 or 4 or 5)
+            .ToList();
+
+        var totalDebit = direct.Sum(x => x.Movement.Debit);
+        var totalCredit = direct.Sum(x => x.Movement.Credit);
+        var revenue = direct.Where(x => x.SectionNo == 1).ToList();
+        var cost = direct.Where(x => x.SectionNo == 2).ToList();
+        var expenses = direct.Where(x => x.SectionNo == 4).ToList();
+        var other = direct.Where(x => x.SectionNo == 5).ToList();
+        var totalRevenue = revenue.Sum(x => x.Movement.Credit - x.Movement.Debit);
+        var totalCost = cost.Sum(x => x.Movement.Debit - x.Movement.Credit);
+        var totalExpenses = expenses.Sum(x => x.Movement.Debit - x.Movement.Credit);
+        var totalOther = other.Sum(x => x.Movement.Debit - x.Movement.Credit);
+
+        foreach (var row in rows)
+        {
+            row.TotalDebit = totalDebit;
+            row.TotalCredit = totalCredit;
+            row.RevenueDebit = revenue.Sum(x => x.Movement.Debit);
+            row.RevenueCredit = revenue.Sum(x => x.Movement.Credit);
+            row.CostDebit = cost.Sum(x => x.Movement.Debit);
+            row.CostCredit = cost.Sum(x => x.Movement.Credit);
+            row.ExpensesDebit = expenses.Sum(x => x.Movement.Debit);
+            row.ExpensesCredit = expenses.Sum(x => x.Movement.Credit);
+            row.OtherDebit = other.Sum(x => x.Movement.Debit);
+            row.OtherCredit = other.Sum(x => x.Movement.Credit);
+            row.TotalRevenue = totalRevenue;
+            row.TotalCostOfSales = totalCost;
+            row.TotalExpenses = totalExpenses;
+            row.TotalOtherIncomeExpense = totalOther;
+            row.GrossProfit = totalRevenue - totalCost;
+            row.NetProfit = totalRevenue - totalCost - totalExpenses + totalOther;
+        }
+    }
+
+    private static (decimal Debit, decimal Credit) GetRollupMovement(
+        Guid accountId,
+        int sectionNo,
+        IReadOnlyDictionary<Guid, AccountTreeNode> accounts,
+        IReadOnlyDictionary<Guid, AccountMovement> movements,
+        Func<string, int> getSectionNo)
+    {
+        var childrenByParent = accounts.Values
+            .Where(account => account.ParentId.HasValue)
+            .GroupBy(account => account.ParentId!.Value)
+            .ToDictionary(group => group.Key, group => group.ToList());
+        var visited = new HashSet<Guid>();
+
+        AccountMovement Sum(Guid currentId)
+        {
+            if (!visited.Add(currentId) || !accounts.TryGetValue(currentId, out var current))
+                return new AccountMovement(0m, 0m);
+
+            var own = getSectionNo(current.AccountCode) == sectionNo && movements.TryGetValue(currentId, out var movement)
+                ? movement : new AccountMovement(0m, 0m);
+
+            if (!childrenByParent.TryGetValue(currentId, out var children))
+                return own;
+
+            foreach (var child in children.Where(child => getSectionNo(child.AccountCode) == sectionNo))
+            {
+                var childTotal = Sum(child.Oid);
+                own = new AccountMovement(own.Debit + childTotal.Debit, own.Credit + childTotal.Credit);
+            }
+
+            return own;
+        }
+
+        var result = Sum(accountId);
+        return (result.Debit, result.Credit);
+    }
+
+    private static int GetIncomeStatementSectionNumber(string accountCode) =>
+        accountCode.StartsWith("4", StringComparison.Ordinal) ? 1 :
+        accountCode.StartsWith("515", StringComparison.Ordinal) ? 2 :
+        accountCode.StartsWith("5", StringComparison.Ordinal) ? 4 :
+        accountCode.StartsWith("8", StringComparison.Ordinal) ? 5 : 9;
+
+    private static int GetBalanceSheetSectionNumber(string accountCode) =>
+        accountCode.StartsWith("1", StringComparison.Ordinal) ? 1 :
+        accountCode.StartsWith("2", StringComparison.Ordinal) ? 2 :
+        accountCode.StartsWith("3", StringComparison.Ordinal) ? 3 : 9;
 
     private static string BuildTreePath(Guid accountId, IReadOnlyDictionary<Guid, AccountTreeNode> accounts)
     {

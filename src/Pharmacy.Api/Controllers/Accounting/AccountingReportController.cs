@@ -38,6 +38,7 @@ public class AccountingReportController(IMediator mediator, IAccountingReportSer
 
     /// <summary>Income statement with gross debit/credit columns and section totals.</summary>
     [HttpPost("ProfitAndLossDebitCredit")]
+    [HttpPost("ProfitAndLossStatemenDebitCreditReport")]
     public async Task<ActionResult<ApiResponse<IReadOnlyList<IncomeStatementRowDto>>>> ProfitAndLossDebitCredit(
         [FromBody] IncomeStatementRequest request,
         CancellationToken cancellationToken)
