@@ -9,6 +9,15 @@ namespace Pharmacy.Infrastructure.Services;
 
 public class AccountingReportService : IAccountingReportService
 {
+    private sealed record AccountTreeNode(
+        Guid Oid,
+        Guid? ParentId,
+        string AccountCode,
+        string AccountNameAr,
+        string? AccountNameEn,
+        int AccountLevel,
+        bool IsLeaf);
+
     private readonly PharmacyDbContext _context;
     private readonly IAccountRepository _accountRepository;
 
@@ -256,20 +265,29 @@ ORDER BY
         var accountIds = rows.Select(r => r.AccountId).Distinct().ToList();
         if (accountIds.Count > 0)
         {
+            // Load the full active chart so leaf-only reports can still resolve
+            // summary-account parents and complete tree paths.
             var accounts = await _accountRepository.GetQueryable()
-                .Where(a => accountIds.Contains(a.Oid))
-                .Select(a => new { a.Oid, a.ParentId, a.AccountCode, a.AccountNameAr, a.AccountNameEn, a.AccountLevel, a.IsLeaf })
+                .Where(a => !a.IsDeleted && a.IsActive)
+                .Select(a => new AccountTreeNode(
+                    a.Oid,
+                    a.ParentId,
+                    a.AccountCode,
+                    a.AccountNameAr,
+                    a.AccountNameEn,
+                    a.AccountLevel,
+                    a.IsLeaf))
                 .ToListAsync(cancellationToken);
 
-            var accountById = accounts.ToDictionary(a => a.Oid, a => (dynamic)a);
+            var accountById = accounts.ToDictionary(a => a.Oid);
             foreach (var r in rows)
             {
-                if (accountById.TryGetValue(r.AccountId, out dynamic acc))
+                if (accountById.TryGetValue(r.AccountId, out var acc))
                 {
-                    r.ParentId = (Guid?)acc.ParentId;
-                    r.ParentCode = acc.ParentId.HasValue && accountById.ContainsKey(acc.ParentId.Value) ? accountById[acc.ParentId.Value].AccountCode : null;
-                    r.ParentNameAr = acc.ParentId.HasValue && accountById.ContainsKey(acc.ParentId.Value) ? accountById[acc.ParentId.Value].AccountNameAr : null;
-                    r.ParentNameEn = acc.ParentId.HasValue && accountById.ContainsKey(acc.ParentId.Value) ? accountById[acc.ParentId.Value].AccountNameEn : null;
+                    r.ParentId = acc.ParentId;
+                    r.ParentCode = acc.ParentId.HasValue && accountById.TryGetValue(acc.ParentId.Value, out var parent) ? parent.AccountCode : null;
+                    r.ParentNameAr = acc.ParentId.HasValue && accountById.TryGetValue(acc.ParentId.Value, out parent) ? parent.AccountNameAr : null;
+                    r.ParentNameEn = acc.ParentId.HasValue && accountById.TryGetValue(acc.ParentId.Value, out parent) ? parent.AccountNameEn : null;
                     r.IsLeaf = acc.IsLeaf;
                     r.DisplayName = $"{new string(' ', Math.Max(0, acc.AccountLevel - 1) * 4)}{acc.AccountNameAr}";
                     r.TreePath = BuildTreePath(acc.Oid, accountById);
@@ -280,7 +298,7 @@ ORDER BY
         return rows;
     }
 
-    private static string BuildTreePath(Guid accountId, IReadOnlyDictionary<Guid, dynamic> accounts)
+    private static string BuildTreePath(Guid accountId, IReadOnlyDictionary<Guid, AccountTreeNode> accounts)
     {
         var path = new Stack<string>();
         var visited = new HashSet<Guid>();
@@ -288,7 +306,7 @@ ORDER BY
 
         while (currentId.HasValue && visited.Add(currentId.Value) && accounts.TryGetValue(currentId.Value, out var account))
         {
-            path.Push((string)account.AccountCode);
+            path.Push(account.AccountCode);
             currentId = account.ParentId;
         }
 
