@@ -212,39 +212,44 @@ ORDER BY
             cmd.Parameters.Add(p);
         }
 
-        await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
-        while (await reader.ReadAsync(cancellationToken))
+        // Dispose the reader before issuing the EF query that enriches the tree.
+        // SQL Server permits only one active DataReader on this connection unless
+        // MultipleActiveResultSets is enabled.
+        await using (var reader = await cmd.ExecuteReaderAsync(cancellationToken))
         {
-            var row = new IncomeStatementRowDto
+            while (await reader.ReadAsync(cancellationToken))
             {
-                SectionNo = reader.GetInt32(reader.GetOrdinal("SectionNo")),
-                SectionNameAr = reader.GetString(reader.GetOrdinal("SectionNameAr")),
-                SectionNameEn = reader.GetString(reader.GetOrdinal("SectionNameEn")),
-                LineType = reader.GetString(reader.GetOrdinal("LineType")),
-                AccountId = reader.GetGuid(reader.GetOrdinal("AccountId")),
-                AccountCode = reader.GetString(reader.GetOrdinal("AccountCode")),
-                AccountNameAr = reader.GetString(reader.GetOrdinal("AccountNameAr")),
-                AccountNameEn = reader.IsDBNull(reader.GetOrdinal("AccountNameEn")) ? null : reader.GetString(reader.GetOrdinal("AccountNameEn")),
-                AccountLevel = reader.GetInt32(reader.GetOrdinal("AccountLevel")),
-                SortOrder = reader.GetString(reader.GetOrdinal("SortOrder")),
-                Amount = reader.IsDBNull(reader.GetOrdinal("Amount")) ? 0m : reader.GetDecimal(reader.GetOrdinal("Amount")),
-                DisplayAmount = reader.IsDBNull(reader.GetOrdinal("DisplayAmount")) ? 0m : reader.GetDecimal(reader.GetOrdinal("DisplayAmount")),
-                IsTotal = reader.GetBoolean(reader.GetOrdinal("IsTotal")),
-                IsBold = reader.GetBoolean(reader.GetOrdinal("IsBold")),
-                ForeColor = reader.GetString(reader.GetOrdinal("ForeColor")),
-                BackColor = reader.GetString(reader.GetOrdinal("BackColor")),
-                FromDate = reader.GetDateTime(reader.GetOrdinal("FromDate")),
-                ToDate = reader.GetDateTime(reader.GetOrdinal("ToDate")),
-                PeriodText = reader.GetString(reader.GetOrdinal("PeriodText")),
-                TotalRevenue = reader.GetDecimal(reader.GetOrdinal("TotalRevenue")),
-                TotalCostOfSales = reader.GetDecimal(reader.GetOrdinal("TotalCostOfSales")),
-                TotalExpenses = reader.GetDecimal(reader.GetOrdinal("TotalExpenses")),
-                TotalOtherIncomeExpense = reader.GetDecimal(reader.GetOrdinal("TotalOtherIncomeExpense")),
-                GrossProfit = reader.GetDecimal(reader.GetOrdinal("GrossProfit")),
-                NetProfit = reader.GetDecimal(reader.GetOrdinal("NetProfit"))
-            };
+                var row = new IncomeStatementRowDto
+                {
+                    SectionNo = reader.GetInt32(reader.GetOrdinal("SectionNo")),
+                    SectionNameAr = reader.GetString(reader.GetOrdinal("SectionNameAr")),
+                    SectionNameEn = reader.GetString(reader.GetOrdinal("SectionNameEn")),
+                    LineType = reader.GetString(reader.GetOrdinal("LineType")),
+                    AccountId = reader.GetGuid(reader.GetOrdinal("AccountId")),
+                    AccountCode = reader.GetString(reader.GetOrdinal("AccountCode")),
+                    AccountNameAr = reader.GetString(reader.GetOrdinal("AccountNameAr")),
+                    AccountNameEn = reader.IsDBNull(reader.GetOrdinal("AccountNameEn")) ? null : reader.GetString(reader.GetOrdinal("AccountNameEn")),
+                    AccountLevel = reader.GetInt32(reader.GetOrdinal("AccountLevel")),
+                    SortOrder = reader.GetString(reader.GetOrdinal("SortOrder")),
+                    Amount = reader.IsDBNull(reader.GetOrdinal("Amount")) ? 0m : reader.GetDecimal(reader.GetOrdinal("Amount")),
+                    DisplayAmount = reader.IsDBNull(reader.GetOrdinal("DisplayAmount")) ? 0m : reader.GetDecimal(reader.GetOrdinal("DisplayAmount")),
+                    IsTotal = reader.GetBoolean(reader.GetOrdinal("IsTotal")),
+                    IsBold = reader.GetBoolean(reader.GetOrdinal("IsBold")),
+                    ForeColor = reader.GetString(reader.GetOrdinal("ForeColor")),
+                    BackColor = reader.GetString(reader.GetOrdinal("BackColor")),
+                    FromDate = reader.GetDateTime(reader.GetOrdinal("FromDate")),
+                    ToDate = reader.GetDateTime(reader.GetOrdinal("ToDate")),
+                    PeriodText = reader.GetString(reader.GetOrdinal("PeriodText")),
+                    TotalRevenue = reader.GetDecimal(reader.GetOrdinal("TotalRevenue")),
+                    TotalCostOfSales = reader.GetDecimal(reader.GetOrdinal("TotalCostOfSales")),
+                    TotalExpenses = reader.GetDecimal(reader.GetOrdinal("TotalExpenses")),
+                    TotalOtherIncomeExpense = reader.GetDecimal(reader.GetOrdinal("TotalOtherIncomeExpense")),
+                    GrossProfit = reader.GetDecimal(reader.GetOrdinal("GrossProfit")),
+                    NetProfit = reader.GetDecimal(reader.GetOrdinal("NetProfit"))
+                };
 
-            rows.Add(row);
+                rows.Add(row);
+            }
         }
 
         // Enrich parent and tree path info from accounts table
