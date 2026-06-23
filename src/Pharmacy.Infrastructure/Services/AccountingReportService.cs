@@ -47,6 +47,8 @@ SELECT
     R.AccountNameEn,
     R.AccountLevel,
     R.SortOrder,
+    R.Debit,
+    R.Credit,
     R.Amount,
     R.DisplayAmount,
     R.IsTotal,
@@ -56,6 +58,17 @@ SELECT
     CAST(@FromDate AS DATE) AS FromDate,
     CAST(@ToDate AS DATE) AS ToDate,
     CONVERT(NVARCHAR(10), @FromDate, 103) + N' - ' + CONVERT(NVARCHAR(10), @ToDate, 103) AS PeriodText,
+
+    SUM(R.Debit) OVER() AS TotalDebit,
+    SUM(R.Credit) OVER() AS TotalCredit,
+    SUM(CASE WHEN R.SectionNo = 1 THEN R.Debit ELSE 0 END) OVER() AS RevenueDebit,
+    SUM(CASE WHEN R.SectionNo = 1 THEN R.Credit ELSE 0 END) OVER() AS RevenueCredit,
+    SUM(CASE WHEN R.SectionNo = 2 THEN R.Debit ELSE 0 END) OVER() AS CostDebit,
+    SUM(CASE WHEN R.SectionNo = 2 THEN R.Credit ELSE 0 END) OVER() AS CostCredit,
+    SUM(CASE WHEN R.SectionNo = 4 THEN R.Debit ELSE 0 END) OVER() AS ExpensesDebit,
+    SUM(CASE WHEN R.SectionNo = 4 THEN R.Credit ELSE 0 END) OVER() AS ExpensesCredit,
+    SUM(CASE WHEN R.SectionNo = 5 THEN R.Debit ELSE 0 END) OVER() AS OtherDebit,
+    SUM(CASE WHEN R.SectionNo = 5 THEN R.Credit ELSE 0 END) OVER() AS OtherCredit,
 
     SUM(CASE WHEN R.SectionNo = 1 AND R.IsTotal = 0 THEN R.Amount ELSE 0 END) OVER() AS TotalRevenue,
     SUM(CASE WHEN R.SectionNo = 2 AND R.IsTotal = 0 THEN R.Amount ELSE 0 END) OVER() AS TotalCostOfSales,
@@ -112,6 +125,9 @@ FROM
         A.AccountNameEn,
         A.AccountLevel,
         A.AccountCode AS SortOrder,
+
+        SUM(ISNULL(JD.Debit, 0)) AS Debit,
+        SUM(ISNULL(JD.Credit, 0)) AS Credit,
 
         CASE
             WHEN A.AccountCode LIKE '4%'
@@ -240,6 +256,8 @@ ORDER BY
                     AccountNameEn = reader.IsDBNull(reader.GetOrdinal("AccountNameEn")) ? null : reader.GetString(reader.GetOrdinal("AccountNameEn")),
                     AccountLevel = reader.GetInt32(reader.GetOrdinal("AccountLevel")),
                     SortOrder = reader.GetString(reader.GetOrdinal("SortOrder")),
+                    Debit = reader.GetDecimal(reader.GetOrdinal("Debit")),
+                    Credit = reader.GetDecimal(reader.GetOrdinal("Credit")),
                     Amount = reader.IsDBNull(reader.GetOrdinal("Amount")) ? 0m : reader.GetDecimal(reader.GetOrdinal("Amount")),
                     DisplayAmount = reader.IsDBNull(reader.GetOrdinal("DisplayAmount")) ? 0m : reader.GetDecimal(reader.GetOrdinal("DisplayAmount")),
                     IsTotal = reader.GetBoolean(reader.GetOrdinal("IsTotal")),
@@ -254,7 +272,17 @@ ORDER BY
                     TotalExpenses = reader.GetDecimal(reader.GetOrdinal("TotalExpenses")),
                     TotalOtherIncomeExpense = reader.GetDecimal(reader.GetOrdinal("TotalOtherIncomeExpense")),
                     GrossProfit = reader.GetDecimal(reader.GetOrdinal("GrossProfit")),
-                    NetProfit = reader.GetDecimal(reader.GetOrdinal("NetProfit"))
+                    NetProfit = reader.GetDecimal(reader.GetOrdinal("NetProfit")),
+                    TotalDebit = reader.GetDecimal(reader.GetOrdinal("TotalDebit")),
+                    TotalCredit = reader.GetDecimal(reader.GetOrdinal("TotalCredit")),
+                    RevenueDebit = reader.GetDecimal(reader.GetOrdinal("RevenueDebit")),
+                    RevenueCredit = reader.GetDecimal(reader.GetOrdinal("RevenueCredit")),
+                    CostDebit = reader.GetDecimal(reader.GetOrdinal("CostDebit")),
+                    CostCredit = reader.GetDecimal(reader.GetOrdinal("CostCredit")),
+                    ExpensesDebit = reader.GetDecimal(reader.GetOrdinal("ExpensesDebit")),
+                    ExpensesCredit = reader.GetDecimal(reader.GetOrdinal("ExpensesCredit")),
+                    OtherDebit = reader.GetDecimal(reader.GetOrdinal("OtherDebit")),
+                    OtherCredit = reader.GetDecimal(reader.GetOrdinal("OtherCredit"))
                 };
 
                 rows.Add(row);
@@ -297,6 +325,128 @@ ORDER BY
 
         return rows;
     }
+
+    public async Task<IReadOnlyList<BalanceSheetRowDto>> GetBalanceSheetAsync(
+        BalanceSheetRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var rows = await BuildBalanceSheetAsync(request, cancellationToken);
+        return rows;
+    }
+
+    public async Task<IReadOnlyList<BalanceSheetDebitCreditRowDto>> GetBalanceSheetDebitCreditAsync(
+        BalanceSheetRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        return await BuildBalanceSheetAsync(request, cancellationToken);
+    }
+
+    private async Task<List<BalanceSheetDebitCreditRowDto>> BuildBalanceSheetAsync(
+        BalanceSheetRequest request,
+        CancellationToken cancellationToken)
+    {
+        var asOfDate = request.AsOfDate.Date;
+        var toDateExclusive = asOfDate.AddDays(1);
+
+        var accounts = await _accountRepository.GetQueryable()
+            .Where(a => !a.IsDeleted && a.IsActive)
+            .Select(a => new AccountTreeNode(
+                a.Oid, a.ParentId, a.AccountCode, a.AccountNameAr,
+                a.AccountNameEn, a.AccountLevel, a.IsLeaf))
+            .ToListAsync(cancellationToken);
+
+        var accountById = accounts.ToDictionary(a => a.Oid);
+        var balances = await (
+            from detail in _context.JournalEntryDetails
+            join entry in _context.JournalEntries on detail.JournalEntryId equals entry.Oid
+            where !detail.IsDeleted
+                  && !entry.IsDeleted
+                  && !entry.IsReversed
+                  && entry.EntryDate < toDateExclusive
+            group detail by detail.AccountId into grouped
+            select new
+            {
+                AccountId = grouped.Key,
+                Debit = grouped.Sum(x => x.Debit),
+                Credit = grouped.Sum(x => x.Credit)
+            })
+            .ToDictionaryAsync(x => x.AccountId, cancellationToken);
+
+        var rows = accounts
+            .Where(a => a.AccountCode.StartsWith("1", StringComparison.Ordinal)
+                     || a.AccountCode.StartsWith("2", StringComparison.Ordinal)
+                     || a.AccountCode.StartsWith("3", StringComparison.Ordinal))
+            .Select(account =>
+            {
+                balances.TryGetValue(account.Oid, out var balance);
+                var debit = balance?.Debit ?? 0m;
+                var credit = balance?.Credit ?? 0m;
+                var isAsset = account.AccountCode.StartsWith("1", StringComparison.Ordinal);
+                var amount = isAsset ? debit - credit : credit - debit;
+                var (sectionNo, sectionNameAr, sectionNameEn) = GetBalanceSheetSection(account.AccountCode);
+                var parent = account.ParentId.HasValue && accountById.TryGetValue(account.ParentId.Value, out var parentAccount)
+                    ? parentAccount : null;
+
+                return new BalanceSheetDebitCreditRowDto
+                {
+                    SectionNo = sectionNo,
+                    SectionNameAr = sectionNameAr,
+                    SectionNameEn = sectionNameEn,
+                    AccountId = account.Oid,
+                    ParentId = account.ParentId,
+                    ParentCode = parent?.AccountCode,
+                    ParentNameAr = parent?.AccountNameAr,
+                    ParentNameEn = parent?.AccountNameEn,
+                    AccountCode = account.AccountCode,
+                    AccountNameAr = account.AccountNameAr,
+                    AccountNameEn = account.AccountNameEn,
+                    AccountLevel = account.AccountLevel,
+                    IsLeaf = account.IsLeaf,
+                    DisplayName = $"{new string(' ', Math.Max(0, account.AccountLevel - 1) * 4)}{account.AccountNameAr}",
+                    TreePath = BuildTreePath(account.Oid, accountById),
+                    SortOrder = account.AccountCode,
+                    Debit = debit,
+                    Credit = credit,
+                    Amount = amount,
+                    DisplayAmount = amount,
+                    IsBold = account.AccountLevel <= 2,
+                    ForeColor = isAsset ? "#093164" : account.AccountCode.StartsWith("2", StringComparison.Ordinal) ? "#DC2626" : "#2E8B57",
+                    BackColor = account.AccountLevel <= 2 ? "#EBF2FC" : "#FFFFFF",
+                    AsOfDate = asOfDate,
+                    AsOfDateText = asOfDate.ToString("dd/MM/yyyy")
+                };
+            })
+            .OrderBy(x => x.SectionNo)
+            .ThenBy(x => x.SortOrder, StringComparer.Ordinal)
+            .ToList();
+
+        var totalAssets = rows.Where(x => x.SectionNo == 1).Sum(x => x.Amount);
+        var totalLiabilities = rows.Where(x => x.SectionNo == 2).Sum(x => x.Amount);
+        var totalEquity = rows.Where(x => x.SectionNo == 3).Sum(x => x.Amount);
+        var totalDebit = rows.Sum(x => x.Debit);
+        var totalCredit = rows.Sum(x => x.Credit);
+        var balanceStatus = totalAssets == totalLiabilities + totalEquity
+            ? "الحسابات متوازنة" : "الحسابات غير متوازنة";
+
+        foreach (var row in rows)
+        {
+            row.TotalAssets = totalAssets;
+            row.TotalLiabilities = totalLiabilities;
+            row.TotalEquity = totalEquity;
+            row.TotalLiabilitiesAndEquity = totalLiabilities + totalEquity;
+            row.BalanceStatus = balanceStatus;
+            row.TotalDebit = totalDebit;
+            row.TotalCredit = totalCredit;
+        }
+
+        return rows;
+    }
+
+    private static (int Number, string NameAr, string NameEn) GetBalanceSheetSection(string accountCode) =>
+        accountCode.StartsWith("1", StringComparison.Ordinal) ? (1, "الأصول", "Assets") :
+        accountCode.StartsWith("2", StringComparison.Ordinal) ? (2, "الالتزامات", "Liabilities") :
+        accountCode.StartsWith("3", StringComparison.Ordinal) ? (3, "حقوق الملكية", "Equity") :
+        (9, "أخرى", "Other");
 
     private static string BuildTreePath(Guid accountId, IReadOnlyDictionary<Guid, AccountTreeNode> accounts)
     {
