@@ -165,6 +165,7 @@ public static class DependencyInjection
         services.AddScoped<IInvoiceNumberService, InvoiceNumberService>();
         services.AddScoped<IVoucherNumberService, VoucherNumberService>();
         services.AddScoped<IJournalPostingService, JournalPostingService>();
+        services.AddScoped<IAccountingReportService, AccountingReportService>();
 
         // Drug sync job tracker — singleton so it survives across request scopes
         services.AddSingleton<IDrugListSyncTracker, DrugListSyncTracker>();
