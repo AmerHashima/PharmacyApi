@@ -79,7 +79,13 @@ public class IncomeStatementRowDto
 
 public class BalanceSheetRequest
 {
-    public DateTime AsOfDate { get; set; }
+    /// <summary>Optional explicit balance-sheet date. When omitted, ToDate is used.</summary>
+    public DateTime? AsOfDate { get; set; }
+    public DateTime FromDate { get; set; }
+    public DateTime ToDate { get; set; }
+    public List<Guid> BranchIds { get; set; } = [];
+    public List<Guid> CostCenterIds { get; set; } = [];
+    public bool? IsLeafOnly { get; set; }
 }
 
 public class BalanceSheetRowDto

@@ -199,9 +199,13 @@ FROM
                 paramPairs.Add((names[i], request.CostCenterIds[i]));
         }
 
-        if (request.IsLeafOnly.HasValue && request.IsLeafOnly.Value)
+        if (request.IsLeafOnly == true)
         {
             whereExtras.Add("AND A.IsLeaf = 1");
+        }
+        else if (request.IsLeafOnly == false)
+        {
+            whereExtras.Add("AND A.IsLeaf = 0");
         }
 
         sql += string.Join('\n', whereExtras);
@@ -345,7 +349,12 @@ ORDER BY
         BalanceSheetRequest request,
         CancellationToken cancellationToken)
     {
-        var asOfDate = request.AsOfDate.Date;
+        if (request.ToDate != default && request.FromDate != default && request.ToDate.Date < request.FromDate.Date)
+            throw new ArgumentException("ToDate must be on or after FromDate.");
+
+        var asOfDate = (request.AsOfDate ?? request.ToDate).Date;
+        if (asOfDate == default)
+            throw new ArgumentException("ToDate or AsOfDate is required.");
         var toDateExclusive = asOfDate.AddDays(1);
 
         var accounts = await _accountRepository.GetQueryable()
@@ -356,14 +365,24 @@ ORDER BY
             .ToListAsync(cancellationToken);
 
         var accountById = accounts.ToDictionary(a => a.Oid);
-        var balances = await (
+        var balanceQuery =
             from detail in _context.JournalEntryDetails
             join entry in _context.JournalEntries on detail.JournalEntryId equals entry.Oid
             where !detail.IsDeleted
                   && !entry.IsDeleted
                   && !entry.IsReversed
                   && entry.EntryDate < toDateExclusive
-            group detail by detail.AccountId into grouped
+            select new { detail, entry };
+
+        if (request.BranchIds.Count > 0)
+            balanceQuery = balanceQuery.Where(x => x.entry.BranchId.HasValue && request.BranchIds.Contains(x.entry.BranchId.Value));
+
+        if (request.CostCenterIds.Count > 0)
+            balanceQuery = balanceQuery.Where(x => x.detail.CostCenterId.HasValue && request.CostCenterIds.Contains(x.detail.CostCenterId.Value));
+
+        var balances = await (
+            from journalLine in balanceQuery
+            group journalLine.detail by journalLine.detail.AccountId into grouped
             select new
             {
                 AccountId = grouped.Key,
@@ -372,10 +391,15 @@ ORDER BY
             })
             .ToDictionaryAsync(x => x.AccountId, cancellationToken);
 
-        var rows = accounts
+        var reportAccounts = accounts
             .Where(a => a.AccountCode.StartsWith("1", StringComparison.Ordinal)
                      || a.AccountCode.StartsWith("2", StringComparison.Ordinal)
-                     || a.AccountCode.StartsWith("3", StringComparison.Ordinal))
+                     || a.AccountCode.StartsWith("3", StringComparison.Ordinal));
+
+        if (request.IsLeafOnly.HasValue)
+            reportAccounts = reportAccounts.Where(a => a.IsLeaf == request.IsLeafOnly.Value);
+
+        var rows = reportAccounts
             .Select(account =>
             {
                 balances.TryGetValue(account.Oid, out var balance);

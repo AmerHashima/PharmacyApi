@@ -16,8 +16,8 @@ public class AccountingReportController(IMediator mediator, IAccountingReportSer
     /// قائمة الدخل / الأرباح والخسائر. Returns account lines, section totals,
     /// gross profit, and net profit for the selected inclusive date range.
     /// </summary>
-    [HttpPost("income-statement")]
-    public async Task<ActionResult<ApiResponse<IReadOnlyList<IncomeStatementRowDto>>>> IncomeStatement(
+    [HttpPost("ProfitAndLoss")]
+    public async Task<ActionResult<ApiResponse<IReadOnlyList<IncomeStatementRowDto>>>> ProfitAndLoss(
         [FromBody] IncomeStatementRequest request,
         CancellationToken cancellationToken)
     {
@@ -37,8 +37,8 @@ public class AccountingReportController(IMediator mediator, IAccountingReportSer
     }
 
     /// <summary>Income statement with gross debit/credit columns and section totals.</summary>
-    [HttpPost("income-statement-debit-credit")]
-    public async Task<ActionResult<ApiResponse<IReadOnlyList<IncomeStatementRowDto>>>> IncomeStatementDebitCredit(
+    [HttpPost("ProfitAndLossDebitCredit")]
+    public async Task<ActionResult<ApiResponse<IReadOnlyList<IncomeStatementRowDto>>>> ProfitAndLossDebitCredit(
         [FromBody] IncomeStatementRequest request,
         CancellationToken cancellationToken)
     {
