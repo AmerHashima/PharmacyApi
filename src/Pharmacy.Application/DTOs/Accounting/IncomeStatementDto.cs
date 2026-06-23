@@ -8,6 +8,15 @@ public class IncomeStatementRequest
 
     /// <summary>End of the reporting period, inclusive.</summary>
     public DateTime ToDate { get; set; }
+
+    /// <summary>Optional branch filter. Empty means all branches.</summary>
+    public List<Guid> BranchIds { get; set; } = [];
+
+    /// <summary>Optional cost-center filter. Empty means all cost centers.</summary>
+    public List<Guid> CostCenterIds { get; set; } = [];
+
+    /// <summary>true for posting accounts, false for summary accounts, null for all.</summary>
+    public bool? IsLeafOnly { get; set; }
 }
 
 /// <summary>
@@ -21,10 +30,17 @@ public class IncomeStatementRowDto
     public string SectionNameEn { get; set; } = string.Empty;
     public string LineType { get; set; } = "ACCOUNT";
     public Guid AccountId { get; set; }
+    public Guid? ParentId { get; set; }
+    public string? ParentCode { get; set; }
+    public string? ParentNameAr { get; set; }
+    public string? ParentNameEn { get; set; }
     public string AccountCode { get; set; } = string.Empty;
     public string AccountNameAr { get; set; } = string.Empty;
     public string? AccountNameEn { get; set; }
     public int AccountLevel { get; set; }
+    public bool IsLeaf { get; set; }
+    public string DisplayName { get; set; } = string.Empty;
+    public string TreePath { get; set; } = string.Empty;
     public string SortOrder { get; set; } = string.Empty;
     public decimal Amount { get; set; }
     public decimal DisplayAmount { get; set; }
@@ -32,6 +48,12 @@ public class IncomeStatementRowDto
     public bool IsBold { get; set; }
     public string ForeColor { get; set; } = string.Empty;
     public string BackColor { get; set; } = string.Empty;
+    public Guid? BranchId { get; set; }
+    public string? BranchNameAr { get; set; }
+    public string? BranchNameEn { get; set; }
+    public Guid? CostCenterId { get; set; }
+    public string? CostCenterNameAr { get; set; }
+    public string? CostCenterNameEn { get; set; }
     public DateTime FromDate { get; set; }
     public DateTime ToDate { get; set; }
     public string PeriodText { get; set; } = string.Empty;
