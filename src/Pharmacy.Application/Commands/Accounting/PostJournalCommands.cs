@@ -15,9 +15,6 @@ public record PostStockTransactionJournalCommand(List<Guid> TransactionIds) : IR
 /// <summary>Manually post journal entries for a list of stock transaction returns.</summary>
 public record PostStockTransactionReturnJournalCommand(List<Guid> ReturnIds) : IRequest<PostJournalBatchResultDto>;
 
-/// <summary>Validate that accounting accounts are configured for a branch and operation type.</summary>
-public record ValidateBranchAccountingSetupQuery(Guid BranchId, string OperationType) : IRequest<AccountingValidationResultDto>;
-
 /// <summary>Re-creates and links journal entries for a list of payment vouchers.</summary>
 public record PostPaymentVoucherJournalCommand(List<Guid> VoucherIds) : IRequest<PostJournalBatchResultDto>;
 

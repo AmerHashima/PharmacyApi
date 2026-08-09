@@ -12,6 +12,9 @@ public class SalesInvoiceItemDto
     public string? ProductGTIN { get; set; }
     public int LineNumber { get; set; }
     public decimal? Quantity { get; set; }
+    public decimal BounsQuantity { get; set; } = 0;
+
+    public decimal TotalQuantity { get; set; }
     public decimal? RemainingQuantity { get; set; }
     public decimal? ReturnedQuantity { get; set; }
     public decimal? UnitPrice { get; set; }

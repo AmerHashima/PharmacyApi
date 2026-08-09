@@ -1,7 +1,7 @@
 using MediatR;
-using Pharmacy.Application.Commands.Accounting;
 using Pharmacy.Application.DTOs.Accounting;
 using Pharmacy.Application.Interfaces;
+using Pharmacy.Application.Queries.Accounting;
 
 namespace Pharmacy.Application.Handlers.Accounting;
 

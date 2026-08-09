@@ -34,6 +34,9 @@ public class SalesInvoiceItem : BaseEntity
     [Column(TypeName = "decimal(18,4)")]
     public decimal Quantity { get; set; }
 
+    public decimal BounsQuantity { get; set; } = 0; 
+    public decimal  TotalQuantity { get; set; } 
+
     /// <summary>Quantity still available for return (decremented on each return).</summary>
     [Column(TypeName = "decimal(18,4)")]
     public decimal RemainingQuantity { get; set; }
@@ -113,4 +116,6 @@ public class SalesInvoiceItem : BaseEntity
 
     [MaxLength(500)]
     public string? Notes { get; set; }
-}
+    public SalesInvoiceItem()
+    {TotalQuantity = Quantity + BounsQuantity; }
+    }

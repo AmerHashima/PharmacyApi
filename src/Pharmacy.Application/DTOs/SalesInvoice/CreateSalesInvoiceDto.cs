@@ -102,6 +102,8 @@ public class CreateSalesInvoiceItemDto
     [Range(0.01, double.MaxValue, ErrorMessage = "Quantity must be greater than 0")]
     public decimal Quantity { get; set; }
 
+    public decimal BounsQuantity { get; set; } = 0;
+
     public decimal? UnitPrice { get; set; }
 
     [Range(0, 100, ErrorMessage = "Discount percent must be between 0 and 100")]

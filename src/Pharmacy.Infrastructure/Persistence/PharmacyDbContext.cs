@@ -1,3 +1,7 @@
+using ECommerceIntegration.Application.Abstractions;
+using ECommerceIntegration.Domain.Common;
+using ECommerceIntegration.Domain.Entities;
+using ECommerceIntegration.Persistence.Configurations;
 using Pharmacy.Domain.Common;
 using Pharmacy.Domain.Entities;
 using Pharmacy.Domain.Entities.Accounting;
@@ -7,7 +11,7 @@ using System.Linq.Expressions;
 
 namespace Pharmacy.Infrastructure.Persistence;
 
-public class PharmacyDbContext : DbContext
+public class PharmacyDbContext : DbContext, IECommerceIntegrationDbContext
 {
     public PharmacyDbContext(DbContextOptions<PharmacyDbContext> options) : base(options)
     {
@@ -52,6 +56,14 @@ public class PharmacyDbContext : DbContext
     // Integrations
     public DbSet<IntegrationProvider> IntegrationProviders { get; set; }
     public DbSet<BranchIntegrationSetting> BranchIntegrationSettings { get; set; }
+
+    // E-Commerce Integration
+    public DbSet<ECommerceStore> ECommerceStores { get; set; }
+    public DbSet<ECommerceProductMapping> ECommerceProductMappings { get; set; }
+    public DbSet<ECommerceOrder> ECommerceOrders { get; set; }
+    public DbSet<ECommerceOrderItem> ECommerceOrderItems { get; set; }
+    public DbSet<ECommerceWebhookEvent> ECommerceWebhookEvents { get; set; }
+    public DbSet<ECommerceSyncQueue> ECommerceSyncQueues { get; set; }
 
     // Stock Transaction Returns
     public DbSet<StockTransactionReturn> StockTransactionReturns { get; set; }
@@ -105,6 +117,7 @@ public class PharmacyDbContext : DbContext
 
         // 🔹 Apply configurations
         modelBuilder.ApplyConfigurationsFromAssembly(Assembly.GetExecutingAssembly());
+        modelBuilder.ApplyConfigurationsFromAssembly(typeof(ECommerceStoreConfiguration).Assembly);
 
         // 🔹 Configure unique indexes
         modelBuilder.Entity<Branch>()
@@ -607,6 +620,19 @@ public class PharmacyDbContext : DbContext
                     entry.Entity.UpdatedAt = DateTime.UtcNow;
                     // You can set UpdatedBy here if you have user context
                     // entry.Entity.UpdatedBy = _currentUserService.UserId;
+                    break;
+            }
+        }
+
+        foreach (var entry in ChangeTracker.Entries<ECommerceBaseEntity>())
+        {
+            switch (entry.State)
+            {
+                case EntityState.Added:
+                    entry.Entity.CreatedAt = DateTime.UtcNow;
+                    break;
+                case EntityState.Modified:
+                    entry.Entity.UpdatedAt = DateTime.UtcNow;
                     break;
             }
         }

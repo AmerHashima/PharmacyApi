@@ -228,6 +228,7 @@ public class CreateSalesInvoiceHandler : IRequestHandler<CreateSalesInvoiceComma
                                     OfferNameSnapshot = $"{offerNameSnapshot} (Free)",
                                     Notes             = $"Free item from offer: {offerNameSnapshot}",
                                     CreatedAt         = DateTime.UtcNow
+                                    
                                 });
                             }
                             break;
@@ -266,27 +267,29 @@ public class CreateSalesInvoiceHandler : IRequestHandler<CreateSalesInvoiceComma
 
             var invoiceItem = new SalesInvoiceItem
             {
-                ProductId         = itemDto.ProductId,
-                Quantity          = itemDto.Quantity,
+                ProductId = itemDto.ProductId,
+                Quantity = itemDto.Quantity,
                 RemainingQuantity = itemDto.Quantity,
-                ReturnedQuantity  = 0,
-                UnitPrice         = unitPrice,
-                CostPrice         = itemDto.CostPrice,
-                DiscountPercent   = itemDto.DiscountPercent,
-                DiscountAmount    = itemDiscountAmount,
-                NetPrice          = totalPrice,
-                TaxPercent        = effectiveTaxPercent,
-                TaxAmount         = itemTaxAmount,
-                TotalPrice        = totalPrice + itemTaxAmount,
-                LineNumber        = itemDto.LineNumber ?? 0,
-                BatchNumber       = itemDto.BatchNumber,
-                SerialNumber      = itemDto.SerialNumber,
-                ExpiryDate        = itemDto.ExpiryDate,
-                IsFreeItem        = false,
-                Notes             = itemDto.Notes,
-                OfferDetailId     = offerDetailId,
+                ReturnedQuantity = 0,
+                UnitPrice = unitPrice,
+                CostPrice = itemDto.CostPrice,
+                DiscountPercent = itemDto.DiscountPercent,
+                DiscountAmount = itemDiscountAmount,
+                NetPrice = totalPrice,
+                TaxPercent = effectiveTaxPercent,
+                TaxAmount = itemTaxAmount,
+                TotalPrice = totalPrice + itemTaxAmount,
+                LineNumber = itemDto.LineNumber ?? 0,
+                BatchNumber = itemDto.BatchNumber,
+                SerialNumber = itemDto.SerialNumber,
+                ExpiryDate = itemDto.ExpiryDate,
+                IsFreeItem = false,
+                Notes = itemDto.Notes,
+                OfferDetailId = offerDetailId,
                 OfferNameSnapshot = offerNameSnapshot,
-                CreatedAt         = DateTime.UtcNow
+                CreatedAt = DateTime.UtcNow,
+                BounsQuantity = itemDto.BounsQuantity,
+                TotalQuantity = itemDto.BounsQuantity + itemDto.Quantity
             };
 
             invoiceItems.Add(invoiceItem);

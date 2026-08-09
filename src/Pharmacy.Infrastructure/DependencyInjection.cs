@@ -1,3 +1,4 @@
+using ECommerceIntegration.Application.Abstractions;
 using Pharmacy.Application.Interfaces;
 using Pharmacy.Application.Mappings;
 using Pharmacy.Application.Options;
@@ -11,6 +12,8 @@ using Pharmacy.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using ECommerceIntegration.Infrastructure;
+using Pharmacy.Infrastructure.Integration.ECommerceIntegration;
 using Pharmacy.Infrastructure.Integration.Rsd;
 using Pharmacy.Infrastructure.Integration.Zatca;
 
@@ -187,6 +190,12 @@ public static class DependencyInjection
 
         // ZATCA Integration Service
         services.AddScoped<IZatcaIntegrationService, ZatcaIntegrationService>();
+
+        services.AddScoped<IECommerceIntegrationDbContext>(provider =>
+            provider.GetRequiredService<PharmacyDbContext>());
+        services.AddScoped<ILocalProductMatcher, PharmacyLocalProductMatcher>();
+        services.AddScoped<ILocalProductCatalogReader, PharmacyLocalProductCatalogReader>();
+        services.AddECommerceIntegration();
 
         return services;
     }

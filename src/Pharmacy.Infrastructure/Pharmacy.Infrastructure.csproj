@@ -1,6 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
+    <ProjectReference Include="..\..\ECommerceIntegration\ECommerceIntegration.csproj" />
     <ProjectReference Include="..\Pharmacy.Domain\Pharmacy.Domain.csproj" />
     <ProjectReference Include="..\Pharmacy.Application\Pharmacy.Application.csproj" />
     <ProjectReference Include="..\Zatca\Zatca.csproj" />
