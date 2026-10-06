@@ -342,7 +342,7 @@ public sealed class JournalPostingService : IJournalPostingService
             Guid? paymentAccountId = methodCode switch
             {
                 "CASH" => settings.CashAccountId,
-                "BANK" => payment.BankAccountId ?? settings.BankAccountId,
+                "BANK" or "CARD" or "MADA" or "VISA" or "NETWORK" => payment.BankAccountId ?? settings.BankAccountId,
                 "CREDIT" => null,  // CREDIT doesn't settle immediately
                 _ => null
             };
@@ -368,7 +368,7 @@ public sealed class JournalPostingService : IJournalPostingService
         // SECTION C — COST OF GOODS SOLD (Item-Level for Audit Trail)
         // ══════════════════════════════════════════════════════════════════
 
-        foreach (var item in req.Items.Where(i => !i.IsFreeItem))
+        foreach (var item in req.Items)
         {
             var cogsAmount = item.CostPrice * item.Quantity;
             if (cogsAmount <= 0) continue;
@@ -397,25 +397,13 @@ public sealed class JournalPostingService : IJournalPostingService
                 $"Unbalanced journal entry: DR={entry.TotalDebit:F2}, CR={entry.TotalCredit:F2}");
 
         // ── 8. Persist in atomic transaction ──────────────────────────────
-        var strategy = _context.Database.CreateExecutionStrategy();
-        await strategy.ExecuteAsync(async () =>
+        await ExecuteInTransactionAsync(async () =>
         {
-            await using var tx = await _context.Database.BeginTransactionAsync(ct);
-            try
-            {
-                await _journalRepo.InsertMasterDetailAsync(entry, details, ct);
+            await _journalRepo.InsertMasterDetailAsync(entry, details, ct);
 
-                invoice.JournalEntryId = entry.Oid;
-                await _invoiceRepo.UpdateAsync(invoice, ct);
-
-                await tx.CommitAsync(ct);
-            }
-            catch
-            {
-                await tx.RollbackAsync(ct);
-                throw;
-            }
-        });
+            invoice.JournalEntryId = entry.Oid;
+            await _invoiceRepo.UpdateAsync(invoice, ct);
+        }, ct);
 
         return new SalesInvoicePostingResult(entry);
     }
@@ -537,7 +525,7 @@ public sealed class JournalPostingService : IJournalPostingService
         // SECTION C — COGS REVERSAL (Item-Level)
         // ══════════════════════════════════════════════════════════════════
 
-        foreach (var item in req.Items.Where(i => !i.IsFreeItem))
+        foreach (var item in req.Items)
         {
             var cogsAmount = item.CostPrice * item.Quantity;
             if (cogsAmount <= 0) continue;
@@ -566,29 +554,17 @@ public sealed class JournalPostingService : IJournalPostingService
                 $"Unbalanced return entry: DR={entry.TotalDebit:F2}, CR={entry.TotalCredit:F2}");
 
         // ── 7. Persist in atomic transaction ──────────────────────────────
-        var strategy = _context.Database.CreateExecutionStrategy();
-        await strategy.ExecuteAsync(async () =>
+        await ExecuteInTransactionAsync(async () =>
         {
-            await using var tx = await _context.Database.BeginTransactionAsync(ct);
-            try
-            {
-                await _journalRepo.InsertMasterDetailAsync(entry, details, ct);
+            await _journalRepo.InsertMasterDetailAsync(entry, details, ct);
 
-                var returnInvoice = await _returnInvoiceRepo.GetByIdAsync(req.ReturnInvoiceOid, ct);
-                if (returnInvoice != null)
-                {
-                    returnInvoice.JournalEntryId = entry.Oid;
-                    await _returnInvoiceRepo.UpdateAsync(returnInvoice, ct);
-                }
-
-                await tx.CommitAsync(ct);
-            }
-            catch
+            var returnInvoice = await _returnInvoiceRepo.GetByIdAsync(req.ReturnInvoiceOid, ct);
+            if (returnInvoice != null)
             {
-                await tx.RollbackAsync(ct);
-                throw;
+                returnInvoice.JournalEntryId = entry.Oid;
+                await _returnInvoiceRepo.UpdateAsync(returnInvoice, ct);
             }
-        });
+        }, ct);
 
         return entry;
     }
@@ -734,15 +710,40 @@ public sealed class JournalPostingService : IJournalPostingService
                         $"VAT Input - {req.ReferenceNumber}",
                         $"ضريبة مدخلات - {req.ReferenceNumber}", seq++));
 
-                // CR Cash — amount paid immediately at time of receipt
-                if (req.PayedAmount > 0 && settings.CashAccountId.HasValue)
+                var purchasePayments = req.Payments ?? [];
+                decimal settledPurchaseAmount = 0;
+                foreach (var payment in purchasePayments)
+                {
+                    var methodCode = payment.MethodCode?.ToUpperInvariant();
+                    Guid? accountId = methodCode switch
+                    {
+                        "CASH" => settings.CashAccountId,
+                        "BANK" or "CARD" or "MADA" or "VISA" or "NETWORK" => payment.BankAccountId ?? settings.BankAccountId,
+                        "CREDIT" => null,
+                        _ => null
+                    };
+
+                    if (accountId.HasValue && payment.Amount > 0)
+                    {
+                        details.Add(Detail(entry.Oid, accountId.Value,
+                            debit: 0, credit: payment.Amount,
+                            $"Supplier Payment ({methodCode}) - {req.ReferenceNumber}",
+                            $"دفعة مورد ({methodCode}) - {req.ReferenceNumber}", seq++));
+                        settledPurchaseAmount += payment.Amount;
+                    }
+                }
+
+                if (purchasePayments.Count == 0 && req.PayedAmount > 0 && settings.CashAccountId.HasValue)
+                {
                     details.Add(Detail(entry.Oid, settings.CashAccountId.Value,
                         debit: 0, credit: req.PayedAmount,
                         $"Cash Payment - {req.ReferenceNumber}",
                         $"دفع نقدي - {req.ReferenceNumber}", seq++));
+                    settledPurchaseAmount = req.PayedAmount;
+                }
 
                 // CR Supplier Payable — unpaid remainder (GrossTotal - PayedAmount)
-                var inRemainingPayable = grossTotal - req.PayedAmount;
+                var inRemainingPayable = grossTotal - settledPurchaseAmount;
                 if (inRemainingPayable > 0 && supplierAccountId.HasValue)
                     details.Add(Detail(entry.Oid, supplierAccountId.Value,
                         debit: 0, credit: inRemainingPayable,
@@ -949,30 +950,18 @@ public sealed class JournalPostingService : IJournalPostingService
                 $"Unbalanced stock transaction entry: DR={entry.TotalDebit:F2}, CR={entry.TotalCredit:F2}");
 
         // ── 6. Persist in atomic transaction ──────────────────────────────
-        var strategy = _context.Database.CreateExecutionStrategy();
-        await strategy.ExecuteAsync(async () =>
+        await ExecuteInTransactionAsync(async () =>
         {
-            await using var tx = await _context.Database.BeginTransactionAsync(ct);
-            try
-            {
-                await _journalRepo.InsertMasterDetailAsync(entry, details, ct);
+            await _journalRepo.InsertMasterDetailAsync(entry, details, ct);
 
-                // Stamp the JournalEntryId onto the StockTransaction record
-                var stockTx = await _context.StockTransactions.FindAsync([req.TransactionOid], ct);
-                if (stockTx is not null)
-                {
-                    stockTx.JournalEntryId = entry.Oid;
-                    await _context.SaveChangesAsync(ct);
-                }
-
-                await tx.CommitAsync(ct);
-            }
-            catch
+            // Stamp the JournalEntryId onto the StockTransaction record
+            var stockTx = await _context.StockTransactions.FindAsync([req.TransactionOid], ct);
+            if (stockTx is not null)
             {
-                await tx.RollbackAsync(ct);
-                throw;
+                stockTx.JournalEntryId = entry.Oid;
+                await _context.SaveChangesAsync(ct);
             }
-        });
+        }, ct);
 
         return entry;
     }
@@ -1047,6 +1036,31 @@ public sealed class JournalPostingService : IJournalPostingService
         if (!supplierId.HasValue) return null;
         var supplier = await _stakeholderRepo.GetByIdAsync(supplierId.Value, ct);
         return supplier?.ChildAccountId;
+    }
+
+    private async Task ExecuteInTransactionAsync(Func<Task> operation, CancellationToken ct)
+    {
+        if (_context.Database.CurrentTransaction != null)
+        {
+            await operation();
+            return;
+        }
+
+        var strategy = _context.Database.CreateExecutionStrategy();
+        await strategy.ExecuteAsync(async () =>
+        {
+            await using var tx = await _context.Database.BeginTransactionAsync(ct);
+            try
+            {
+                await operation();
+                await tx.CommitAsync(ct);
+            }
+            catch
+            {
+                await tx.RollbackAsync(ct);
+                throw;
+            }
+        });
     }
 
     private static JournalEntryDetail Detail(

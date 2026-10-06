@@ -8,8 +8,25 @@ public class CloseCashierShiftDto
 
     public decimal? ActualBalance { get; set; }
 
+    public List<CashierShiftPaymentCountDto> PaymentCounts { get; set; } = new();
+
     [MaxLength(500)]
     public string? Notes { get; set; }
+}
+
+public class CashierShiftPaymentCountDto
+{
+    public Guid? PaymentMethodId { get; set; }
+    public decimal ActualAmount { get; set; }
+}
+
+public class CashierShiftPaymentReconciliationDto
+{
+    public Guid? PaymentMethodId { get; set; }
+    public string PaymentMethodName { get; set; } = string.Empty;
+    public decimal ExpectedAmount { get; set; }
+    public decimal ActualAmount { get; set; }
+    public decimal DifferenceAmount { get; set; }
 }
 
 public class AddCashierShiftDetailDto

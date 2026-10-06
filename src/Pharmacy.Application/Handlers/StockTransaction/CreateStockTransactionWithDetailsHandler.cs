@@ -58,6 +58,10 @@ public class CreateStockTransactionWithDetailsHandler
 
         var typeCode = transactionType.ValueCode?.ToUpperInvariant();
 
+        if (!string.Equals(request.Transaction.Status, "Completed", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException(
+                "Stock-affecting transactions must be created with status 'Completed'. Use a separate approval workflow for drafts.");
+
         // Resolve the primary branch (FromBranch for OUT/TRANSFER, ToBranch for IN/RETURN)
         var primaryBranchId = request.Transaction.FromBranchId ?? request.Transaction.ToBranchId;
 
@@ -103,7 +107,16 @@ public class CreateStockTransactionWithDetailsHandler
             var sourceBranchId = request.Transaction.FromBranchId
                 ?? throw new InvalidOperationException($"FromBranchId is required for {typeCode} transactions");
 
-            foreach (var detailDto in request.Transaction.Details)
+            var groupedDemand = request.Transaction.Details
+                .GroupBy(d => new { d.ProductId, d.BatchNumber })
+                .Select(g => new
+                {
+                    g.Key.ProductId,
+                    g.Key.BatchNumber,
+                    Quantity = g.Sum(x => x.Quantity)
+                });
+
+            foreach (var detailDto in groupedDemand)
             {
                 if (!await _stockRepository.HasSufficientStockAsync(detailDto.ProductId, sourceBranchId, detailDto.Quantity, detailDto.BatchNumber, cancellationToken))
                     throw new InvalidOperationException($"Insufficient stock for product '{detailDto.ProductId}' at branch '{sourceBranchId}'");
@@ -262,17 +275,35 @@ public class CreateStockTransactionWithDetailsHandler
                 break;
 
             case "OUT":
-            case "EXPIRED":
             case "DAMAGED":
                 if (fromBranchId.HasValue)
-                    await _stockRepository.UpdateQuantityAsync(productId, fromBranchId.Value, -quantity, batchNumber, expiryDate, cancellationToken);
+                    await _stockRepository.DeductAsync(productId, fromBranchId.Value, quantity, batchNumber, false, cancellationToken);
+                break;
+
+            case "EXPIRED":
+                if (fromBranchId.HasValue)
+                    await _stockRepository.DeductAsync(productId, fromBranchId.Value, quantity, batchNumber, true, cancellationToken);
                 break;
 
             case "TRANSFER":
                 if (fromBranchId.HasValue)
-                    await _stockRepository.UpdateQuantityAsync(productId, fromBranchId.Value, -quantity, batchNumber, expiryDate, cancellationToken);
-                if (toBranchId.HasValue)
-                    await _stockRepository.UpdateQuantityAsync(productId, toBranchId.Value, quantity, batchNumber, expiryDate, cancellationToken);
+                {
+                    var allocations = await _stockRepository.DeductAsync(
+                        productId, fromBranchId.Value, quantity, batchNumber, false, cancellationToken);
+                    if (toBranchId.HasValue)
+                    {
+                        foreach (var allocation in allocations)
+                        {
+                            await _stockRepository.UpdateQuantityAsync(
+                                productId,
+                                toBranchId.Value,
+                                allocation.Quantity,
+                                allocation.BatchNumber,
+                                allocation.ExpiryDate,
+                                cancellationToken);
+                        }
+                    }
+                }
                 break;
 
             case "ADJUSTMENT":

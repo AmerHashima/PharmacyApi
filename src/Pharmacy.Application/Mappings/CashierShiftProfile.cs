@@ -1,6 +1,7 @@
 using AutoMapper;
 using Pharmacy.Application.DTOs.CashierShift;
 using Pharmacy.Domain.Entities;
+using System.Text.Json;
 
 namespace Pharmacy.Application.Mappings;
 
@@ -24,7 +25,13 @@ public class CashierShiftProfile : Profile
             .ForMember(d => d.UserName,
                 o => o.MapFrom(s => s.User != null ? s.User.Username : null))
             .ForMember(d => d.Details,
-                o => o.MapFrom(s => s.Details));
+                o => o.MapFrom(s => s.Details))
+            .ForMember(d => d.PaymentReconciliations,
+                o => o.Ignore())
+            .AfterMap((s, d) => d.PaymentReconciliations = string.IsNullOrWhiteSpace(s.PaymentReconciliationJson)
+                ? new List<CashierShiftPaymentReconciliationDto>()
+                : JsonSerializer.Deserialize<List<CashierShiftPaymentReconciliationDto>>(
+                    s.PaymentReconciliationJson!, new JsonSerializerOptions()) ?? new());
 
         CreateMap<CashierShiftDetail, CashierShiftDetailDto>()
             .ForMember(d => d.TransactionTypeName,

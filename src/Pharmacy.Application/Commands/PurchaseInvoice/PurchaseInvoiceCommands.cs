@@ -1,14 +1,15 @@
 using MediatR;
 using Pharmacy.Application.DTOs.PurchaseInvoice;
+using Pharmacy.Application.Common.Interfaces;
 
 namespace Pharmacy.Application.Commands.PurchaseInvoice;
 
-public record CreatePurchaseInvoiceCommand(CreatePurchaseInvoiceDto Invoice) : IRequest<PurchaseInvoiceDto>;
+public record CreatePurchaseInvoiceCommand(CreatePurchaseInvoiceDto Invoice) : IRequest<PurchaseInvoiceDto>, ITransactionalRequest;
 
 public record UpdatePurchaseInvoiceCommand(Guid Id, UpdatePurchaseInvoiceDto Invoice) : IRequest<PurchaseInvoiceDto>;
 
 public record DeletePurchaseInvoiceCommand(Guid Id) : IRequest<bool>;
 
-public record AddPurchaseInvoicePaymentCommand(Guid PurchaseInvoiceId, CreatePurchaseInvoicePaymentDto Payment) : IRequest<PurchaseInvoicePaymentDto>;
+public record AddPurchaseInvoicePaymentCommand(Guid PurchaseInvoiceId, CreatePurchaseInvoicePaymentDto Payment) : IRequest<PurchaseInvoicePaymentDto>, ITransactionalRequest;
 
-public record DeletePurchaseInvoicePaymentCommand(Guid PaymentId) : IRequest<bool>;
+public record DeletePurchaseInvoicePaymentCommand(Guid PaymentId) : IRequest<bool>, ITransactionalRequest;

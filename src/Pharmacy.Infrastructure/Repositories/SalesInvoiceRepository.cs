@@ -78,6 +78,8 @@ public class SalesInvoiceRepository : BaseRepository<SalesInvoice>, ISalesInvoic
             .Include(i => i.Cashier)
             .Include(i => i.Items)
                 .ThenInclude(item => item.Product)
+            .Include(i => i.Payments)
+                .ThenInclude(payment => payment.PaymentMethod)
             .Where(i => i.Oid == invoiceId && !i.IsDeleted)
             .FirstOrDefaultAsync(cancellationToken);
     }

@@ -8,6 +8,7 @@ using Pharmacy.Application;
 using Pharmacy.Infrastructure;
 using Pharmacy.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 
@@ -164,7 +165,8 @@ try
                 var token = context.Request.Headers["Authorization"].ToString();
                 if (!string.IsNullOrEmpty(token))
                 {
-                    logger.LogInformation("Received token: {Token}", token.Substring(0, Math.Min(50, token.Length)) + "...");
+                    // Never log JWT contents, even partially; they are credentials.
+                    logger.LogDebug("Authorization token received for path {Path}", context.Request.Path);
                 }
                 return Task.CompletedTask;
             }
@@ -316,10 +318,28 @@ try
     logger.LogInformation("Health Check: /api/health");
     logger.LogInformation("=================================================");
 
-    // Seed the database
+    // Apply all pending EF Core migrations before seeding or accepting requests.
+    // MigrateAsync is idempotent: already-applied migrations are tracked in
+    // __EFMigrationsHistory and are not executed again.
     using (var scope = app.Services.CreateScope())
     {
         var context = scope.ServiceProvider.GetRequiredService<PharmacyDbContext>();
+
+        var pendingMigrations = (await context.Database.GetPendingMigrationsAsync()).ToArray();
+        if (pendingMigrations.Length > 0)
+        {
+            logger.LogInformation(
+                "Applying {MigrationCount} pending database migration(s): {Migrations}",
+                pendingMigrations.Length,
+                string.Join(", ", pendingMigrations));
+
+            await context.Database.MigrateAsync();
+            logger.LogInformation("Database migrations applied successfully");
+        }
+        else
+        {
+            logger.LogInformation("Database schema is up to date");
+        }
 
         // 1. Seed lookup data first (AppLookupMaster and AppLookupDetail) - Required for FK references
         await Pharmacy.Infrastructure.Data.LookupSeeder.SeedLookupDataAsync(context);

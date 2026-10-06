@@ -1,4 +1,5 @@
 using MediatR;
+using Pharmacy.Application.Common.Interfaces;
 using Pharmacy.Application.DTOs.StockTransaction;
 
 namespace Pharmacy.Application.Commands.StockTransaction;
@@ -7,4 +8,4 @@ namespace Pharmacy.Application.Commands.StockTransaction;
 /// Command to create a stock transaction with its detail lines
 /// </summary>
 public record CreateStockTransactionWithDetailsCommand(CreateStockTransactionWithDetailsDto Transaction) 
-    : IRequest<StockTransactionWithDetailsDto>;
+    : IRequest<StockTransactionWithDetailsDto>, ITransactionalRequest;

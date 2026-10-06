@@ -26,4 +26,22 @@ public class PurchaseInvoiceDto
     public int? Status { get; set; }
     public DateTime? CreatedAt { get; set; }
     public List<PurchaseInvoicePaymentDto> Payments { get; set; } = new();
+    public List<PurchaseInvoiceItemDto> Items { get; set; } = new();
+}
+
+public class PurchaseInvoiceItemDto
+{
+    public Guid Oid { get; set; }
+    public Guid ProductId { get; set; }
+    public string? ProductName { get; set; }
+    public decimal Quantity { get; set; }
+    public decimal UnitCost { get; set; }
+    public decimal NetCost { get; set; }
+    public decimal TaxPercent { get; set; }
+    public decimal TaxAmount { get; set; }
+    public decimal TotalCost { get; set; }
+    public string? BatchNumber { get; set; }
+    public DateTime? ExpiryDate { get; set; }
+    public string? SerialNumber { get; set; }
+    public int LineNumber { get; set; }
 }

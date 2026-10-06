@@ -28,6 +28,13 @@ public class CreateSalesInvoicePaymentHandler : IRequestHandler<CreateSalesInvoi
         var invoice = await _invoiceRepository.GetByIdAsync(request.Payment.SalesInvoiceId, cancellationToken)
             ?? throw new KeyNotFoundException($"Sales invoice '{request.Payment.SalesInvoiceId}' not found.");
 
+        if (invoice.JournalEntryId.HasValue)
+            throw new InvalidOperationException("Payments on a posted sales invoice must be recorded through a receipt voucher.");
+        if (request.Payment.Amount <= 0)
+            throw new InvalidOperationException("Payment amount must be greater than zero.");
+        if ((invoice.PaidAmount ?? 0) + request.Payment.Amount > (invoice.TotalAmount ?? 0))
+            throw new InvalidOperationException("Payment amount exceeds the outstanding invoice balance.");
+
         var payment = _mapper.Map<Domain.Entities.SalesInvoicePayment>(request.Payment);
         payment.CreatedAt = DateTime.UtcNow;
 
@@ -62,10 +69,13 @@ public class DeleteSalesInvoicePaymentHandler : IRequestHandler<DeleteSalesInvoi
         var payment = await _paymentRepository.GetByIdAsync(request.PaymentId, cancellationToken)
             ?? throw new KeyNotFoundException($"Sales invoice payment '{request.PaymentId}' not found.");
 
+        var invoice = await _invoiceRepository.GetByIdAsync(payment.SalesInvoiceId, cancellationToken);
+        if (invoice?.JournalEntryId.HasValue == true)
+            throw new InvalidOperationException("A payment on a posted sales invoice cannot be deleted; use a reversing voucher.");
+
         await _paymentRepository.DeleteAsync(payment.Oid, cancellationToken);
 
         // Recalculate PaidAmount
-        var invoice = await _invoiceRepository.GetByIdAsync(payment.SalesInvoiceId, cancellationToken);
         if (invoice != null)
         {
             var remaining = await _paymentRepository.GetBySalesInvoiceAsync(invoice.Oid, cancellationToken);

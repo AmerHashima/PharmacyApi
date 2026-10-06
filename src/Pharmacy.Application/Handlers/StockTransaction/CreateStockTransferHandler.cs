@@ -95,39 +95,40 @@ public class CreateStockTransferHandler : IRequestHandler<CreateStockTransferCom
             Notes = request.Transfer.Notes
         };
 
-        // Create detail line
-        var transactionDetail = new Domain.Entities.StockTransactionDetail
-        {
-            ProductId = request.Transfer.ProductId,
-            Quantity = request.Transfer.Quantity,
-            UnitCost = null, // Transfer typically doesn't track cost
-            TotalCost = null,
-            BatchNumber = request.Transfer.BatchNumber,
-            ExpiryDate = request.Transfer.ExpiryDate,
-            LineNumber = 1
-        };
-
-        transaction.Details.Add(transactionDetail);
-
-        var createdTransaction = await _transactionRepository.AddAsync(transaction, cancellationToken);
-
-        // Decrease stock at source branch
-        await _stockRepository.UpdateQuantityAsync(
+        // Allocate and deduct from the source by FEFO when no batch is supplied.
+        var allocations = await _stockRepository.DeductAsync(
             request.Transfer.ProductId, 
             request.Transfer.FromBranchId, 
-            -request.Transfer.Quantity,
-            request.Transfer.BatchNumber,
-            request.Transfer.ExpiryDate,
-            cancellationToken);
-
-        // Increase stock at destination branch
-        await _stockRepository.UpdateQuantityAsync(
-            request.Transfer.ProductId, 
-            request.Transfer.ToBranchId, 
             request.Transfer.Quantity,
             request.Transfer.BatchNumber,
-            request.Transfer.ExpiryDate,
+            false,
             cancellationToken);
+
+        var lineNumber = 1;
+        foreach (var allocation in allocations)
+        {
+            transaction.Details.Add(new Domain.Entities.StockTransactionDetail
+            {
+                ProductId = request.Transfer.ProductId,
+                Quantity = allocation.Quantity,
+                UnitCost = allocation.AverageCost,
+                TotalCost = allocation.Quantity * (allocation.AverageCost ?? 0),
+                BatchNumber = allocation.BatchNumber,
+                ExpiryDate = allocation.ExpiryDate,
+                LineNumber = lineNumber++
+            });
+
+            await _stockRepository.UpdateQuantityAsync(
+                request.Transfer.ProductId,
+                request.Transfer.ToBranchId,
+                allocation.Quantity,
+                allocation.BatchNumber,
+                allocation.ExpiryDate,
+                cancellationToken);
+        }
+
+        transaction.TotalValue = transaction.Details.Sum(d => d.TotalCost ?? 0);
+        var createdTransaction = await _transactionRepository.AddAsync(transaction, cancellationToken);
 
         return _mapper.Map<StockTransactionDto>(createdTransaction);
     }

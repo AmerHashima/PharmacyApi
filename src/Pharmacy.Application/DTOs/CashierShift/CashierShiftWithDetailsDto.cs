@@ -20,4 +20,5 @@ public class CashierShiftWithDetailsDto
     public int? Status { get; set; }
     public DateTime? CreatedAt { get; set; }
     public List<CashierShiftDetailDto> Details { get; set; } = new();
+    public List<CashierShiftPaymentReconciliationDto> PaymentReconciliations { get; set; } = new();
 }

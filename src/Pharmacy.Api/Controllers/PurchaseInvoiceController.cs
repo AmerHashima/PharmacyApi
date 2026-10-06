@@ -103,6 +103,7 @@ public class PurchaseInvoiceController : BaseApiController
             return SuccessResponse(result, "Purchase invoice updated successfully.");
         }
         catch (KeyNotFoundException ex) { return ErrorResponse<PurchaseInvoiceDto>(ex.Message, 404); }
+        catch (InvalidOperationException ex) { return ErrorResponse<PurchaseInvoiceDto>(ex.Message, 400); }
     }
 
     /// <summary>Soft-delete a purchase invoice.</summary>
@@ -115,6 +116,7 @@ public class PurchaseInvoiceController : BaseApiController
             return NoContentResponse();
         }
         catch (KeyNotFoundException ex) { return ErrorResponse(ex.Message, 404); }
+        catch (InvalidOperationException ex) { return ErrorResponse(ex.Message, 400); }
     }
 
     // ─────────────────────────────────────────────────────────────────────

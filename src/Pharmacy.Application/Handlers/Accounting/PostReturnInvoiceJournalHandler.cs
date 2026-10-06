@@ -95,8 +95,6 @@ public class PostReturnInvoiceJournalHandler : IRequestHandler<PostReturnInvoice
         }
 
         var enhancedItems = new List<SalesInvoiceLineItem>();
-        decimal totalTaxAmount = 0m;
-
         foreach (var item in returnInvoice.Items.Where(i => !i.IsDeleted))
         {
             var originalItem = item.OriginalInvoiceItemId.HasValue
@@ -104,8 +102,10 @@ public class PostReturnInvoiceJournalHandler : IRequestHandler<PostReturnInvoice
                 : null;
 
             var taxPercent  = originalItem?.TaxPercent ?? 0m;
-            var taxAmount   = originalItem?.TaxAmount ?? 0m;
-            totalTaxAmount += taxAmount;
+            var originalQuantity = originalItem?.Quantity ?? 0m;
+            var taxAmount = originalQuantity == 0
+                ? 0m
+                : Math.Round((originalItem?.TaxAmount ?? 0m) * item.Quantity / originalQuantity, 2);
 
             var vatCategory = taxPercent switch
             {
@@ -132,7 +132,8 @@ public class PostReturnInvoiceJournalHandler : IRequestHandler<PostReturnInvoice
                 IsFreeItem:         false));
         }
 
-        var refundTotal = (returnInvoice.TotalAmount ?? 0m) + totalTaxAmount;
+        // ReturnInvoice.TotalAmount already includes the proportional VAT.
+        var refundTotal = returnInvoice.TotalAmount ?? 0m;
 
         var refundMethods = new List<PaymentMethodDetail>();
         if (!string.IsNullOrEmpty(paymentMethodCode))

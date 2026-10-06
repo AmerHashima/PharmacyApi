@@ -47,21 +47,29 @@ public class StockRepository : BaseRepository<Stock>, IStockRepository
 
         if (stock == null)
         {
+            if (quantityChange < 0)
+                throw new InvalidOperationException(
+                    $"Insufficient stock for product '{productId}' at branch '{branchId}' and batch '{batchNumber ?? "FEFO"}'.");
+
             stock = new Stock
             {
                 ProductId = productId,
                 BranchId = branchId,
                 BatchNumber = batchNumber,
                 ExpiryDate = expiryDate,
-                Quantity = Math.Max(0, quantityChange),
+                Quantity = quantityChange,
                 ReservedQuantity = 0
             };
             await AddAsync(stock, cancellationToken);
         }
         else
         {
-            stock.Quantity = (stock.Quantity ?? 0) + quantityChange;
-            if (stock.Quantity < 0) stock.Quantity = 0;
+            var newQuantity = (stock.Quantity ?? 0) + quantityChange;
+            if (newQuantity < 0)
+                throw new InvalidOperationException(
+                    $"Insufficient stock for product '{productId}' at branch '{branchId}' and batch '{batchNumber ?? "unspecified"}'.");
+
+            stock.Quantity = newQuantity;
             // Update expiry date if provided and not already set
             if (expiryDate.HasValue && !stock.ExpiryDate.HasValue)
                 stock.ExpiryDate = expiryDate;
@@ -105,14 +113,119 @@ public class StockRepository : BaseRepository<Stock>, IStockRepository
         {
             // Check specific batch
             var stock = await GetByProductAndBranchAsync(productId, branchId, batchNumber, cancellationToken);
-            return stock != null && stock.AvailableQuantity >= quantity;
+            return stock != null
+                && (!stock.ExpiryDate.HasValue || stock.ExpiryDate.Value >= DateTime.UtcNow.Date)
+                && stock.AvailableQuantity >= quantity;
         }
 
-        // Check total across all batches for this product+branch
+        // Check total across all non-expired batches for this product+branch.
+        var today = DateTime.UtcNow.Date;
         var totalAvailable = await _dbSet
-            .Where(s => s.ProductId == productId && s.BatchNumber == batchNumber && s.BranchId == branchId && !s.IsDeleted)
+            .Where(s => s.ProductId == productId
+                && s.BranchId == branchId
+                && !s.IsDeleted
+                && (!s.ExpiryDate.HasValue || s.ExpiryDate.Value >= today))
             .SumAsync(s => (s.Quantity ?? 0) - (s.ReservedQuantity ?? 0), cancellationToken);
 
         return totalAvailable >= quantity;
+    }
+
+    public async Task<Stock> ReceiveAsync(
+        Guid productId,
+        Guid branchId,
+        decimal quantity,
+        decimal unitCost,
+        string batchNumber,
+        DateTime expiryDate,
+        CancellationToken cancellationToken = default)
+    {
+        if (quantity <= 0)
+            throw new ArgumentOutOfRangeException(nameof(quantity));
+        if (unitCost < 0)
+            throw new ArgumentOutOfRangeException(nameof(unitCost));
+        if (string.IsNullOrWhiteSpace(batchNumber))
+            throw new ArgumentException("Batch number is required when receiving stock.", nameof(batchNumber));
+
+        var normalizedBatch = batchNumber.Trim();
+        var stock = await _dbSet.FirstOrDefaultAsync(s =>
+            s.ProductId == productId && s.BranchId == branchId &&
+            s.BatchNumber == normalizedBatch && !s.IsDeleted, cancellationToken);
+        if (stock == null)
+        {
+            stock = new Stock
+            {
+                ProductId = productId,
+                BranchId = branchId,
+                BatchNumber = batchNumber.Trim(),
+                ExpiryDate = expiryDate,
+                Quantity = quantity,
+                ReservedQuantity = 0,
+                AverageCost = unitCost
+            };
+            await AddAsync(stock, cancellationToken);
+            return stock;
+        }
+
+        var oldQuantity = stock.Quantity ?? 0;
+        var oldValue = oldQuantity * (stock.AverageCost ?? 0);
+        stock.Quantity = oldQuantity + quantity;
+        stock.AverageCost = stock.Quantity == 0
+            ? unitCost
+            : Math.Round((oldValue + quantity * unitCost) / stock.Quantity.Value, 4);
+        stock.ExpiryDate = expiryDate;
+        await UpdateAsync(stock, cancellationToken);
+        return stock;
+    }
+
+    public async Task<IReadOnlyList<StockAllocation>> DeductAsync(
+        Guid productId,
+        Guid branchId,
+        decimal quantity,
+        string? batchNumber = null,
+        bool allowExpired = false,
+        CancellationToken cancellationToken = default)
+    {
+        if (quantity <= 0)
+            throw new ArgumentOutOfRangeException(nameof(quantity), "Deduction quantity must be greater than zero.");
+
+        var today = DateTime.UtcNow.Date;
+        var query = _dbSet.Where(s =>
+            s.ProductId == productId &&
+            s.BranchId == branchId &&
+            !s.IsDeleted &&
+            (batchNumber == null || s.BatchNumber == batchNumber) &&
+            (allowExpired || !s.ExpiryDate.HasValue || s.ExpiryDate.Value >= today));
+
+        var stocks = await query
+            .OrderBy(s => s.ExpiryDate == null)
+            .ThenBy(s => s.ExpiryDate)
+            .ThenBy(s => s.CreatedAt)
+            .ToListAsync(cancellationToken);
+
+        var totalAvailable = stocks.Sum(s => Math.Max(0, s.AvailableQuantity));
+        if (totalAvailable < quantity)
+            throw new InvalidOperationException(
+                $"Insufficient stock for product '{productId}' at branch '{branchId}'. " +
+                $"Requested {quantity}, available {totalAvailable}.");
+
+        var remaining = quantity;
+        var allocations = new List<StockAllocation>();
+        foreach (var stock in stocks)
+        {
+            if (remaining <= 0)
+                break;
+
+            var allocated = Math.Min(Math.Max(0, stock.AvailableQuantity), remaining);
+            if (allocated <= 0)
+                continue;
+
+            stock.Quantity = (stock.Quantity ?? 0) - allocated;
+            allocations.Add(new StockAllocation(
+                stock.Oid, stock.BatchNumber, stock.ExpiryDate, allocated, stock.AverageCost));
+            remaining -= allocated;
+        }
+
+        await _context.SaveChangesAsync(cancellationToken);
+        return allocations;
     }
 }

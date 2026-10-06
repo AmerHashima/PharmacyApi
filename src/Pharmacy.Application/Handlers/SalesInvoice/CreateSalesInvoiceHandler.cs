@@ -79,7 +79,8 @@ public class CreateSalesInvoiceHandler : IRequestHandler<CreateSalesInvoiceComma
         if (branch.AutoPostJournal)
             await _journalPostingService.ValidateSalesAccountingSetupAsync(request.Invoice.BranchId, cancellationToken);
 
-        // Validate all products exist and have sufficient stock
+        // Validate requested products. Stock is validated after offers/bonus quantities
+        // are expanded so repeated lines cannot bypass the availability check.
         foreach (var item in request.Invoice.Items)
         {
             var product = await _productRepository.GetByIdAsync(item.ProductId, cancellationToken);
@@ -88,15 +89,6 @@ public class CreateSalesInvoiceHandler : IRequestHandler<CreateSalesInvoiceComma
                 throw new KeyNotFoundException($"Product with ID '{item.ProductId}' not found");
             }
 
-            if (!await _stockRepository.HasSufficientStockAsync(
-                item.ProductId, 
-                request.Invoice.BranchId, 
-                item.Quantity,
-                item.BatchNumber,
-                cancellationToken))
-            {
-                throw new InvalidOperationException($"Insufficient stock for product '{product.DrugName}'");
-            }
         }
 
         // Get lookup values
@@ -296,6 +288,33 @@ public class CreateSalesInvoiceHandler : IRequestHandler<CreateSalesInvoiceComma
             subTotal += invoiceItem.NetPrice ?? 0;
         }
 
+        // Validate the complete physical demand, including bonus and offer-generated
+        // free items, grouped by product/batch to prevent repeated-line overselling.
+        var stockDemand = invoiceItems
+            .Select(i => new { i.ProductId, i.BatchNumber, Quantity = i.TotalQuantity })
+            .Concat(freeItemLines.Select(i => new { i.ProductId, i.BatchNumber, Quantity = i.Quantity }))
+            .GroupBy(i => new { i.ProductId, i.BatchNumber })
+            .Select(g => new
+            {
+                g.Key.ProductId,
+                g.Key.BatchNumber,
+                Quantity = g.Sum(x => x.Quantity)
+            });
+
+        foreach (var demand in stockDemand)
+        {
+            if (!await _stockRepository.HasSufficientStockAsync(
+                demand.ProductId,
+                request.Invoice.BranchId,
+                demand.Quantity,
+                demand.BatchNumber,
+                cancellationToken))
+            {
+                throw new InvalidOperationException(
+                    $"Insufficient stock for product '{demand.ProductId}'. Requested physical quantity: {demand.Quantity}.");
+            }
+        }
+
         // Calculate invoice totals
         var invoiceDiscountAmount = request.Invoice.DiscountPercent.HasValue 
             ? (subTotal * request.Invoice.DiscountPercent.Value / 100) 
@@ -398,27 +417,36 @@ public class CreateSalesInvoiceHandler : IRequestHandler<CreateSalesInvoiceComma
                 Notes = $"Sale - Invoice #{invoiceNumber}"
             };
 
-            var transactionDetail = new Domain.Entities.StockTransactionDetail
-            {
-                ProductId = item.ProductId,
-                Quantity = item.Quantity,
-                UnitCost = item.CostPrice,
-                TotalCost = item.Quantity * (item.CostPrice ?? 0),
-                BatchNumber = item.BatchNumber,
-                ExpiryDate = item.ExpiryDate,
-                LineNumber = lineCounter++
-            };
-
-            stockTransaction.Details.Add(transactionDetail);
-            await _transactionRepository.AddAsync(stockTransaction, cancellationToken);
-
-            await _stockRepository.UpdateQuantityAsync(
+            var physicalQuantity = item.TotalQuantity;
+            var allocations = await _stockRepository.DeductAsync(
                 item.ProductId,
                 request.Invoice.BranchId,
-                -item.Quantity,
+                physicalQuantity,
                 item.BatchNumber,
-                item.ExpiryDate,
+                false,
                 cancellationToken);
+
+            if (!item.CostPrice.HasValue && physicalQuantity > 0)
+            {
+                item.CostPrice = allocations.Sum(a => a.Quantity * (a.AverageCost ?? 0)) / physicalQuantity;
+                await _itemRepository.UpdateAsync(item, cancellationToken);
+            }
+
+            foreach (var allocation in allocations)
+            {
+                stockTransaction.Details.Add(new Domain.Entities.StockTransactionDetail
+                {
+                    ProductId = item.ProductId,
+                    Quantity = allocation.Quantity,
+                    UnitCost = item.CostPrice ?? allocation.AverageCost,
+                    TotalCost = allocation.Quantity * (item.CostPrice ?? allocation.AverageCost ?? 0),
+                    BatchNumber = allocation.BatchNumber,
+                    ExpiryDate = allocation.ExpiryDate,
+                    LineNumber = lineCounter++
+                });
+            }
+
+            await _transactionRepository.AddAsync(stockTransaction, cancellationToken);
         }
 
         // Persist free-item lines generated by FREE_ITEMS offers
@@ -428,14 +456,48 @@ public class CreateSalesInvoiceHandler : IRequestHandler<CreateSalesInvoiceComma
             freeItem.LineNumber = lineCounter++;
             await _itemRepository.AddAsync(freeItem, cancellationToken);
 
-            // Deduct free items from stock as well
-            await _stockRepository.UpdateQuantityAsync(
+            // Deduct free items using the same FEFO and availability rules.
+            var allocations = await _stockRepository.DeductAsync(
                 freeItem.ProductId,
                 request.Invoice.BranchId,
-                -freeItem.Quantity,
+                freeItem.Quantity,
                 null,
-                null,
+                false,
                 cancellationToken);
+
+            if (freeItem.Quantity > 0)
+            {
+                freeItem.CostPrice = allocations.Sum(a => a.Quantity * (a.AverageCost ?? 0)) / freeItem.Quantity;
+                await _itemRepository.UpdateAsync(freeItem, cancellationToken);
+            }
+
+            var freeStockTransaction = new Domain.Entities.StockTransaction
+            {
+                FromBranchId = request.Invoice.BranchId,
+                TransactionTypeId = outType?.Oid,
+                ReferenceNumber = invoiceNumber,
+                TransactionDate = DateTime.UtcNow,
+                TotalValue = 0,
+                SalesInvoiceId = createdInvoice.Oid,
+                Status = "Completed",
+                Notes = $"Free item - Invoice #{invoiceNumber}"
+            };
+
+            foreach (var allocation in allocations)
+            {
+                freeStockTransaction.Details.Add(new Domain.Entities.StockTransactionDetail
+                {
+                    ProductId = freeItem.ProductId,
+                    Quantity = allocation.Quantity,
+                    UnitCost = allocation.AverageCost,
+                    TotalCost = allocation.Quantity * (allocation.AverageCost ?? 0),
+                    BatchNumber = allocation.BatchNumber,
+                    ExpiryDate = allocation.ExpiryDate,
+                    LineNumber = lineCounter++
+                });
+            }
+
+            await _transactionRepository.AddAsync(freeStockTransaction, cancellationToken);
         }
 
         // Fetch the complete invoice with items
@@ -450,7 +512,7 @@ public class CreateSalesInvoiceHandler : IRequestHandler<CreateSalesInvoiceComma
             : null;
 
         // Build enhanced line items with VAT category classification
-        var enhancedItems = invoiceItems.Select(i =>
+        var enhancedItems = invoiceItems.Concat(freeItemLines).Select(i =>
         {
             // Determine VAT category based on TaxPercent
             var vatCategory = (i.TaxPercent ?? 0) switch
@@ -464,7 +526,9 @@ public class CreateSalesInvoiceHandler : IRequestHandler<CreateSalesInvoiceComma
                 ProductId:          i.ProductId,
                 ProductName:        i.Product?.DrugName ?? "Unknown",
                 VatCategory:        vatCategory,
-                Quantity:           i.Quantity,
+                // Revenue comes from NetPrice; quantity is the full physical quantity
+                // so COGS also includes bonus/free units.
+                Quantity:           i.IsFreeItem ? i.Quantity : i.TotalQuantity,
                 UnitPrice:          i.UnitPrice ?? 0m,
                 LineDiscountAmount: i.DiscountAmount ?? 0m,
                 NetPrice:           i.NetPrice ?? 0m,
@@ -476,11 +540,24 @@ public class CreateSalesInvoiceHandler : IRequestHandler<CreateSalesInvoiceComma
                 IsFreeItem:         i.IsFreeItem);
         }).ToList().AsReadOnly();
 
-        // Build payment collection (currently single payment method)
+        // Build the accounting split from the actual payment lines.
         var payments = new List<Application.Interfaces.PaymentMethodDetail>();
-        if (!string.IsNullOrEmpty(paymentMethodCode))
+        foreach (var paymentDto in request.Invoice.Payments)
         {
-            var paidAmount = request.Invoice.PaidAmount ?? totalAmount;
+            var methodCode = (await _lookupRepository.GetByIdAsync(
+                paymentDto.PaymentMethodId, cancellationToken))?.ValueCode;
+            if (!string.IsNullOrWhiteSpace(methodCode))
+            {
+                payments.Add(new Application.Interfaces.PaymentMethodDetail(
+                    MethodCode: methodCode,
+                    Amount: paymentDto.Amount,
+                    BankAccountId: null));
+            }
+        }
+
+        if (payments.Count == 0 && !string.IsNullOrEmpty(paymentMethodCode))
+        {
+            var paidAmount = invoice.PaidAmount ?? totalAmount;
             payments.Add(new Application.Interfaces.PaymentMethodDetail(
                 MethodCode:     paymentMethodCode,
                 Amount:         paidAmount,

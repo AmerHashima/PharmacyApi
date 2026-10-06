@@ -77,7 +77,8 @@ public class CreateReturnInvoiceHandler : IRequestHandler<CreateReturnInvoiceCom
         if (branch.AutoPostJournal)
             await _journalPostingService.ValidateReturnAccountingSetupAsync(request.ReturnInvoice.BranchId, cancellationToken);
 
-        // Validate all products exist and check RemainingQuantity on original invoice items
+        // Every return line must point to its historical sale line. This prevents
+        // client-supplied prices/taxes and makes partial-return calculations exact.
         foreach (var item in request.ReturnInvoice.Items)
         {
             var product = await _productRepository.GetByIdAsync(item.ProductId, cancellationToken);
@@ -86,23 +87,24 @@ public class CreateReturnInvoiceHandler : IRequestHandler<CreateReturnInvoiceCom
                 throw new KeyNotFoundException($"Product with ID '{item.ProductId}' not found");
             }
 
-            if (item.OriginalInvoiceItemId.HasValue)
-            {
-                var originalItem = originalInvoice.Items
-                    .FirstOrDefault(i => i.Oid == item.OriginalInvoiceItemId.Value && !i.IsDeleted);
+            if (!item.OriginalInvoiceItemId.HasValue)
+                throw new InvalidOperationException("OriginalInvoiceItemId is required for every return line.");
 
-                if (originalItem == null)
-                {
-                    throw new KeyNotFoundException($"Original invoice item with ID '{item.OriginalInvoiceItemId}' not found in invoice '{originalInvoice.InvoiceNumber}'");
-                }
+            var originalItem = originalInvoice.Items
+                .FirstOrDefault(i => i.Oid == item.OriginalInvoiceItemId.Value && !i.IsDeleted);
 
-                if (originalItem.RemainingQuantity < item.Quantity)
-                {
-                    throw new InvalidOperationException(
-                        $"Cannot return {item.Quantity} of product '{product.DrugName}'. " +
-                        $"Only {originalItem.RemainingQuantity} remaining for return on invoice '{originalInvoice.InvoiceNumber}'");
-                }
-            }
+            if (originalItem == null || originalItem.ProductId != item.ProductId)
+                throw new KeyNotFoundException($"Original invoice item with ID '{item.OriginalInvoiceItemId}' was not found for this product.");
+        }
+
+        foreach (var requested in request.ReturnInvoice.Items.GroupBy(i => i.OriginalInvoiceItemId!.Value))
+        {
+            var originalItem = originalInvoice.Items.First(i => i.Oid == requested.Key);
+            var requestedQuantity = requested.Sum(i => i.Quantity);
+            if (originalItem.RemainingQuantity < requestedQuantity)
+                throw new InvalidOperationException(
+                    $"Cannot return {requestedQuantity} units from line {originalItem.LineNumber}. " +
+                    $"Only {originalItem.RemainingQuantity} remain returnable.");
         }
 
         // Get lookup values
@@ -120,16 +122,18 @@ public class CreateReturnInvoiceHandler : IRequestHandler<CreateReturnInvoiceCom
 
         // Calculate totals
         decimal subTotal = 0;
+        decimal totalTaxAmount = 0;
         var returnItems = new List<ReturnInvoiceItem>();
 
         foreach (var itemDto in request.ReturnInvoice.Items)
         {
-            var product = await _productRepository.GetByIdAsync(itemDto.ProductId, cancellationToken);
-            var unitPrice = itemDto.UnitPrice ?? product!.Price ?? 0;
-            var itemDiscount = itemDto.DiscountPercent.HasValue
-                ? (unitPrice * itemDto.Quantity * itemDto.DiscountPercent.Value / 100)
-                : 0;
+            var originalItem = originalInvoice.Items.First(i => i.Oid == itemDto.OriginalInvoiceItemId!.Value);
+            var unitPrice = originalItem.UnitPrice ?? 0;
+            var originalQuantity = originalItem.Quantity;
+            var ratio = originalQuantity == 0 ? 0 : itemDto.Quantity / originalQuantity;
+            var itemDiscount = Math.Round((originalItem.DiscountAmount ?? 0) * ratio, 2);
             var totalPrice = (unitPrice * itemDto.Quantity) - itemDiscount;
+            totalTaxAmount += Math.Round((originalItem.TaxAmount ?? 0) * ratio, 2);
 
             var returnItem = new ReturnInvoiceItem
             {
@@ -137,11 +141,12 @@ public class CreateReturnInvoiceHandler : IRequestHandler<CreateReturnInvoiceCom
                 ProductId = itemDto.ProductId,
                 Quantity = itemDto.Quantity,
                 UnitPrice = unitPrice,
-                DiscountPercent = itemDto.DiscountPercent,
+                DiscountPercent = originalItem.DiscountPercent,
                 DiscountAmount = itemDiscount,
                 TotalPrice = totalPrice,
-                BatchNumber = itemDto.BatchNumber,
-                ExpiryDate = itemDto.ExpiryDate,
+                CostPrice = originalItem.CostPrice,
+                BatchNumber = itemDto.BatchNumber ?? originalItem.BatchNumber,
+                ExpiryDate = itemDto.ExpiryDate ?? originalItem.ExpiryDate,
                 Notes = itemDto.Notes
             };
 
@@ -150,10 +155,10 @@ public class CreateReturnInvoiceHandler : IRequestHandler<CreateReturnInvoiceCom
         }
 
         // Calculate invoice totals
-        var invoiceDiscountAmount = request.ReturnInvoice.DiscountPercent.HasValue
-            ? (subTotal * request.ReturnInvoice.DiscountPercent.Value / 100)
+        var invoiceDiscountAmount = originalInvoice.DiscountPercent.HasValue
+            ? Math.Round(subTotal * originalInvoice.DiscountPercent.Value / 100, 2)
             : 0;
-        var totalAmount = subTotal - invoiceDiscountAmount;
+        var totalAmount = subTotal - invoiceDiscountAmount + totalTaxAmount;
 
         // Create return invoice
         var returnInvoice = new Domain.Entities.ReturnInvoice
@@ -164,8 +169,9 @@ public class CreateReturnInvoiceHandler : IRequestHandler<CreateReturnInvoiceCom
             CustomerName = request.ReturnInvoice.CustomerName,
             CustomerPhone = request.ReturnInvoice.CustomerPhone,
             SubTotal = subTotal,
-            DiscountPercent = request.ReturnInvoice.DiscountPercent,
+            DiscountPercent = originalInvoice.DiscountPercent,
             DiscountAmount = invoiceDiscountAmount,
+            TaxAmount = totalTaxAmount,
             TotalAmount = totalAmount,
             RefundAmount = totalAmount,
             ReturnDate = request.ReturnInvoice.ReturnDate ?? DateTime.UtcNow,
@@ -232,8 +238,6 @@ public class CreateReturnInvoiceHandler : IRequestHandler<CreateReturnInvoiceCom
 
         // Build enhanced line items with VAT category from original invoice
         var enhancedItems = new List<Application.Interfaces.SalesInvoiceLineItem>();
-        decimal totalTaxAmount = 0m;
-
         foreach (var item in returnItems)
         {
             // Find original item to get tax info
@@ -242,8 +246,10 @@ public class CreateReturnInvoiceHandler : IRequestHandler<CreateReturnInvoiceCom
                 : null;
 
             var taxPercent = originalItem?.TaxPercent ?? 0m;
-            var taxAmount = originalItem?.TaxAmount ?? 0m;
-            totalTaxAmount += taxAmount;
+            var originalQuantity = originalItem?.Quantity ?? 0m;
+            var taxAmount = originalQuantity == 0
+                ? 0m
+                : Math.Round((originalItem?.TaxAmount ?? 0m) * item.Quantity / originalQuantity, 2);
 
             var vatCategory = taxPercent switch
             {
@@ -271,8 +277,8 @@ public class CreateReturnInvoiceHandler : IRequestHandler<CreateReturnInvoiceCom
         }
 
         // Build refund method collection
-        // Refund amount must include VAT (totalAmount is net, totalTaxAmount is VAT portion)
-        var refundTotal = totalAmount + totalTaxAmount;
+        // totalAmount already includes the proportional VAT reversed above.
+        var refundTotal = totalAmount;
         var refundMethods = new List<Application.Interfaces.PaymentMethodDetail>();
         if (!string.IsNullOrEmpty(paymentMethodCode))
         {

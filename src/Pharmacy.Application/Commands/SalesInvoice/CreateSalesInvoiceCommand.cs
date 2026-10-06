@@ -1,5 +1,6 @@
 using Pharmacy.Application.DTOs.SalesInvoice;
 using MediatR;
+using Pharmacy.Application.Common.Interfaces;
 
 namespace Pharmacy.Application.Commands.SalesInvoice;
 
@@ -7,4 +8,4 @@ namespace Pharmacy.Application.Commands.SalesInvoice;
 /// Command to create a new Sales Invoice (POS transaction)
 /// This will also create stock OUT transactions for each item
 /// </summary>
-public record CreateSalesInvoiceCommand(CreateSalesInvoiceDto Invoice) : IRequest<SalesInvoiceDto>;
+public record CreateSalesInvoiceCommand(CreateSalesInvoiceDto Invoice) : IRequest<SalesInvoiceDto>, ITransactionalRequest;

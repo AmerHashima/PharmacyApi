@@ -22,6 +22,10 @@ public class UpdatePurchaseInvoiceHandler : IRequestHandler<UpdatePurchaseInvoic
         var invoice = await _repository.GetWithPaymentsAsync(request.Id, cancellationToken)
             ?? throw new KeyNotFoundException($"Purchase invoice '{request.Id}' not found.");
 
+        if (invoice.StockTransactionId.HasValue || invoice.JournalEntryId.HasValue)
+            throw new InvalidOperationException(
+                "Financial values of a received purchase invoice are immutable. Use a purchase return or adjustment.");
+
         _mapper.Map(request.Invoice, invoice);
         invoice.UpdatedAt = DateTime.UtcNow;
 

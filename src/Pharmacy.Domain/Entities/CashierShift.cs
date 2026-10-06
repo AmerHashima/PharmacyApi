@@ -45,6 +45,9 @@ public class CashierShift : BaseEntity
     [Column(TypeName = "decimal(18,2)")]
     public decimal? DifferenceAmount { get; set; }
 
+    /// <summary>Per-payment-method close reconciliation, stored as JSON for audit/reporting.</summary>
+    public string? PaymentReconciliationJson { get; set; }
+
     [MaxLength(500)]
     public string? Notes { get; set; }
 

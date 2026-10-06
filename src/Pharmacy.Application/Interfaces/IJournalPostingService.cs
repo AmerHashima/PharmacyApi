@@ -125,7 +125,8 @@ public record StockTransactionPostingRequest(
     decimal ZeroVatNetCost   = 0,              // Σ NetCost of items with TaxPercent == 0 (zero-rated)
     decimal ExemptNetCost    = 0,              // Σ NetCost of items fully exempt from VAT
     decimal TaxableVatAmount = 0,              // Σ TaxAmount of taxable items ONLY — posted to VAT Input
-    decimal PayedAmount      = 0);             // Amount already paid — CR Cash, remainder → CR Supplier Payable
+    decimal PayedAmount      = 0,              // Legacy aggregate; used when Payments is empty
+    IReadOnlyList<PaymentMethodDetail>? Payments = null);
 
 /// <summary>All data needed to post a return invoice reversal.</summary>
 public record ReturnInvoicePostingRequest(

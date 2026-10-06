@@ -14,7 +14,17 @@ public class PurchaseInvoiceProfile : Profile
             .ForMember(d => d.SupplierName,
                 o => o.MapFrom(s => s.Supplier != null ? s.Supplier.Name : null))
             .ForMember(d => d.InvoiceStatusName,
-                o => o.MapFrom(s => s.InvoiceStatus != null ? s.InvoiceStatus.ValueNameEn : null));
+                o => o.MapFrom(s => s.InvoiceStatus != null ? s.InvoiceStatus.ValueNameEn : null))
+            .ForMember(d => d.Items,
+                o => o.MapFrom(s => s.StockTransaction != null ? s.StockTransaction.Details : new List<StockTransactionDetail>()));
+
+        CreateMap<StockTransactionDetail, PurchaseInvoiceItemDto>()
+            .ForMember(d => d.ProductName, o => o.MapFrom(s => s.Product != null ? s.Product.DrugName : null))
+            .ForMember(d => d.UnitCost, o => o.MapFrom(s => s.UnitCost ?? 0))
+            .ForMember(d => d.NetCost, o => o.MapFrom(s => s.NetCost ?? 0))
+            .ForMember(d => d.TaxPercent, o => o.MapFrom(s => s.TaxPercent ?? 0))
+            .ForMember(d => d.TaxAmount, o => o.MapFrom(s => s.TaxAmount ?? 0))
+            .ForMember(d => d.TotalCost, o => o.MapFrom(s => s.TotalCost ?? 0));
 
         CreateMap<CreatePurchaseInvoiceDto, Domain.Entities.PurchaseInvoice>()
             .ForMember(d => d.Oid, o => o.Ignore())

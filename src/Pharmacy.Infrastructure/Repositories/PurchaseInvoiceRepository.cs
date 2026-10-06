@@ -17,6 +17,8 @@ public class PurchaseInvoiceRepository : BaseRepository<PurchaseInvoice>, IPurch
             .Include(x => x.FiscalYear)
             .Include(x => x.InvoiceStatus)
             .Include(x => x.StockTransaction)
+                .ThenInclude(x => x!.Details)
+                    .ThenInclude(d => d.Product)
             .Include(x => x.JournalEntry)
             .Include(x => x.Payments)
                 .ThenInclude(p => p.PaymentMethod)

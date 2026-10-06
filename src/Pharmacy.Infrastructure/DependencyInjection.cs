@@ -1,5 +1,6 @@
 using ECommerceIntegration.Application.Abstractions;
 using Pharmacy.Application.Interfaces;
+using Pharmacy.Application.Common.Interfaces;
 using Pharmacy.Application.Mappings;
 using Pharmacy.Application.Options;
 using Pharmacy.Application.Services;
@@ -169,6 +170,7 @@ public static class DependencyInjection
         services.AddScoped<IVoucherNumberService, VoucherNumberService>();
         services.AddScoped<IJournalPostingService, JournalPostingService>();
         services.AddScoped<IAccountingReportService, AccountingReportService>();
+        services.AddScoped<ITransactionManager, EfTransactionManager>();
 
         // Drug sync job tracker — singleton so it survives across request scopes
         services.AddSingleton<IDrugListSyncTracker, DrugListSyncTracker>();

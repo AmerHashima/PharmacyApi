@@ -101,7 +101,7 @@ public class PostSalesInvoiceJournalHandler : IRequestHandler<PostSalesInvoiceJo
                     ProductId:          i.ProductId,
                     ProductName:        i.Product?.DrugName ?? "Unknown",
                     VatCategory:        vatCategory,
-                    Quantity:           i.Quantity,
+                    Quantity:           i.IsFreeItem ? i.Quantity : i.TotalQuantity,
                     UnitPrice:          i.UnitPrice ?? 0m,
                     LineDiscountAmount: i.DiscountAmount ?? 0m,
                     NetPrice:           i.NetPrice ?? 0m,
@@ -116,7 +116,20 @@ public class PostSalesInvoiceJournalHandler : IRequestHandler<PostSalesInvoiceJo
             .AsReadOnly();
 
         var payments = new List<PaymentMethodDetail>();
-        if (!string.IsNullOrEmpty(paymentMethodCode))
+        foreach (var payment in invoice.Payments.Where(p => !p.IsDeleted))
+        {
+            var methodCode = payment.PaymentMethod?.ValueCode
+                ?? (await _lookupRepository.GetByIdAsync(payment.PaymentMethodId, cancellationToken))?.ValueCode;
+            if (!string.IsNullOrWhiteSpace(methodCode))
+            {
+                payments.Add(new PaymentMethodDetail(
+                    MethodCode: methodCode,
+                    Amount: payment.Amount,
+                    BankAccountId: null));
+            }
+        }
+
+        if (payments.Count == 0 && !string.IsNullOrEmpty(paymentMethodCode))
         {
             payments.Add(new PaymentMethodDetail(
                 MethodCode:    paymentMethodCode,
