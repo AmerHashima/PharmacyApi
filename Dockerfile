@@ -10,13 +10,14 @@ COPY src/Pharmacy.Domain/*.csproj ./src/Pharmacy.Domain/
 COPY src/Pharmacy.Infrastructure/*.csproj ./src/Pharmacy.Infrastructure/
 COPY src/Zatca/*.csproj ./src/Zatca/
 COPY src/Zatca/Package/ ./src/Zatca/Package/
+COPY ECommerceIntegration/*.csproj ./ECommerceIntegration/
 
 # Copy test projects (IMPORTANT FIX)
 COPY tests/Pharmacy.UnitTests/*.csproj ./tests/Pharmacy.UnitTests/
 COPY tests/Pharmacy.IntegrationTests/*.csproj ./tests/Pharmacy.IntegrationTests/
 COPY tests/Pharmacy.ArchitectureTests/*.csproj ./tests/Pharmacy.ArchitectureTests/
 # Restore dependencies
-RUN dotnet restore
+RUN dotnet restore Pharmacy.Solution.sln
 
 # Copy all source code
 COPY . .
@@ -29,8 +30,11 @@ RUN dotnet publish -c Release -o /app/publish --no-restore
 FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS runtime
 WORKDIR /app
 
-# Create non-root user
-RUN adduser --disabled-password --gecos "" appuser
+# Create non-root user and install curl for the container health check.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && adduser --disabled-password --gecos "" appuser
 
 # Copy published output
 COPY --from=build /app/publish .
